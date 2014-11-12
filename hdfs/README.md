@@ -29,5 +29,6 @@ To launch the cluster, run the following command inside the 'deploy' folder:
 ```
 ansible-playbook -i hosts.ini plays/deploy_hdfs.yml
 ```
-You should be able to view the HDFS web interface at http://<namenode>:50070
-You can issue HDFS commands by pointing the HDFS client at hdfs://<namenode>:54310
+You should be able to view the HDFS web interface at http://*namenode*:50070
+
+You can issue HDFS commands by pointing the HDFS client at hdfs://*namenode*:54310
