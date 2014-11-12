@@ -1,0 +1,9 @@
+- hosts: namenode
+  tasks: 
+    - name: Kill and Remove the namenode container
+      shell: docker rm -f HDFS_namenode
+
+- hosts: datanodes
+  tasks:
+    - name: Kill and Remove the datanode containers
+      shell: docker rm -f HDFS_datanode

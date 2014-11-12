@@ -1,0 +1,8 @@
+---
+- hosts: all
+  tasks:
+    - name: test
+      debug: msg={{groups['namenode'][0]}}
+
+    - name: template
+      template: src=../files/test.template dest=/tmp/foo.txt
