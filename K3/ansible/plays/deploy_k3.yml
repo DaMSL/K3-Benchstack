@@ -1,0 +1,10 @@
+---
+  - name: Setup docker
+    include: setup_docker.yml
+
+  - name: run the binary in a docker container
+    shell: docker run -d --net=host --name="{{docker_image}}_{{40000 + (item|int)}}" -v {{setup_dir}}:/app_setup -v {{data_dir}}{{40000 + (item|int)}}:/app_data -v /local:/local {{docker_image}} run_k3 {%- if (log_enabled is defined) and log_enabled %} -l 1 {% endif %} -p /app_setup/run_{{40000 + (item|int)}}.yml
+    with_sequence: start=0 end={{numprocs-1}}
+  
+  - name: Cleanup Docker
+    include: cleanup_docker.yml

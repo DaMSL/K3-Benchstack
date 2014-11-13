@@ -1,0 +1,8 @@
+- name: define constants
+  set_fact:
+    num_peers: "{{(play_hosts | count) * numprocs}}"
+
+
+- name: Expand template
+  template: src=../files/template.yml dest=/tmp/foo.yml
+  with_sequence: start=0 end={{numprocs-1}}

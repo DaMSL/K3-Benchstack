@@ -1,0 +1,31 @@
+me: [ {{ip}} , {{40000 + (item|int)}} ]
+peers:
+{% for key in play_hosts -%} {%- for i in range(numprocs) %}
+  - addr: [ {{hostvars[key].ip}} , {{40000 + i}} ]
+{% endfor -%} {%- endfor -%}
+
+{%- for key,value in k3_variables.iteritems() -%}
+  {{key}}: {{value}}
+{% endfor -%}
+
+{%- for file in data_files -%}
+  {{file.name}}: [
+    {%- for i in range(file.num) -%} 
+      {%- if (i % (num_peers|int)) == (peer * (numprocs|int) +(item|int)) -%} 
+        {%- if i >= (num_peers|int) -%} , {%- endif -%} 
+        {path: {{file.prefix}}{{"%04d" | format(i|int)}} }
+      {%- endif -%}  
+    {%- endfor -%}
+  ]
+{% endfor -%}
+
+{%- if (pinned_files is defined) and ((item|int) == 0) -%}
+{%- for file in pinned_files -%}
+  {{file.name}}: [
+    {%- for i in range(file.num) -%} 
+        {path: {{file.prefix}}{{"%04d" | format(i|int)}} }
+        {%- if not loop.last -%} , {%- endif -%} 
+    {%- endfor -%}
+  ]
+{% endfor -%}
+{%- endif -%}
