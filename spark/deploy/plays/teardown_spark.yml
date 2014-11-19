@@ -1,0 +1,9 @@
+- hosts: master
+  tasks: 
+    - name: Kill and Remove the master container
+      shell: docker rm -f sparkMaster
+
+- hosts: workers
+  tasks:
+    - name: Kill and Remove the datanode containers
+      shell: docker rm -f sparkWorker 

@@ -1,0 +1,21 @@
+---
+- hosts: all
+  tasks:
+    - name: Pull the Damsl Docker image for Spark
+      shell: docker pull damsl/spark
+
+    - name: Cleanup existing containers for Spark
+      shell: docker rm -f sparkMaster sparkWorker
+      ignore_errors: yes
+
+- hosts: master
+  tasks:
+    - name: Run the spark Master class inside of a Docker container
+      shell: docker run --net=host --name="sparkMaster" -d damsl/spark /software/spark-1.1.0-bin-hadoop2.4/bin/spark-class org.apache.spark.deploy.master.Master --ip {{groups['master'][0]}}
+
+- hosts: workers
+  tasks:
+    - name: Run the spark Worker class inside of a Docker container
+      shell: docker run -d --net=host --name="sparkWorker" damsl/spark /software/spark-1.1.0-bin-hadoop2.4/bin/spark-class org.apache.spark.deploy.worker.Worker spark://{{groups['master'][0]}}:7077
+
+
