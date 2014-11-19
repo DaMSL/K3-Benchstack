@@ -18,6 +18,11 @@
 
 <configuration>
   <property>
+    <name>dfs.replication</name>
+    <value>1</value>
+  </property>
+
+  <property>
     <name>dfs.namenode.name.dir</name>
     <value>/hadoop/namenode/</value>
   </property>
@@ -26,5 +31,21 @@
     <name>dfs.datanode.data.dir</name>
     <value>/hadoop/datanode/</value>
   </property>
+
+  <!-- Properties recommended for Impala-->
+  <property>
+    <name>dfs.client.read.shortcircuit</name>
+    <value>true</value>
+   </property>
+
+   <property>
+     <name>dfs.domain.socket.path</name>
+     <value>/var/run/hdfs-sockets/dn</value>
+   </property>
+
+   <property>
+     <name>dfs.client.file-block-storage-locations.timeout.millis</name>
+     <value>10000</value>
+   </property>
 
 </configuration>
