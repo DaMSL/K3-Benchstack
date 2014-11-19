@@ -22,8 +22,9 @@ There should be two groups:
 
 Be sure to use fully qualified domain names.
 
-Additionally, specify a folder for persistent storage on the target machines.
-All hdfs data and meta-data will be stored in this folder, and will persist even when the Docker cluster is torn down.
+Additionally, specify 2 folders:
+  - persistent\_stoage\_folder: All hdfs data and meta-data will be stored in this folder, and will persist even when the Docker cluster is torn down.
+  - hadoop\_sockets\_folder: Folder where unix sockets for datanodes will be placed. Must be owned by root. This is used by Impala and other systems. 
 
 To launch the cluster, run the following command inside the 'deploy' folder:
 ```
