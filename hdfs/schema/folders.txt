@@ -1,0 +1,14 @@
+/amplab
+/amplab/rankings
+/amplab/uservisits
+/amplab/crawl
+/tpch
+/tpch/10g/
+/tpch/10g/lineitem
+/tpch/10g/customer
+/tpch/10g/orders
+/tpch/10g/supplier
+/tpch/10g/partsupp
+/tpch/10g/part
+/tpch/10g/nation
+/tpch/10g/region
