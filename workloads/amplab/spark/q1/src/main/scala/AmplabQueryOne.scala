@@ -21,6 +21,8 @@ object AmplabQueryOne {
 
     rankings.registerTempTable("rankings")
     sqlContext.cacheTable("rankings") 
+    val r1 = sqlContext.sql("SELECT COUNT(*) from rankings").collect()
+    print(r1(0).toString)
 
     var start = System.currentTimeMillis
     val result =  sqlContext.sql("SELECT pageURL, pageRank FROM rankings WHERE pageRank > 1000")

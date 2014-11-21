@@ -31,6 +31,8 @@ object AmplabQueryTwo {
 
     uservisits.registerTempTable("uservisits")
     sqlContext.cacheTable("uservisits") 
+    val r1 = sqlContext.sql("SELECT COUNT(*) FROM uservisits").collect()
+    print(r1(0).toString)
 
     var start = System.currentTimeMillis
     val result =  sqlContext.sql("SELECT substr(sourceIP, 0, 8), SUM(adRevenue) FROM uservisits GROUP BY substr(sourceIP, 0, 8)")
