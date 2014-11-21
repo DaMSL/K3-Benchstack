@@ -22,7 +22,7 @@ object AmplabQueryThree {
   def main(args: Array[String]) {
     val conf = new SparkConf()
              .setMaster("spark://qp-hm1.damsl.cs.jhu.edu:7077")
-             .setAppName("Amplab Query 2")
+             .setAppName("Amplab Query 3")
              .setSparkHome("/software/spark-1.1.0-bin-hadoop2.4")
              .set("spark.executor.memory", "65g")
     val sc = new SparkContext(conf)
