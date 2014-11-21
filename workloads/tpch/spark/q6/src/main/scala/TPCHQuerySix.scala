@@ -22,7 +22,7 @@ case class Lineitem(
   l_comments: String
 )
 
-object TPCHQueryOne {
+object TPCHQuerySix {
   def main(args: Array[String]) {
     val conf = new SparkConf()
              .setMaster("spark://qp-hm1.damsl.cs.jhu.edu:7077")
