@@ -26,18 +26,19 @@ object AmplabQueryThree {
              .setSparkHome("/software/spark-1.1.0-bin-hadoop2.4")
              .set("spark.executor.memory", "65g")
     val sc = new SparkContext(conf)
-    val filePath = "hdfs://qp-hm1.damsl.cs.jhu.edu:54310/amplab/uservisits/uservisits"
+    val uservisitsPath = "hdfs://qp-hm1.damsl.cs.jhu.edu:54310/amplab/uservisits/uservisits"
+    val rankingsPath = "hdfs://qp-hm1.damsl.cs.jhu.edu:54310/amplab/rankings/rankings"
     val sqlContext = new org.apache.spark.sql.SQLContext(sc)
     import sqlContext.createSchemaRDD
 
-    val rankings = sc.textFile(filePath).map(_.split(",")).map(r => Ranking(r(0),r(1).toInt,r(2).toInt))
+    val rankings = sc.textFile(rankingsPath).map(_.split(",")).map(r => Ranking(r(0),r(1).toInt,r(2).toInt))
 
     rankings.registerTempTable("rankings")
     sqlContext.cacheTable("rankings") 
     val r1 = sqlContext.sql("SELECT COUNT(*) from rankings").collect()
     print(r1(0).toString)
     
-    val uservisits = sc.textFile(filePath).map(_.split(",")).map(r => UserVisit(r(0),r(1),r(2),r(3).toDouble,r(4),r(5),r(6),r(7),r(8).toInt))
+    val uservisits = sc.textFile(uservisitsPath).map(_.split(",")).map(r => UserVisit(r(0),r(1),r(2),r(3).toDouble,r(4),r(5),r(6),r(7),r(8).toInt))
 
     uservisits.registerTempTable("uservisits")
     sqlContext.cacheTable("uservisits") 
