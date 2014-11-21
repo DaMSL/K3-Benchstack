@@ -9,7 +9,7 @@ object AmplabQueryOne {
   def main(args: Array[String]) {
     val conf = new SparkConf()
              .setMaster("spark://qp-hm1.damsl.cs.jhu.edu:7077")
-             .setAppName("Test Program")
+             .setAppName("Amplab Query 1")
              .setSparkHome("/software/spark-1.1.0-bin-hadoop2.4")
              .set("spark.executor.memory", "65g")
     val sc = new SparkContext(conf)
