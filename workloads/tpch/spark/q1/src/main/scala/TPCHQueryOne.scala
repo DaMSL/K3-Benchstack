@@ -35,7 +35,7 @@ val sc = new SparkContext(conf)
     val sqlContext = new org.apache.spark.sql.SQLContext(sc)
     import sqlContext.createSchemaRDD
 
-    val lineitems = sc.textFile(filePath).map(_.split(",")).map(r => Lineitem(r(0).toInt,r(1).toInt,r(2).toInt, r(3).toInt, r(4).toDouble, r(5).toDouble, r(6).toDouble, r(7).toDouble, r(8), r(9), r(10), r(11), r(12), r(13), r(14), r(15)))
+    val lineitems = sc.textFile(filePath).map(_.split("\\|")).map(r => Lineitem(r(0).toInt,r(1).toInt,r(2).toInt, r(3).toInt, r(4).toDouble, r(5).toDouble, r(6).toDouble, r(7).toDouble, r(8), r(9), r(10), r(11), r(12), r(13), r(14), r(15)))
 
     lineitems.registerTempTable("lineitem")
     sqlContext.cacheTable("lineitem") 
@@ -65,7 +65,7 @@ val sc = new SparkContext(conf)
       |order by
       |        l_returnflag,
       |        l_linestatus
-      |"""
+      """.stripMargin
     val result =  sqlContext.sql(query)
     println("Num Results: " + result.count )
     var end = System.currentTimeMillis
