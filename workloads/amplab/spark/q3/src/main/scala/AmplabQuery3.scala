@@ -37,7 +37,6 @@ object AmplabQueryThree {
     sqlContext.cacheTable("rankings") 
     val r1 = sqlContext.sql("SELECT COUNT(*) from rankings").collect()
     print(r1(0).toString)
-    
     val uservisits = sc.textFile(uservisitsPath).map(_.split(",")).map(r => UserVisit(r(0),r(1),r(2),r(3).toDouble,r(4),r(5),r(6),r(7),r(8).toInt))
 
     uservisits.registerTempTable("uservisits")
@@ -47,13 +46,13 @@ object AmplabQueryThree {
 
     var start = System.currentTimeMillis
     val query = """
-    |SELECT sourceIP, totalRevenue, avgPageRank
+    |SELECT t.sourceIP, t.totalRevenue, t.avgPageRank
     |FROM
     | (SELECT sourceIP, AVG(pageRank) as avgPageRank, SUM(adRevenue) as totalRevenue
-    |   FROM Rankings AS R, UserVisits AS UV
+    |   FROM rankings AS R, uservisits AS UV
     |   WHERE R.pageURL = UV.destURL
-    |   AND UV.visitDate BETWEEN Date(`1980-01-01') AND Date(`X')
-    |   GROUP BY UV.sourceIP)
+    |   AND UV.visitDate >= "1980-01-01" AND UV.visitDate <= "1980-04-01"
+    |   GROUP BY UV.sourceIP) t
     |ORDER BY totalRevenue DESC LIMIT 1""".stripMargin
 
     val result =  sqlContext.sql(query)
