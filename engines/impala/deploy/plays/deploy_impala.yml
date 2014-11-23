@@ -1,0 +1,39 @@
+---
+- hosts: all
+  tasks:
+    - name: Pull the Damsl Docker image for Impala
+      shell: docker pull damsl/impala
+
+    - name: Ensure remote config directory exists
+      file: path={{persistent_storage_folder}}/config/ state=directory mode=774
+
+    - name: Ensure remote directory for sockets exists
+      file: path={{hadoop_sockets_folder}} state=directory mode=744 owner=root
+
+    - name: Create hdfs-site.xml from template 
+      template: src=../files/hdfs-site.xml dest={{persistent_storage_folder}}/config/
+
+    - name: Create core-site.xml from template
+      template: src=../files/core-site.xml dest={{persistent_storage_folder}}/config/
+
+    - name: Create impala config from template
+      template: src=../files/impala dest={{persistent_storage_folder}}/config/
+    
+- hosts: master 
+  tasks:
+    - name: Remove existing container for Master
+      shell: docker rm -f Impala_master
+      ignore_errors: yes
+
+    - name: Run the namenode inside of a Docker container
+      shell: docker run -d --net=host -v {{persistent_storage_folder}}:/hadoop/  --name="Impala_master" damsl/impala /sbin/master_startup.sh
+
+
+- hosts: slaves
+  tasks:
+    - name: Remove existing container for Slaves
+      shell: docker rm -f Impala_slave
+      ignore_errors: yes
+
+    - name: Run the slave inside a docker container
+      shell: docker run -d --net=host -v {{persistent_storage_folder}}:/hadoop/ -v {{hadoop_sockets_folder}}:/hadoop_sockets/ --name="Impala_slave" damsl/impala /sbin/slave_startup.sh 

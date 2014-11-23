@@ -25,3 +25,13 @@ ENV SCALA_HOME /software/scala-2.10.4/bin/
 # Install Spark
 RUN wget http://apache.mirrors.tds.net/spark/spark-1.1.0/spark-1.1.0-bin-hadoop2.4.tgz
 RUN tar -xvzf spark-1.1.0-bin-hadoop2.4.tgz
+
+# Setup sbt
+RUN wget https://dl.bintray.com/sbt/native-packages/sbt/0.13.7/sbt-0.13.7.tgz
+RUN tar -xvzf sbt-0.13.7.tgz
+RUN mv sbt/bin/sbt-launch.jar /usr/bin/
+ADD sbt /usr/bin/
+RUN chmod +x /usr/bin/sbt
+RUN sbt
+
+ENV SPARK_HOME /software/spark-1.1.0-bin-hadoop2.4/
