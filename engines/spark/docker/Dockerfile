@@ -23,8 +23,13 @@ RUN tar -xvzf scala-2.10.4.tgz
 ENV SCALA_HOME /software/scala-2.10.4/bin/
 
 # Install Spark
-RUN wget http://apache.mirrors.tds.net/spark/spark-1.1.0/spark-1.1.0-bin-hadoop2.4.tgz
-RUN tar -xvzf spark-1.1.0-bin-hadoop2.4.tgz
+RUN apt-get install -y git
+RUN wget http://mirrors.gigenet.com/apache/spark/spark-1.1.0/spark-1.1.0.tgz
+RUN tar -xvzf spark-1.1.0.tgz
+WORKDIR /software/spark-1.1.0
+RUN sbt/sbt -Dhadoop.version=2.2.0 -Pyarn -Phive assembly/assembly
+
+WORKDIR /software
 
 # Setup sbt
 RUN wget https://dl.bintray.com/sbt/native-packages/sbt/0.13.7/sbt-0.13.7.tgz
