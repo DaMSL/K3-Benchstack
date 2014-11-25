@@ -62,9 +62,6 @@ val sc = new SparkContext(conf)
       |group by
       |        l_returnflag,
       |        l_linestatus
-      |order by
-      |        l_returnflag,
-      |        l_linestatus
       """.stripMargin
     val result =  sqlContext.sql(query)
     println("Num Results: " + result.count )

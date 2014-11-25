@@ -1,0 +1,9 @@
+- hosts: master 
+  tasks: 
+    - name: Kill and Remove the Impala Master
+      shell: docker rm -f Impala_master
+
+- hosts: slaves 
+  tasks:
+    - name: Kill and Remove the Impala slaves
+      shell: docker rm -f Impala_slave
