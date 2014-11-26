@@ -2,10 +2,6 @@ import os
 import sys
 from subprocess import Popen, PIPE
 
-k3_base       = "/Users/joshwheeler/k3/"
-includes      = ["-I " + k3_base + x for x in ["K3-Core/examples/sql/", "K3-Core/lib/k3"] ]
-k3_executable = k3_base + "K3-Driver/dist/build/k3/k3"
-
 def stripKTraceHeader(lines):
   i = 0
   for line in lines:
@@ -14,11 +10,13 @@ def stripKTraceHeader(lines):
     i = i + 1
   return lines[i:]
 
-def genKTraceSQL(k3_source, result_variable, resultFiles):
+def genKTraceSQL(k3_base, k3_source, result_variable, resultFiles):
+  includes      = ["-I " + os.path.join(k3_base, x) for x in ["K3-Core/examples/sql/", "K3-Core/lib/k3"] ]
   ktrace_args   = ["compile","-l", "ktrace"]
+  k3_executable = os.path.join(k3_base, "K3-Driver/dist/build/k3/k3")
 
   # Check that the K3 source exists
-  if not os.path.isfile(k3_executable):
+  if not os.path.isfile(k3_source):
     print("Failed to locate k3 source at: " + k3_source)
     sys.exit(1)
 
@@ -35,7 +33,7 @@ def genKTraceSQL(k3_source, result_variable, resultFiles):
 
     ktrace_flags = "".join(["flat-result-var=", result_variable, ":", "files=/tmp/catalog.txt"])
     ktrace_args = ktrace_args + ["--ktrace-flags", ktrace_flags]
-    full_args = [k3_executable] + includes + ktrace_args + [k3_source]
+  full_args = [k3_executable] + includes + ktrace_args + [k3_source]
   command = " ".join(full_args) 
   sys.stderr.write(command + "\n")
 

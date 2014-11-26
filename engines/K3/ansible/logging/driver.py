@@ -1,15 +1,16 @@
-from ktrace import *
-from catalog import *
+from scripts.ktrace import *
+from scripts.catalog import *
 import sys
 
 if __name__ == "__main__":
-  if len(sys.argv) < 4:
-    print("usage: %s hosts_ini deploy_yml k3_source" % sys.argv[0])
+  if len(sys.argv) < 5:
+    print("usage: %s hosts_ini deploy_yml k3_source k3_base_dir" % sys.argv[0])
     exit(1)
  
   hosts_ini = sys.argv[1]
   deploy_yml = sys.argv[2]
   k3_source = sys.argv[3]
+  k3_base_dir = sys.argv[4]
  
   # Check for results variable 
   checkResult = False  
@@ -23,7 +24,7 @@ if __name__ == "__main__":
   (globFiles, messFiles, resFiles) = c
    
   # Call Ktrace to generate SQL (generates loaders for Result) 
-  ktrace_lines  = genKTraceSQL(k3_source, resultVar, resFiles)
+  ktrace_lines  = genKTraceSQL(k3_base_dir,k3_source, resultVar, resFiles)
 
   # Generate COPY statements for Globals and Messages
   copy_lines = genCopyStatements(globFiles, messFiles) 

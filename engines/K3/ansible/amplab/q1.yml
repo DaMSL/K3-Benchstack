@@ -5,7 +5,6 @@
         app_name: amplab_q1_final
         binary: /tmp/q1
         numprocs: 16
-        result_var: local_q1_results
         log_enabled: true
         k3_variables:
           x: 1000
