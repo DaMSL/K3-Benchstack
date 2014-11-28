@@ -1,6 +1,6 @@
 CREATE EXTERNAL TABLE rankings (
-  pageURL String, 
-  pageRank Int, 
+  pageURL     String,
+  pageRank    Int,
   avgDuration Int
 ) 
 ROW FORMAT DELIMITED 

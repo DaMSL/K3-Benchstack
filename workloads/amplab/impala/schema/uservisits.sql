@@ -1,13 +1,13 @@
 CREATE EXTERNAL TABLE uservisits (
-  sourceIP String,
-  destURL String,
-  visitDate String,
-  adRevenue Double,
-  userAgent String,
-  coutryCode String,
+  sourceIP     String,
+  destURL      String,
+  visitDate    String,
+  adRevenue    Double,
+  userAgent    String,
+  coutryCode   String,
   languageCode String,
-  searchWord String,
-  duration Int
+  searchWord   String,
+  duration     Int
 ) 
 ROW FORMAT DELIMITED 
 FIELDS TERMINATED BY ',' 
