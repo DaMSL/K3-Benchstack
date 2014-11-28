@@ -1,0 +1,1 @@
+TPCH-Q11: ERROR: AnalysisException: Subqueries are not supported in the HAVING clause.
