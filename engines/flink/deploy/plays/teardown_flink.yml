@@ -1,0 +1,9 @@
+- hosts: jobmanager 
+  tasks: 
+    - name: Kill and Remove the jobmanager
+      shell: docker rm -f flink_jobmanager
+
+- hosts: slaves
+  tasks:
+    - name: Kill and Remove the slaves
+      shell: docker rm -f flink_slave

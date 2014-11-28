@@ -1,0 +1,30 @@
+---
+- hosts: all
+  tasks:
+    - name: Pull the Damsl Docker image for Flink
+      shell: docker pull damsl/flink
+
+    - name: Ensure remote config directory exists
+      file: path={{persistent_storage_folder}}/config/ state=directory mode=774
+
+    - name: Copy flink-config remote config directory
+      template: src=../files/flink-conf.yaml dest={{persistent_storage_folder}}/config/
+
+- hosts: jobmanager
+  tasks:
+    - name: Remove existing container for Namenode
+      shell: docker rm -f flink_jobmanager
+      ignore_errors: yes
+
+    - name: Run the namenode inside of a Docker container
+      shell: docker run -d --net=host -v {{persistent_storage_folder}}:/flink/  --name="flink_jobmanager" damsl/flink /sbin/master_startup.sh
+
+
+- hosts: slaves
+  tasks:
+    - name: Remove existing container for slaves
+      shell: docker rm -f flink_slave
+      ignore_errors: yes
+
+    - name: Run the slave inside of a Docker container
+      shell: docker run -d --net=host -v {{persistent_storage_folder}}:/flink/ --name="flink_slave" damsl/flink /sbin/slave_startup.sh 
