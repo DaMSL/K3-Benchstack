@@ -92,3 +92,99 @@ object TPCHQuery3 {
     Common.timeHiveQuery(query, "tpch/q3")
   }
 }
+
+object TPCHQuery18 {
+  def main(args: Array[String]) {
+    // Common
+    val sc = Common.sc
+    val sqlContext = Common.hiveContext
+    TPCHFiles.cacheLineitemHive(sqlContext)
+    TPCHFiles.cacheCustomerHive(sqlContext)
+    TPCHFiles.cacheOrdersHive(sqlContext)
+
+    // Query with timing
+    val query = """
+    | select 
+    |          c_name,
+    |          c_custkey,
+    |          o_orderkey,
+    |          o_orderdate,
+    |          o_totalprice,
+    |          sum(l_quantity)
+    |  from
+    |          customer,
+    |          orders,
+    |          lineitem
+    |  where
+    |          o_orderkey in (
+    |                  select
+    |                          l_orderkey
+    |                  from
+    |                          lineitem
+    |                  group by
+    |                          l_orderkey having
+    |                                  sum(l_quantity) > 300
+    |          )
+    |          and c_custkey = o_custkey
+    |          and o_orderkey = l_orderkey
+    |  group by
+    |          c_name,
+    |          c_custkey,
+    |          o_orderkey,
+    |          o_orderdate,
+    |          o_totalprice
+    |    
+    """.stripMargin
+    Common.timeHiveQuery(query, "tpch/q18")
+  }
+}
+
+object TPCHQuery22 {
+  def main(args: Array[String]) {
+    // Common
+    val sc = Common.sc
+    val sqlContext = Common.hiveContext
+    TPCHFiles.cacheCustomerHive(sqlContext)
+    TPCHFiles.cacheOrdersHive(sqlContext)
+
+    // Query with timing
+    val query = """
+      | select
+      |         cntrycode,
+      |         count(*) as numcust,
+      |         sum(c_acctbal) as totacctbal
+      | from
+      |         (
+      |                 select
+      |                         substring(c_phone,1,2) as cntrycode,
+      |                         c_acctbal
+      |                 from
+      |                         customer
+      |                 where
+      |                         substring(c_phone, 1, 2) in
+      |                                 ('13', '31', '23', '29', '30', '18', '17')
+      |                         and c_acctbal > (
+      |                                 select
+      |                                         avg(c_acctbal)
+      |                                 from
+      |                                         customer
+      |                                 where
+      |                                         c_acctbal > 0.00
+      |                                         and substring(c_phone, 1, 2) in
+      |                                                 ('13', '31', '23', '29', '30', '18', '17')
+      |                         )
+      |                         and not exists (
+      |                                 select
+      |                                         *
+      |                                 from
+      |                                         orders
+      |                                 where
+      |                                         o_custkey = c_custkey
+      |                         )
+      |         ) as custsale
+      | group by
+      |         cntrycode
+    """.stripMargin
+    Common.timeHiveQuery(query, "tpch/q22")
+  }
+}
