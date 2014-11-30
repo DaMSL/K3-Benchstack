@@ -1,0 +1,7 @@
+1, 6 - SparkSQL
+3, 5 - Hive
+
+Hive --
+Cannot parse 11
+Cannot parse Q18
+Cannot parse Q22
