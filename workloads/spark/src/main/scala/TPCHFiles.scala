@@ -30,6 +30,10 @@ object TPCHFiles {
   val ordersHivePath = "hdfs://qp-hm1.damsl.cs.jhu.edu:54310/tpch/10g/orders/"
   val lineitemHivePath = "hdfs://qp-hm1.damsl.cs.jhu.edu:54310/tpch/10g/lineitem/"
   val customerHivePath = "hdfs://qp-hm1.damsl.cs.jhu.edu:54310/tpch/10g/customer/"
+  val regionHivePath = "hdfs://qp-hm1.damsl.cs.jhu.edu:54310/tpch/10g/region/"
+  val nationHivePath = "hdfs://qp-hm1.damsl.cs.jhu.edu:54310/tpch/10g/nation/"
+  val supplierHivePath = "hdfs://qp-hm1.damsl.cs.jhu.edu:54310/tpch/10g/supplier/"
+  val partsuppHivePath = "hdfs://qp-hm1.damsl.cs.jhu.edu:54310/tpch/10g/partsupp/"
   
   def getLineitem(sc: SparkContext) = {
     val csv = sc.textFile(lineitemPath).map(_.split("\\|"))
@@ -126,6 +130,83 @@ object TPCHFiles {
     print("Cached Customer. #Rows: " + r1(0).toString)
   }
 
+  def cacheSupplierHive(sqlContext: HiveContext) = {
+    val create_query = s"""
+    | create external table if not exists supplier (
+    |   s_suppkey int,
+    |   s_name string,
+    |   s_address string,
+    |   s_nationkey int,
+    |   s_phone string,
+    |   s_acctbal double,
+    |   s_comments string
+    | )
+    | row format delimited
+    | fields terminated by "|"
+    | location '$supplierHivePath'
+    """.stripMargin
+  
+    sqlContext.sql(create_query)
+    sqlContext.cacheTable("supplier")
+    val r1 = sqlContext.sql("SELECT COUNT(*) from supplier").collect()
+    print("Cached Supplier. #Rows: " + r1(0).toString)
+  }
+
+  def cacheRegionHive(sqlContext: HiveContext) = {
+    val create_query = s"""
+    | create external table if not exists region (
+    |   r_regionkey int,
+    |   r_name string,
+    |   r_comments string
+    | )
+    | row format delimited
+    | fields terminated by "|"
+    | location '$regionHivePath'
+    """.stripMargin
+  
+    sqlContext.sql(create_query)
+    sqlContext.cacheTable("region")
+    val r1 = sqlContext.sql("SELECT COUNT(*) from region").collect()
+    print("Cached Region. #Rows: " + r1(0).toString)
+  }
+  
+  def cacheNationHive(sqlContext: HiveContext) = {
+    val create_query = s"""
+    | create external table if not exists nation (
+    |   n_nationkey int,
+    |   n_name string,
+    |   n_regionkey int,
+    |   n_comments string 
+    | )
+    | row format delimited
+    | fields terminated by "|"
+    | location '$nationHivePath'
+    """.stripMargin
+  
+    sqlContext.sql(create_query)
+    sqlContext.cacheTable("nation")
+    val r1 = sqlContext.sql("SELECT COUNT(*) from nation").collect()
+    print("Cached Nation. #Rows: " + r1(0).toString)
+  }
+  
+  def cachePartsuppHive(sqlContext: HiveContext) = {
+    val create_query = s"""
+    | create external table if not exists partsupp (
+    |   n_partsuppkey int,
+    |   n_name string,
+    |   n_regionkey int,
+    |   n_comments string 
+    | )
+    | row format delimited
+    | fields terminated by "|"
+    | location '$partsuppHivePath'
+    """.stripMargin
+  
+    sqlContext.sql(create_query)
+    sqlContext.cacheTable("partsupp")
+    val r1 = sqlContext.sql("SELECT COUNT(*) from partsupp").collect()
+    print("Cached Partsupp. #Rows: " + r1(0).toString)
+  }
 }
 
 }
