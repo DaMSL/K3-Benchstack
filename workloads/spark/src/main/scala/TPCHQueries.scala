@@ -2,6 +2,8 @@ import org.apache.spark.SparkContext
 import org.apache.spark.SparkContext._
 import org.apache.spark.SparkConf
 import org.apache.spark.rdd.RDD
+import org.apache.spark.sql.SchemaRDD
+import org.apache.spark.sql.catalyst.expressions._
 import tpch.files._
 import common._
 
@@ -132,36 +134,32 @@ object TPCHQuery11 {
   def main(args: Array[String]) {
     // Common
     val sc = Common.sc
-    val sqlContext = Common.hiveContext
-    TPCHFiles.cachePartsuppHive(sqlContext)
-    TPCHFiles.cacheSupplierHive(sqlContext)
-    TPCHFiles.cacheNationHive(sqlContext)
+    val sqlContext = Common.sqlContext
+    import sqlContext._ 
 
-    // Query with timing
-    val query = """
-      |select
-      |  ps.ps_partkey,
-      |  sum(ps.ps_supplycost * ps.ps_availqty) 
-      |from
-      |  partsupp as ps
-      |  join supplier as s on ps.ps_suppkey = s.s_suppkey
-      |  join nation as n on s.s_nationkey = n.n_nationkey
-      |where
-      |  n.n_name = 'GERMANY'
-      |group by
-      |  ps.ps_partkey having
-      |    sum(ps2.ps_supplycost * ps2.ps_availqty) > (
-      |      select
-      |        sum(ps2.ps_supplycost * ps2.ps_availqty) * 0.0001
-      |      from
-      |        partsupp as ps2
-      |        join supplier as s2 on ps2.ps_suppkey = s2.s_suppkey
-      |        join nation as n2 on s_nationkey = n_nationkey
-      |      where
-      |        n2.n_name = 'GERMANY'
-      |    )  
-    """.stripMargin
-    Common.timeHiveQuery(query, "tpch/q11")
+    // Load base tables
+    val ps = TPCHFiles.getPartsupp(sc).cache()
+    val s  = TPCHFiles.getSupplier(sc).cache()
+    val n  = TPCHFiles.getNation(sc).cache()
+
+    // TODO force cache
+
+    // JOIN nation, partsupp, supplier and filter nation = GERMANY 
+    val ps_s = ps.join(s).where('ps_suppkey === 's_suppkey)
+    val ps_s_n = ps_s.join(n.where('n_name === "GERMANY")).where('s_nationkey === 'n_nationkey).cache()
+
+    // Calculate total sum, forcing the 3 way join into cache
+    val total_sum = ps_s_n.aggregate(Sum('ps_supplycost * 'ps_availqty) as 'value)
+    val c = total_sum.collect()
+    val threshold = c(0)(0).toString.toDouble * .0001
+    println("THRESHOLD:")
+    println(c(0).toString)
+    println(threshold.toString)
+
+    // Use cached join result, perform groupby and filter
+    val result = ps_s_n.groupBy('ps_partkey)( Sum('ps_supplycost * 'ps_availqty) as 'value)
+   
+    result.collect().foreach(println)
   }
 }
 object TPCHQuery18 {
@@ -259,3 +257,4 @@ object TPCHQuery22 {
     Common.timeHiveQuery(query, "tpch/q22")
   }
 }
+

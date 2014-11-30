@@ -24,8 +24,37 @@ case class Lineitem(
   l_comments: String
 )
 
+case class Partsupp (
+  ps_partkey: Int,
+  ps_suppkey: Int,
+  ps_availqty: Int,
+  ps_supplycost: Double,
+  ps_comments: String
+) 
+
+case class Supplier (
+  s_suppkey: Int,
+  s_name: String,
+  s_address: String,
+  s_nationkey: Int,
+  s_phone: String,
+  s_acctbal: Double,
+  s_comments: String
+)
+
+case class Nation (
+  n_nationkey: Int,
+  n_name: String,
+  n_regionkey: Int,
+  n_comments: String
+)
+
+
 object TPCHFiles {
   val lineitemPath = "hdfs://qp-hm1.damsl.cs.jhu.edu:54310/tpch/10g/lineitem/lineitem"
+  val partsuppPath = "hdfs://qp-hm1.damsl.cs.jhu.edu:54310/tpch/10g/partsupp/partsupp"
+  val nationPath = "hdfs://qp-hm1.damsl.cs.jhu.edu:54310/tpch/10g/nation/nation"
+  val supplierPath = "hdfs://qp-hm1.damsl.cs.jhu.edu:54310/tpch/10g/supplier/supplier"
   
   val ordersHivePath = "hdfs://qp-hm1.damsl.cs.jhu.edu:54310/tpch/10g/orders/"
   val lineitemHivePath = "hdfs://qp-hm1.damsl.cs.jhu.edu:54310/tpch/10g/lineitem/"
@@ -39,6 +68,21 @@ object TPCHFiles {
     val csv = sc.textFile(lineitemPath).map(_.split("\\|"))
     csv.map(r => Lineitem(r(0).toInt,r(1).toInt,r(2).toInt, r(3).toInt, r(4).toDouble, r(5).toDouble, r(6).toDouble, r(7).toDouble, r(8), r(9), r(10), r(11), r(12), r(13), r(14), r(15)))
 
+  }
+  
+  def getPartsupp(sc: SparkContext) = {
+    val csv = sc.textFile(partsuppPath).map(_.split("\\|"))
+    csv.map(r => Partsupp(r(0).toInt,r(1).toInt,r(2).toInt, r(3).toDouble, r(4)))
+  }
+  
+  def getNation(sc: SparkContext) = {
+    val csv = sc.textFile(nationPath).map(_.split("\\|"))
+    csv.map(r => Nation(r(0).toInt,r(1),r(2).toInt, r(3)))
+  }
+  
+  def getSupplier(sc: SparkContext) = {
+    val csv = sc.textFile(supplierPath).map(_.split("\\|"))
+    csv.map(r => Supplier(r(0).toInt,r(1),r(2), r(3).toInt,r(4), r(5).toDouble, r(6) ))
   }
 
   def cacheLineitem(sc: SparkContext, sqlContext: SQLContext) = {
