@@ -166,45 +166,25 @@ object TPCHQuery18 {
   def main(args: Array[String]) {
     // Common
     val sc = Common.sc
-    val sqlContext = Common.hiveContext
-    TPCHFiles.cacheLineitemHive(sqlContext)
-    TPCHFiles.cacheCustomerHive(sqlContext)
-    TPCHFiles.cacheOrdersHive(sqlContext)
+    val sqlContext = Common.sqlContext
+    import sqlContext._ 
 
-    // Query with timing
-    val query = """
-    | select 
-    |          c_name,
-    |          c_custkey,
-    |          o_orderkey,
-    |          o_orderdate,
-    |          o_totalprice,
-    |          sum(l_quantity)
-    |  from
-    |          customer,
-    |          orders,
-    |          lineitem
-    |  where
-    |          o_orderkey in (
-    |                  select
-    |                          l_orderkey
-    |                  from
-    |                          lineitem
-    |                  group by
-    |                          l_orderkey having
-    |                                  sum(l_quantity) > 300
-    |          )
-    |          and c_custkey = o_custkey
-    |          and o_orderkey = l_orderkey
-    |  group by
-    |          c_name,
-    |          c_custkey,
-    |          o_orderkey,
-    |          o_orderdate,
-    |          o_totalprice
-    |    
-    """.stripMargin
-    Common.timeHiveQuery(query, "tpch/q18")
+    // Load base tables
+    val lineitem : SchemaRDD = TPCHFiles.getLineitem(sc).cache()
+    val orders : SchemaRDD = TPCHFiles.getOrders(sc).cache()
+    val customer : SchemaRDD = TPCHFiles.getCustomer(sc).cache()
+    // TODO force cache
+
+    val l_agg : SchemaRDD = lineitem.groupBy('l_orderkey)('l_orderkey as 'la_orderkey, Sum('l_quantity) as 'sum).where('sum > 300)
+
+    val orders2 = orders.join(l_agg).where('la_orderkey === 'o_orderkey)
+    val join2 = orders2.join(customer).where('o_custkey === 'c_custkey)
+    val join3 = join2.join(lineitem).where('o_orderkey === 'l_orderkey)
+    
+    val result = join3.groupBy('c_name, 'c_custkey, 'o_orderkey, 'o_orderdate, 'o_totalprice)('c_name, 'c_custkey, 'o_orderkey, 'o_orderdate, 'o_totalprice, Sum('l_quantity))
+
+    result.collect().foreach(println)
+
   }
 }
 
