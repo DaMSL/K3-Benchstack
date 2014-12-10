@@ -33,5 +33,3 @@ from
         ) as custsale
 group by
         cntrycode
-order by
-        cntrycode

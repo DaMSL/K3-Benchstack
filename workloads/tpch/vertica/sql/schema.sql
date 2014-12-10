@@ -8,8 +8,7 @@ create table part (
    p_container   char(10)      not null,
    p_retailprice decimal(12,2) not null,
    p_comment     varchar(23)   not null
-)
-constraint part_pk primary key (p_partkey);
+);
 
 create table supplier (
    s_suppkey   integer       not null,
@@ -19,8 +18,7 @@ create table supplier (
    s_phone     char(15)      not null,
    s_acctbal   decimal(12,2) not null,
    s_comment   varchar(101)  not null
-)
-constraint supplier_pk primary key (s_suppkey);
+);
 
 create table partsupp (
    ps_partkey    integer       not null,
@@ -28,8 +26,7 @@ create table partsupp (
    ps_availqty   integer       not null,
    ps_supplycost decimal(12,2) not null,
    ps_comment    varchar(199)  not null
-)
-constraint partsupp_pk primary key (ps_partkey,ps_suppkey);
+);
 
 create table customer (
    c_custkey    integer       not null,
@@ -40,8 +37,7 @@ create table customer (
    c_acctbal    decimal(12,2) not null,
    c_mktsegment char(10)      not null,
    c_comment    varchar(117)  not null
-)
-constraint customer_pk primary key (c_custkey);
+);
 
 create table orders (
    o_orderkey      integer       not null,
@@ -53,8 +49,7 @@ create table orders (
    o_clerk         char(15)      not null,
    o_shippriority  integer       not null,
    o_comment       varchar(79)   not null
-)
-constraint orders_pk primary key (o_orderkey);
+);
 
 create table lineitem (
    l_orderkey      integer       not null,
@@ -73,20 +68,17 @@ create table lineitem (
    l_shipinstruct  char(25)      not null,
    l_shipmode      char(10)      not null,
    l_comment       varchar(44)   not null
-)
-constraint lineitem_pk primary key (l_orderkey,l_linenumber);
+);
 
 create table nation (
    n_nationkey integer      not null,
    n_name      char(25)     not null,
    n_regionkey integer      not null,
    n_comment   varchar(152) not null
-)
-constraint nation_pk primary key (n_nationkey);
+);
 
 create table region (
    r_regionkey integer      not null,
    r_name      char(25)     not null,
    r_comment   varchar(152) not null
-)
-constraint region_pk primary key (r_regionkey);
+);

@@ -1,4 +1,4 @@
-select top 100
+select 
         c_name,
         c_custkey,
         o_orderkey,
@@ -27,6 +27,3 @@ group by
         o_orderkey,
         o_orderdate,
         o_totalprice
-order by
-        o_totalprice desc,
-        o_orderdate

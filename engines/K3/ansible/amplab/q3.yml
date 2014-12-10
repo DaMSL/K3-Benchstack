@@ -2,10 +2,10 @@
   tasks:
     - include: ../plays/deploy_k3_mt.yml
       vars:
-        app_name: q3_new
-        binary: /tmp/q3_new
-        numprocs: 1
-        log_enabled: true
+        app_name: q3
+        binary: /tmp/q3
+        numprocs: 16
+        log_enabled: false
         k3_variables:
           date_lb: 1980-01-01
           date_ub: 1980-04-01
@@ -13,9 +13,9 @@
           role: rows
         data_files:
           - name: uvFiles
-            num: 1
+            num: 1024
             prefix: /local/data/amplab/1024/uservisits/uservisits
         pinned_files:
           - name: rkFiles
-            num: 1
+            num: 1024
             prefix: /local/data/amplab/1024/rankings/rankings

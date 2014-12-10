@@ -1,4 +1,4 @@
-FROM damsl/k3-perf
+FROM damsl/k3-debug
 ADD k3 /usr/bin/k3
 RUN chmod +x /usr/bin/k3
 ADD run_k3.sh /usr/bin/run_k3
