@@ -49,12 +49,36 @@ case class Nation (
   n_comments: String
 )
 
+case class Customer (
+  c_custkey: Int,
+  c_name: String,
+  c_address: String,
+  c_nationkey: Int,
+  c_phone: String,
+  c_acctbal: Double,
+  c_mktsegment: String,
+  c_comments: String
+)
+
+case class Order (
+  o_orderkey: Int,
+  o_custkey: Int,
+  o_orderstatus: String,
+  o_totalprice: Double,
+  o_orderdate: String,
+  o_orderpriority: String,
+  o_clerk: String,
+  o_shippriority: Int,
+  o_comments: String
+)
 
 object TPCHFiles {
   val lineitemPath = "hdfs://qp-hm1.damsl.cs.jhu.edu:54310/tpch/10g/lineitem/lineitem"
   val partsuppPath = "hdfs://qp-hm1.damsl.cs.jhu.edu:54310/tpch/10g/partsupp/partsupp"
   val nationPath = "hdfs://qp-hm1.damsl.cs.jhu.edu:54310/tpch/10g/nation/nation"
   val supplierPath = "hdfs://qp-hm1.damsl.cs.jhu.edu:54310/tpch/10g/supplier/supplier"
+  val ordersPath = "hdfs://qp-hm1.damsl.cs.jhu.edu:54310/tpch/10g/orders/orders"
+  val customerPath = "hdfs://qp-hm1.damsl.cs.jhu.edu:54310/tpch/10g/customer/customer"
   
   val ordersHivePath = "hdfs://qp-hm1.damsl.cs.jhu.edu:54310/tpch/10g/orders/"
   val lineitemHivePath = "hdfs://qp-hm1.damsl.cs.jhu.edu:54310/tpch/10g/lineitem/"
@@ -83,6 +107,16 @@ object TPCHFiles {
   def getSupplier(sc: SparkContext) = {
     val csv = sc.textFile(supplierPath).map(_.split("\\|"))
     csv.map(r => Supplier(r(0).toInt,r(1),r(2), r(3).toInt,r(4), r(5).toDouble, r(6) ))
+  }
+  
+  def getCustomer(sc: SparkContext) = {
+    val csv = sc.textFile(customerPath).map(_.split("\\|"))
+    csv.map(r => Customer(r(0).toInt,r(1),r(2), r(3).toInt,r(4), r(5).toDouble, r(6), r(7) ))
+  }
+  
+  def getOrders(sc: SparkContext) = {
+    val csv = sc.textFile(ordersPath).map(_.split("\\|"))
+    csv.map(r => Order(r(0).toInt,r(1).toInt ,r(2), r(3).toDouble,r(4), r(5), r(6), r(7).toInt, r(8) ))
   }
 
   def cacheLineitem(sc: SparkContext, sqlContext: SQLContext) = {

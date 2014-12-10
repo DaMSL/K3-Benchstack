@@ -166,95 +166,52 @@ object TPCHQuery18 {
   def main(args: Array[String]) {
     // Common
     val sc = Common.sc
-    val sqlContext = Common.hiveContext
-    TPCHFiles.cacheLineitemHive(sqlContext)
-    TPCHFiles.cacheCustomerHive(sqlContext)
-    TPCHFiles.cacheOrdersHive(sqlContext)
+    val sqlContext = Common.sqlContext
+    import sqlContext._ 
 
-    // Query with timing
-    val query = """
-    | select 
-    |          c_name,
-    |          c_custkey,
-    |          o_orderkey,
-    |          o_orderdate,
-    |          o_totalprice,
-    |          sum(l_quantity)
-    |  from
-    |          customer,
-    |          orders,
-    |          lineitem
-    |  where
-    |          o_orderkey in (
-    |                  select
-    |                          l_orderkey
-    |                  from
-    |                          lineitem
-    |                  group by
-    |                          l_orderkey having
-    |                                  sum(l_quantity) > 300
-    |          )
-    |          and c_custkey = o_custkey
-    |          and o_orderkey = l_orderkey
-    |  group by
-    |          c_name,
-    |          c_custkey,
-    |          o_orderkey,
-    |          o_orderdate,
-    |          o_totalprice
-    |    
-    """.stripMargin
-    Common.timeHiveQuery(query, "tpch/q18")
+    // Load base tables
+    val lineitem : SchemaRDD = TPCHFiles.getLineitem(sc).cache()
+    val orders : SchemaRDD = TPCHFiles.getOrders(sc).cache()
+    val customer : SchemaRDD = TPCHFiles.getCustomer(sc).cache()
+    // TODO force cache
+
+    val l_agg : SchemaRDD = lineitem.groupBy('l_orderkey)('l_orderkey as 'la_orderkey, Sum('l_quantity) as 'sum).where('sum > 300)
+
+    val orders2 = orders.join(l_agg).where('la_orderkey === 'o_orderkey)
+    val join2 = orders2.join(customer).where('o_custkey === 'c_custkey)
+    val join3 = join2.join(lineitem).where('o_orderkey === 'l_orderkey)
+    
+    val result = join3.groupBy('c_name, 'c_custkey, 'o_orderkey, 'o_orderdate, 'o_totalprice)('c_name, 'c_custkey, 'o_orderkey, 'o_orderdate, 'o_totalprice, Sum('l_quantity))
+
+    result.collect().foreach(println)
+
   }
 }
 
 object TPCHQuery22 {
   def main(args: Array[String]) {
+    val codes = List("13", "31", "23", "29", "30", "18", "17")
+    
     // Common
     val sc = Common.sc
-    val sqlContext = Common.hiveContext
-    TPCHFiles.cacheCustomerHive(sqlContext)
-    TPCHFiles.cacheOrdersHive(sqlContext)
+    val sqlContext = Common.sqlContext
+    import sqlContext._ 
 
-    // Query with timing
-    val query = """
-      | select
-      |         cntrycode,
-      |         count(*) as numcust,
-      |         sum(c_acctbal) as totacctbal
-      | from
-      |         (
-      |                 select
-      |                         substring(c_phone,1,2) as cntrycode,
-      |                         c_acctbal
-      |                 from
-      |                         customer
-      |                 where
-      |                         substring(c_phone, 1, 2) in
-      |                                 ('13', '31', '23', '29', '30', '18', '17')
-      |                         and c_acctbal > (
-      |                                 select
-      |                                         avg(c_acctbal)
-      |                                 from
-      |                                         customer
-      |                                 where
-      |                                         c_acctbal > 0.00
-      |                                         and substring(c_phone, 1, 2) in
-      |                                                 ('13', '31', '23', '29', '30', '18', '17')
-      |                         )
-      |                         and not exists (
-      |                                 select
-      |                                         *
-      |                                 from
-      |                                         orders
-      |                                 where
-      |                                         o_custkey = c_custkey
-      |                         )
-      |         ) as custsale
-      | group by
-      |         cntrycode
-    """.stripMargin
-    Common.timeHiveQuery(query, "tpch/q22")
+    // Load base tables
+    val lineitem : SchemaRDD = TPCHFiles.getLineitem(sc).cache()
+    val orders : SchemaRDD = TPCHFiles.getOrders(sc).cache()
+    val customer : SchemaRDD = TPCHFiles.getCustomer(sc).cache()
+    val r = customer.where('c_phone)((p : String) => codes.contains(p.substring(0,2))).where('c_acctbal > 0.0)
+    val r2 = r.aggregate(Average('c_acctbal)) 
+    val avg_bal : Double  = r2.collect()(0)(0).asInstanceOf[Double]
+    println("====================")
+    println(avg_bal)
+
+    val res = customer.where('c_acctbal > avg_bal).join(orders, org.apache.spark.sql.catalyst.plans.LeftOuter, Some('o_custkey === 'c_custkey))
+    //where('o_custkey === null).where('c_acctbal > avg_bal)
+  
+    res.collect().foreach(println)
+
   }
 }
 
