@@ -1,7 +1,7 @@
 #Zookeeper
 ##Installation
 
-Zookeeper config is set up to run in cluster mode (vice single server). In order to run it, you need to update the zoo.cfg for all servers and set the myid for EACH server. It is important that the ID matches the config:
+Zookeeper config is set up to run in replication mode (vice single server). In order to run it, you need to update the zoo.cfg for all servers and set the myid for EACH server separately (you shouldn't more than 3 or 5, so it's a simple task). It is important that the ID matches the config:
 
 FIRST:
 In zoo.cfg, update the zookeeper server list to the set of servers you want to run. In the provided zoo.cfg, Zk is currently set to run on qp1, qp2, and qp3 as servers 1, 2, & 3 respectively. Then on EACH host machine, simply "echo $id > myid." 
