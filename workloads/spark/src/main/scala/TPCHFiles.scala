@@ -73,55 +73,46 @@ case class Order (
 )
 
 object TPCHFiles {
-  val lineitemPath = "hdfs://qp-hm1.damsl.cs.jhu.edu:54310/tpch/10g/lineitem/lineitem"
-  val partsuppPath = "hdfs://qp-hm1.damsl.cs.jhu.edu:54310/tpch/10g/partsupp/partsupp"
-  val nationPath = "hdfs://qp-hm1.damsl.cs.jhu.edu:54310/tpch/10g/nation/nation"
-  val supplierPath = "hdfs://qp-hm1.damsl.cs.jhu.edu:54310/tpch/10g/supplier/supplier"
-  val ordersPath = "hdfs://qp-hm1.damsl.cs.jhu.edu:54310/tpch/10g/orders/orders"
-  val customerPath = "hdfs://qp-hm1.damsl.cs.jhu.edu:54310/tpch/10g/customer/customer"
-  
-  val ordersHivePath = "hdfs://qp-hm1.damsl.cs.jhu.edu:54310/tpch/10g/orders/"
-  val lineitemHivePath = "hdfs://qp-hm1.damsl.cs.jhu.edu:54310/tpch/10g/lineitem/"
-  val customerHivePath = "hdfs://qp-hm1.damsl.cs.jhu.edu:54310/tpch/10g/customer/"
-  val regionHivePath = "hdfs://qp-hm1.damsl.cs.jhu.edu:54310/tpch/10g/region/"
-  val nationHivePath = "hdfs://qp-hm1.damsl.cs.jhu.edu:54310/tpch/10g/nation/"
-  val supplierHivePath = "hdfs://qp-hm1.damsl.cs.jhu.edu:54310/tpch/10g/supplier/"
-  val partsuppHivePath = "hdfs://qp-hm1.damsl.cs.jhu.edu:54310/tpch/10g/partsupp/"
-  
-  def getLineitem(sc: SparkContext) = {
+  def getLineitem(sc: SparkContext, sf: String) = {
+    val lineitemPath = s"hdfs://qp-hm1.damsl.cs.jhu.edu:54310/tpch/$sf/lineitem/lineitem"
     val csv = sc.textFile(lineitemPath).map(_.split("\\|"))
     csv.map(r => Lineitem(r(0).toInt,r(1).toInt,r(2).toInt, r(3).toInt, r(4).toDouble, r(5).toDouble, r(6).toDouble, r(7).toDouble, r(8), r(9), r(10), r(11), r(12), r(13), r(14), r(15)))
 
   }
   
-  def getPartsupp(sc: SparkContext) = {
+  def getPartsupp(sc: SparkContext, sf: String) = {
+    val partsuppPath = s"hdfs://qp-hm1.damsl.cs.jhu.edu:54310/tpch/$sf/partsupp/partsupp"
     val csv = sc.textFile(partsuppPath).map(_.split("\\|"))
     csv.map(r => Partsupp(r(0).toInt,r(1).toInt,r(2).toInt, r(3).toDouble, r(4)))
   }
   
-  def getNation(sc: SparkContext) = {
+  def getNation(sc: SparkContext, sf: String) = {
+    val nationPath = s"hdfs://qp-hm1.damsl.cs.jhu.edu:54310/tpch/$sf/nation/nation"
     val csv = sc.textFile(nationPath).map(_.split("\\|"))
     csv.map(r => Nation(r(0).toInt,r(1),r(2).toInt, r(3)))
   }
   
-  def getSupplier(sc: SparkContext) = {
+  def getSupplier(sc: SparkContext, sf: String) = {
+    val supplierPath = s"hdfs://qp-hm1.damsl.cs.jhu.edu:54310/tpch/$sf/supplier/supplier"
     val csv = sc.textFile(supplierPath).map(_.split("\\|"))
     csv.map(r => Supplier(r(0).toInt,r(1),r(2), r(3).toInt,r(4), r(5).toDouble, r(6) ))
   }
   
-  def getCustomer(sc: SparkContext) = {
+  def getCustomer(sc: SparkContext, sf: String) = {
+    val customerPath = s"hdfs://qp-hm1.damsl.cs.jhu.edu:54310/tpch/$sf/customer/customer"
     val csv = sc.textFile(customerPath).map(_.split("\\|"))
     csv.map(r => Customer(r(0).toInt,r(1),r(2), r(3).toInt,r(4), r(5).toDouble, r(6), r(7) ))
   }
   
-  def getOrders(sc: SparkContext) = {
+  def getOrders(sc: SparkContext, sf: String) = {
+    val ordersPath = s"hdfs://qp-hm1.damsl.cs.jhu.edu:54310/tpch/$sf/orders/orders"
     val csv = sc.textFile(ordersPath).map(_.split("\\|"))
     csv.map(r => Order(r(0).toInt,r(1).toInt ,r(2), r(3).toDouble,r(4), r(5), r(6), r(7).toInt, r(8) ))
   }
 
-  def cacheLineitem(sc: SparkContext, sqlContext: SQLContext) = {
+  def cacheLineitem(sc: SparkContext, sqlContext: SQLContext, sf: String) = {
       import sqlContext._
-      val lineitem = getLineitem(sc)
+      val lineitem = getLineitem(sc, sf)
       lineitem.registerTempTable("lineitem")
       sqlContext.cacheTable("lineitem") 
       val r1 = sqlContext.sql("SELECT COUNT(*) from lineitem").collect()
@@ -130,7 +121,8 @@ object TPCHFiles {
 
   // Hive on Spark
 
-  def cacheLineitemHive(sqlContext: HiveContext) = {
+  def cacheLineitemHive(sqlContext: HiveContext, sf: String, sf: String) = {
+    val lineitemHivePath = s"hdfs://qp-hm1.damsl.cs.jhu.edu:54310/tpch/$sf/lineitem/"
     val create_query = s"""
     | CREATE EXTERNAL TABLE IF NOT EXISTS lineitem (
     |   l_orderkey Int,
@@ -161,7 +153,8 @@ object TPCHFiles {
     print("Cached Lineitem. #Rows: " + r1(0).toString)
   }
 
-  def cacheOrdersHive(sqlContext: HiveContext) = {
+  def cacheOrdersHive(sqlContext: HiveContext, sf: String) = {
+    val ordersHivePath = s"hdfs://qp-hm1.damsl.cs.jhu.edu:54310/tpch/$sf/orders/"
     val create_query = s"""
     | CREATE EXTERNAL TABLE IF NOT EXISTS orders (
     | o_orderkey Int,
@@ -185,7 +178,8 @@ object TPCHFiles {
     print("Cached Orders. #Rows: " + r1(0).toString)
   }
   
-  def cacheCustomerHive(sqlContext: HiveContext) = {
+  def cacheCustomerHive(sqlContext: HiveContext, sf: String) = {
+    val customerHivePath = s"hdfs://qp-hm1.damsl.cs.jhu.edu:54310/tpch/$sf/customer/"
     val create_query = s"""
     | create external table if not exists customer (
     |   c_custkey int,
@@ -208,7 +202,8 @@ object TPCHFiles {
     print("Cached Customer. #Rows: " + r1(0).toString)
   }
 
-  def cacheSupplierHive(sqlContext: HiveContext) = {
+  def cacheSupplierHive(sqlContext: HiveContext, sf: String) = {
+    val supplierHivePath = s"hdfs://qp-hm1.damsl.cs.jhu.edu:54310/tpch/$sf/supplier/"
     val create_query = s"""
     | create external table if not exists supplier (
     |   s_suppkey int,
@@ -230,7 +225,8 @@ object TPCHFiles {
     print("Cached Supplier. #Rows: " + r1(0).toString)
   }
 
-  def cacheRegionHive(sqlContext: HiveContext) = {
+  def cacheRegionHive(sqlContext: HiveContext, sf: String) = {
+    val regionHivePath = s"hdfs://qp-hm1.damsl.cs.jhu.edu:54310/tpch/$sf/region/"
     val create_query = s"""
     | create external table if not exists region (
     |   r_regionkey int,
@@ -248,7 +244,8 @@ object TPCHFiles {
     print("Cached Region. #Rows: " + r1(0).toString)
   }
   
-  def cacheNationHive(sqlContext: HiveContext) = {
+  def cacheNationHive(sqlContext: HiveContext, sf: String) = {
+    val nationHivePath = s"hdfs://qp-hm1.damsl.cs.jhu.edu:54310/tpch/$sf/nation/"
     val create_query = s"""
     | create external table if not exists nation (
     |   n_nationkey int,
@@ -267,7 +264,8 @@ object TPCHFiles {
     print("Cached Nation. #Rows: " + r1(0).toString)
   }
   
-  def cachePartsuppHive(sqlContext: HiveContext) = {
+  def cachePartsuppHive(sqlContext: HiveContext, sf: String) = {
+    val partsuppHivePath = s"hdfs://qp-hm1.damsl.cs.jhu.edu:54310/tpch/$sf/partsupp/"
     val create_query = s"""
     | create external table if not exists partsupp (
     |   n_partsuppkey int,

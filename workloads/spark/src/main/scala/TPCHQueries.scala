@@ -12,7 +12,8 @@ object TPCHQuery1 {
     // Common
     val sc = Common.sc
     val sqlContext = Common.sqlContext   
-    TPCHFiles.cacheLineitem(sc,sqlContext)
+    val sf = args(0)
+    TPCHFiles.cacheLineitem(sc,sqlContext, sf)
 
     // Query with timing
     val query = """
@@ -35,7 +36,7 @@ object TPCHQuery1 {
       |        l_returnflag,
       |        l_linestatus
       """.stripMargin
-    Common.timeSqlQuery(query, "tpch/q1")
+    Common.timeSqlQuery(query, s"tpch/q1$sf")
   }
 }
 
@@ -44,12 +45,14 @@ object TPCHQuery5 {
     // Common
     val sc = Common.sc
     val sqlContext = Common.hiveContext   
-    TPCHFiles.cacheCustomerHive(sqlContext)
-    TPCHFiles.cacheOrdersHive(sqlContext)
-    TPCHFiles.cacheLineitemHive(sqlContext)
-    TPCHFiles.cacheSupplierHive(sqlContext)
-    TPCHFiles.cacheNationHive(sqlContext)
-    TPCHFiles.cacheRegionHive(sqlContext)
+    val sf = args(0)
+
+    TPCHFiles.cacheCustomerHive(sqlContext, sf)
+    TPCHFiles.cacheOrdersHive(sqlContext, sf)
+    TPCHFiles.cacheLineitemHive(sqlContext, sf)
+    TPCHFiles.cacheSupplierHive(sqlContext, sf)
+    TPCHFiles.cacheNationHive(sqlContext, sf)
+    TPCHFiles.cacheRegionHive(sqlContext, sf)
 
     // Query with timing
     val query = """
@@ -78,8 +81,10 @@ object TPCHQuery6 {
   def main(args: Array[String]) {
     // Common
     val sc = Common.sc
-    val sqlContext = Common.sqlContext   
-    TPCHFiles.cacheLineitem(sc,sqlContext)
+    val sqlContext = Common.sqlContext
+    val sf = args(0)
+
+    TPCHFiles.cacheLineitem(sc,sqlContext, sf)
 
     // Query with timing
     val query = """
@@ -94,7 +99,7 @@ object TPCHQuery6 {
      |   and l_discount <= 0.07
      |   and l_quantity < 24 
      """.stripMargin
-    Common.timeSqlQuery(query, "tpch/q6")
+    Common.timeSqlQuery(query, s"tpch/q6$sf")
   }
 }
 
@@ -103,9 +108,11 @@ object TPCHQuery3 {
     // Common
     val sc = Common.sc
     val sqlContext = Common.hiveContext
-    TPCHFiles.cacheLineitemHive(sqlContext)
-    TPCHFiles.cacheCustomerHive(sqlContext)
-    TPCHFiles.cacheOrdersHive(sqlContext)
+    val sf = args(0) 
+    
+    TPCHFiles.cacheLineitemHive(sqlContext, sf)
+    TPCHFiles.cacheCustomerHive(sqlContext, sf)
+    TPCHFiles.cacheOrdersHive(sqlContext, sf)
 
     // Query with timing
     val query = """
@@ -126,7 +133,7 @@ object TPCHQuery3 {
       |         o.o_shippriority,
       |         o.o_orderdate
     """.stripMargin
-    Common.timeHiveQuery(query, "tpch/q3")
+    Common.timeHiveQuery(query, s"tpch/q3$sf")
   }
 }
 
@@ -135,12 +142,13 @@ object TPCHQuery11 {
     // Common
     val sc = Common.sc
     val sqlContext = Common.sqlContext
+    val sf = args(0)
     import sqlContext._ 
 
     // Load base tables
-    val ps = TPCHFiles.getPartsupp(sc).cache()
-    val s  = TPCHFiles.getSupplier(sc).cache()
-    val n  = TPCHFiles.getNation(sc).cache()
+    val ps = TPCHFiles.getPartsupp(sc, sf).cache()
+    val s  = TPCHFiles.getSupplier(sc, sf).cache()
+    val n  = TPCHFiles.getNation(sc, sf).cache()
 
     // TODO force cache
 
@@ -167,12 +175,13 @@ object TPCHQuery18 {
     // Common
     val sc = Common.sc
     val sqlContext = Common.sqlContext
+    val sf = args(0)
     import sqlContext._ 
 
     // Load base tables
-    val lineitem : SchemaRDD = TPCHFiles.getLineitem(sc).cache()
-    val orders : SchemaRDD = TPCHFiles.getOrders(sc).cache()
-    val customer : SchemaRDD = TPCHFiles.getCustomer(sc).cache()
+    val lineitem : SchemaRDD = TPCHFiles.getLineitem(sc, sf).cache()
+    val orders : SchemaRDD = TPCHFiles.getOrders(sc, sf).cache()
+    val customer : SchemaRDD = TPCHFiles.getCustomer(sc, sf).cache()
     // TODO force cache
 
     val l_agg : SchemaRDD = lineitem.groupBy('l_orderkey)('l_orderkey as 'la_orderkey, Sum('l_quantity) as 'sum).where('sum > 300)
@@ -195,12 +204,13 @@ object TPCHQuery22 {
     // Common
     val sc = Common.sc
     val sqlContext = Common.sqlContext
+    val sf = args(0)
     import sqlContext._ 
 
     // Load base tables
-    val lineitem : SchemaRDD = TPCHFiles.getLineitem(sc).cache()
-    val orders : SchemaRDD = TPCHFiles.getOrders(sc).cache()
-    val customer : SchemaRDD = TPCHFiles.getCustomer(sc).cache()
+    val lineitem : SchemaRDD = TPCHFiles.getLineitem(sc, sf).cache()
+    val orders : SchemaRDD = TPCHFiles.getOrders(sc, sf).cache()
+    val customer : SchemaRDD = TPCHFiles.getCustomer(sc, sf).cache()
     val r = customer.where('c_phone)((p : String) => codes.contains(p.substring(0,2))).where('c_acctbal > 0.0)
     val r2 = r.aggregate(Average('c_acctbal)) 
     val avg_bal : Double  = r2.collect()(0)(0).asInstanceOf[Double]
