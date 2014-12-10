@@ -121,7 +121,7 @@ object TPCHFiles {
 
   // Hive on Spark
 
-  def cacheLineitemHive(sqlContext: HiveContext, sf: String, sf: String) = {
+  def cacheLineitemHive(sqlContext: HiveContext, sf: String) = {
     val lineitemHivePath = s"hdfs://qp-hm1.damsl.cs.jhu.edu:54310/tpch/$sf/lineitem/"
     val create_query = s"""
     | CREATE EXTERNAL TABLE IF NOT EXISTS lineitem (
