@@ -1,12 +1,24 @@
 #!/bin/bash
-QUERY_PATH=$1
-QUERY_LIST=$2
-NUM_TRIALS=$3
-VSQL="vsql -h localhost -p 49156 -U dbadmin dbadmin"
 
 # Query path points to the directory containing the queries (.sql files)
 # Query list should be a list of queries to run in the 
-#TODO verify usage, take database as parameter, port, etc.
+
+# Be sure to set the env variables:
+# VSQL_HOST 
+# VSQL_PORT
+# VSQL_USER
+
+if [ $# -ne 4 ] 
+then
+  echo "Usage: $0 query_folder query_list db_name num_trials"
+  exit 1
+fi
+
+QUERY_PATH=$1
+QUERY_LIST=$2
+DB=$3
+NUM_TRIALS=$4
+VSQL="vsql $DB"
 
 echo "\timing" > /tmp/timing.txt
 mkdir vertica_results

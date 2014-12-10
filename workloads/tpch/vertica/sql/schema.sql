@@ -1,3 +1,4 @@
+drop table if exists part;
 create table part (
    p_partkey     integer       not null,
    p_name        varchar(55)   not null,
@@ -10,6 +11,7 @@ create table part (
    p_comment     varchar(23)   not null
 );
 
+drop table if exists supplier;
 create table supplier (
    s_suppkey   integer       not null,
    s_name      char(25)      not null,
@@ -20,6 +22,7 @@ create table supplier (
    s_comment   varchar(101)  not null
 );
 
+drop table if exists partsupp;
 create table partsupp (
    ps_partkey    integer       not null,
    ps_suppkey    integer       not null,
@@ -28,6 +31,7 @@ create table partsupp (
    ps_comment    varchar(199)  not null
 );
 
+drop table if exists customer;
 create table customer (
    c_custkey    integer       not null,
    c_name       varchar(25)   not null,
@@ -39,6 +43,7 @@ create table customer (
    c_comment    varchar(117)  not null
 );
 
+drop table if exists orders;
 create table orders (
    o_orderkey      integer       not null,
    o_custkey       integer       not null,
@@ -51,6 +56,7 @@ create table orders (
    o_comment       varchar(79)   not null
 );
 
+drop table if exists lineitem;
 create table lineitem (
    l_orderkey      integer       not null,
    l_partkey       integer       not null,
@@ -70,6 +76,7 @@ create table lineitem (
    l_comment       varchar(44)   not null
 );
 
+drop table if exists nation;
 create table nation (
    n_nationkey integer      not null,
    n_name      char(25)     not null,
@@ -77,6 +84,7 @@ create table nation (
    n_comment   varchar(152) not null
 );
 
+drop table if exists region;
 create table region (
    r_regionkey integer      not null,
    r_name      char(25)     not null,
