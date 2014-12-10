@@ -23,5 +23,3 @@ group by
                                 and s_nationkey = n_nationkey
                                 and n_name = 'GERMANY'
                 )
-order by
-        "value" desc

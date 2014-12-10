@@ -20,5 +20,3 @@ where
         and o_orderdate < date '1995-01-01'
 group by
         n_name
-order by
-        revenue desc
