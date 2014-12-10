@@ -21,8 +21,8 @@ DB=$2
 VSQL="vsql $DB"
 
 $VSQL -f schema.sql
-for tbl in part supplier partsupp customer orders lineitem nation region;
+for tbl in rankings uservisits;
 do
   echo "On table: $tbl" 
-  cd $DIR/$tbl && cat $(ls $DIR/$tbl) | $VSQL -c "COPY $tbl FROM LOCAL stdin DELIMITER '|' DIRECT;";
+  cd $DIR/$tbl && cat $(ls $DIR/$tbl) | $VSQL -c "COPY $tbl FROM LOCAL stdin DELIMITER ',' DIRECT;";
 done
