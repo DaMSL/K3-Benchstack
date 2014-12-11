@@ -150,24 +150,34 @@ object TPCHQuery11 {
     val s  = TPCHFiles.getSupplier(sc, sf).cache()
     val n  = TPCHFiles.getNation(sc, sf).cache()
 
-    // TODO force cache
+    // Force cache
+    println(ps.count())
+    println(s.count())
+    println(n.count()) 
 
-    // JOIN nation, partsupp, supplier and filter nation = GERMANY 
+    val start = System.currentTimeMillis
+
+    // Compute the constant result of the subquery for use in the main query:
+    //   JOIN   nation, partsupp, supplier
+    //   FILTER nation = GERMANY 
+    //   Cache the result for re-use in the main query. 
     val ps_s = ps.join(s).where('ps_suppkey === 's_suppkey)
     val ps_s_n = ps_s.join(n.where('n_name === "GERMANY")).where('s_nationkey === 'n_nationkey).cache()
 
-    // Calculate total sum, forcing the 3 way join into cache
     val total_sum = ps_s_n.aggregate(Sum('ps_supplycost * 'ps_availqty) as 'value)
     val c = total_sum.collect()
     val threshold = c(0)(0).toString.toDouble * .0001
-    println("THRESHOLD:")
-    println(c(0).toString)
-    println(threshold.toString)
 
-    // Use cached join result, perform groupby and filter
-    val result = ps_s_n.groupBy('ps_partkey)( Sum('ps_supplycost * 'ps_availqty) as 'value)
-   
-    result.collect().foreach(println)
+    // Use cached join result to perform groupby and filter
+    val result = ps_s_n.groupBy('ps_partkey)( 'ps_partkey, Sum('ps_supplycost * 'ps_availqty) as 'value).where('value > threshold) 
+  
+    // Force evaluation 
+    val num_results = result.count()
+    val end = System.currentTimeMillis
+    println("Num Results: " + num_results )
+    println("Elapsed: " + (end - start).toString)
+    
+    // TODO save result to HDFS 
   }
 }
 object TPCHQuery18 {
@@ -182,7 +192,12 @@ object TPCHQuery18 {
     val lineitem : SchemaRDD = TPCHFiles.getLineitem(sc, sf).cache()
     val orders : SchemaRDD = TPCHFiles.getOrders(sc, sf).cache()
     val customer : SchemaRDD = TPCHFiles.getCustomer(sc, sf).cache()
-    // TODO force cache
+    // Force cache
+    println(lineitem.count())
+    println(orders.count())
+    println(customer.count())
+
+    val start = System.currentTimeMillis
 
     val l_agg : SchemaRDD = lineitem.groupBy('l_orderkey)('l_orderkey as 'la_orderkey, Sum('l_quantity) as 'sum).where('sum > 300)
 
@@ -192,8 +207,13 @@ object TPCHQuery18 {
     
     val result = join3.groupBy('c_name, 'c_custkey, 'o_orderkey, 'o_orderdate, 'o_totalprice)('c_name, 'c_custkey, 'o_orderkey, 'o_orderdate, 'o_totalprice, Sum('l_quantity))
 
-    result.collect().foreach(println)
+    // Force evaluation
+    val num_results = result.count()
+    val end = System.currentTimeMillis
+    println("Num Results: " + num_results )
+    println("Elapsed: " + (end - start).toString)
 
+    // TODO save result to HDFS
   }
 }
 
@@ -211,15 +231,17 @@ object TPCHQuery22 {
     val lineitem : SchemaRDD = TPCHFiles.getLineitem(sc, sf).cache()
     val orders : SchemaRDD = TPCHFiles.getOrders(sc, sf).cache()
     val customer : SchemaRDD = TPCHFiles.getCustomer(sc, sf).cache()
+
+    // TODO force cache
+
     val r = customer.where('c_phone)((p : String) => codes.contains(p.substring(0,2))).where('c_acctbal > 0.0)
     val r2 = r.aggregate(Average('c_acctbal)) 
     val avg_bal : Double  = r2.collect()(0)(0).asInstanceOf[Double]
     println("====================")
     println(avg_bal)
 
-    val res = customer.where('c_acctbal > avg_bal).join(orders, org.apache.spark.sql.catalyst.plans.LeftOuter, Some('o_custkey === 'c_custkey))
-    //where('o_custkey === null).where('c_acctbal > avg_bal)
-  
+    val res = customer.where('c_acctbal > avg_bal).join(orders, org.apache.spark.sql.catalyst.plans.LeftOuter, Some('o_custkey === 'c_custkey)).filter(r => r.isNullAt(r.length - 1))
+
     res.collect().foreach(println)
 
   }
