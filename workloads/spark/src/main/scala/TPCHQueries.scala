@@ -232,17 +232,29 @@ object TPCHQuery22 {
     val orders : SchemaRDD = TPCHFiles.getOrders(sc, sf).cache()
     val customer : SchemaRDD = TPCHFiles.getCustomer(sc, sf).cache()
 
-    // TODO force cache
+    // force cache
+    println(lineitem.count())
+    println(orders.count())
+    println(customer.count())
 
+    val start = System.currentTimeMillis
+    // Subquery: find average balance
     val r = customer.where('c_phone)((p : String) => codes.contains(p.substring(0,2))).where('c_acctbal > 0.0)
     val r2 = r.aggregate(Average('c_acctbal)) 
     val avg_bal : Double  = r2.collect()(0)(0).asInstanceOf[Double]
-    println("====================")
-    println(avg_bal)
 
-    val res = customer.where('c_acctbal > avg_bal).join(orders, org.apache.spark.sql.catalyst.plans.LeftOuter, Some('o_custkey === 'c_custkey)).filter(r => r.isNullAt(r.length - 1))
+    // WHERE NOT EXISTS: Left-outer join where right == NULL
+    val res = customer.where('c_phone)((p : String) => codes.contains(p.substring(0,2))).where('c_acctbal > avg_bal).join(orders, org.apache.spark.sql.catalyst.plans.LeftOuter, Some('o_custkey === 'c_custkey)).filter(r => r.isNullAt(r.length - 1)).select('c_phone, 'c_acctbal)
 
-    res.collect().foreach(println)
+    // Final groupBy using regular RDD transformations
+    val res2 = res.map(r => ( r.getString(0).substring(0,2), (1, r.getDouble(1)) )).reduceByKey((a,b) => (a._1 + b._1, a._2 + b._2)) 
+
+    val num_results = res2.count()
+    val end = System.currentTimeMillis
+    println("Num Results: " + num_results.toString)
+    println("Elapsed: " + (end - start).toString) 
+
+    // TODO save result to HDFS
 
   }
 }
