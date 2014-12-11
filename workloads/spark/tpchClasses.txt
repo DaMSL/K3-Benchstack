@@ -1,7 +1,7 @@
-AmplabQuery1
-AmplabQuery2
-AmplabQuery3
 TPCHQuery1
 TPCHQuery3
 TPCHQuery5
 TPCHQuery6
+TPCHQuery11
+TPCHQuery18
+TPCHQuery22
