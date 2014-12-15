@@ -5,7 +5,8 @@
         app_name: amplab_q1_final
         binary: /tmp/q1
         numprocs: 16
-        log_enabled: true
+        log_enabled: false
+        result_var: local_q1_results
         k3_variables:
           x: 1000
           master: [192.168.0.40, 40000]
