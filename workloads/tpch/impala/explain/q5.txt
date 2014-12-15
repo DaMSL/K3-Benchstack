@@ -1,0 +1,64 @@
++------------------------------------------------------------------------------------------------------+
+| Explain String                                                                                       |
++------------------------------------------------------------------------------------------------------+
+| Estimated Per-Host Requirements: Memory=10.63GB VCores=6                                             |
+| WARNING: The following tables are missing relevant table and/or column statistics.                   |
+| default.customer, default.lineitem, default.nation, default.orders, default.region, default.supplier |
+|                                                                                                      |
+| 19:EXCHANGE [UNPARTITIONED]                                                                          |
+| |                                                                                                    |
+| 18:AGGREGATE [FINALIZE]                                                                              |
+| |  output: sum:merge(l_extendedprice * (1 - l_discount))                                             |
+| |  group by: n_name                                                                                  |
+| |                                                                                                    |
+| 17:EXCHANGE [HASH(n_name)]                                                                           |
+| |                                                                                                    |
+| 11:AGGREGATE                                                                                         |
+| |  output: sum(l_extendedprice * (1 - l_discount))                                                   |
+| |  group by: n_name                                                                                  |
+| |                                                                                                    |
+| 10:HASH JOIN [INNER JOIN, BROADCAST]                                                                 |
+| |  hash predicates: n_regionkey = r_regionkey                                                        |
+| |                                                                                                    |
+| |--16:EXCHANGE [BROADCAST]                                                                           |
+| |  |                                                                                                 |
+| |  05:SCAN HDFS [default.region]                                                                     |
+| |     partitions=1/1 size=389B                                                                       |
+| |     predicates: r_name = 'ASIA'                                                                    |
+| |                                                                                                    |
+| 09:HASH JOIN [INNER JOIN, BROADCAST]                                                                 |
+| |  hash predicates: s_nationkey = n_nationkey                                                        |
+| |                                                                                                    |
+| |--15:EXCHANGE [BROADCAST]                                                                           |
+| |  |                                                                                                 |
+| |  04:SCAN HDFS [default.nation]                                                                     |
+| |     partitions=1/1 size=2.17KB                                                                     |
+| |                                                                                                    |
+| 08:HASH JOIN [INNER JOIN, BROADCAST]                                                                 |
+| |  hash predicates: l_suppkey = s_suppkey, c_nationkey = s_nationkey                                 |
+| |                                                                                                    |
+| |--14:EXCHANGE [BROADCAST]                                                                           |
+| |  |                                                                                                 |
+| |  03:SCAN HDFS [default.supplier]                                                                   |
+| |     partitions=1/1 size=13.52MB                                                                    |
+| |                                                                                                    |
+| 07:HASH JOIN [INNER JOIN, BROADCAST]                                                                 |
+| |  hash predicates: o_orderkey = l_orderkey                                                          |
+| |                                                                                                    |
+| |--13:EXCHANGE [BROADCAST]                                                                           |
+| |  |                                                                                                 |
+| |  02:SCAN HDFS [default.lineitem]                                                                   |
+| |     partitions=1/1 size=7.24GB                                                                     |
+| |                                                                                                    |
+| 06:HASH JOIN [INNER JOIN, BROADCAST]                                                                 |
+| |  hash predicates: c_custkey = o_custkey                                                            |
+| |                                                                                                    |
+| |--12:EXCHANGE [BROADCAST]                                                                           |
+| |  |                                                                                                 |
+| |  01:SCAN HDFS [default.orders]                                                                     |
+| |     partitions=1/1 size=1.63GB                                                                     |
+| |     predicates: o_orderdate >= '1994-01-01', o_orderdate < '1995-01-01'                            |
+| |                                                                                                    |
+| 00:SCAN HDFS [default.customer]                                                                      |
+|    partitions=1/1 size=233.50MB                                                                      |
++------------------------------------------------------------------------------------------------------+

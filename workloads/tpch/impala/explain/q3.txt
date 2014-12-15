@@ -1,0 +1,41 @@
++------------------------------------------------------------------------------------+
+| Explain String                                                                     |
++------------------------------------------------------------------------------------+
+| Estimated Per-Host Requirements: Memory=4.52GB VCores=3                            |
+| WARNING: The following tables are missing relevant table and/or column statistics. |
+| default.customer, default.lineitem, default.orders                                 |
+|                                                                                    |
+| 10:EXCHANGE [UNPARTITIONED]                                                        |
+| |                                                                                  |
+| 09:AGGREGATE [FINALIZE]                                                            |
+| |  output: sum:merge(l_extendedprice * (1 - l_discount))                           |
+| |  group by: l_orderkey, o_orderdate, o_shippriority                               |
+| |                                                                                  |
+| 08:EXCHANGE [HASH(l_orderkey,o_orderdate,o_shippriority)]                          |
+| |                                                                                  |
+| 05:AGGREGATE                                                                       |
+| |  output: sum(l_extendedprice * (1 - l_discount))                                 |
+| |  group by: l_orderkey, o_orderdate, o_shippriority                               |
+| |                                                                                  |
+| 04:HASH JOIN [INNER JOIN, BROADCAST]                                               |
+| |  hash predicates: o_orderkey = l_orderkey                                        |
+| |                                                                                  |
+| |--07:EXCHANGE [BROADCAST]                                                         |
+| |  |                                                                               |
+| |  02:SCAN HDFS [default.lineitem]                                                 |
+| |     partitions=1/1 size=7.24GB                                                   |
+| |     predicates: l_shipdate > '1995-03-15'                                        |
+| |                                                                                  |
+| 03:HASH JOIN [INNER JOIN, BROADCAST]                                               |
+| |  hash predicates: c_custkey = o_custkey                                          |
+| |                                                                                  |
+| |--06:EXCHANGE [BROADCAST]                                                         |
+| |  |                                                                               |
+| |  01:SCAN HDFS [default.orders]                                                   |
+| |     partitions=1/1 size=1.63GB                                                   |
+| |     predicates: o_orderdate < '1995-03-15'                                       |
+| |                                                                                  |
+| 00:SCAN HDFS [default.customer]                                                    |
+|    partitions=1/1 size=233.50MB                                                    |
+|    predicates: c_mktsegment = 'BUILDING'                                           |
++------------------------------------------------------------------------------------+
