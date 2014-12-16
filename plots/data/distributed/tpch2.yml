@@ -32,7 +32,7 @@ sections:
         times: [25960,27083,29793,30730,30768]
 
       - system: Impala
-        times: [0, 0, 0, 0, 0]
+        times: [6050,5880,6670,5960,5940]
 
   - name: Q11 SF100
     data:
@@ -43,7 +43,7 @@ sections:
         times: [99670,99518,99360,101372,92177]
 
       - system: Impala
-        times: [0, 0, 0, 0, 0]
+        times: [36080,35090,36120,36010,36050]
 
   - name: Q18 SF10
     data:
@@ -51,7 +51,7 @@ sections:
         times: [8543,8545,8336,9098,8085]
       
       - system: Spark
-        times: [0, 0, 0, 0, 0]
+        times: [57252,38284,46360,35104,49013]
 
       - system: Impala
         times: [32520,32020,33520,33520,33230]
