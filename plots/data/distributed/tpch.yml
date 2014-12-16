@@ -40,8 +40,7 @@ sections:
         times: [0, 0, 0, 0, 0]
       
       - system: Spark
-        # TODO this does not look correct
-        times: [18756,18132, 18673, 18338, 18910]
+        times: [73821,78317,94980,75375,88668]
 
       - system: Impala
         times: [333750, 327620, 331570, 329600, 331560]
