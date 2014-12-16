@@ -1,0 +1,69 @@
+---
+title: TPC-H Benchmark. Part 2.
+sections:
+  - name: Q6 SF10
+    data:
+      - system: k3
+        times: [848,868,849,890,851]
+      
+      - system: Spark
+        times: [3264,2772,3293,3132,2949]
+
+      - system: Impala
+        times: [5180,4990,5030,5090,5100]
+
+  - name: Q6 SF100
+    data:
+      - system: k3
+        times: [0, 0, 0, 0, 0]
+
+      - system: Spark
+        times: [8552,8843,8817,9563,7994]
+
+      - system: Impala
+        times: [83730,84690,85690,83700,84700]
+
+  - name: Q11 SF10
+    data:
+      - system: k3
+        times: [20239,20258,19709,20270,18941]
+      
+      - system: Spark
+        times: [25960,27083,29793,30730,30768]
+
+      - system: Impala
+        times: [0, 0, 0, 0, 0]
+
+  - name: Q11 SF100
+    data:
+      - system: k3
+        times: [0, 0, 0, 0, 0]
+
+      - system: Spark
+        times: [99670,99518,99360,101372,92177]
+
+      - system: Impala
+        times: [0, 0, 0, 0, 0]
+
+  - name: Q18 SF10
+    data:
+      - system: k3
+        times: [8543,8545,8336,9098,8085]
+      
+      - system: Spark
+        times: [0, 0, 0, 0, 0]
+
+      - system: Impala
+        times: [32520,32020,33520,33520,33230]
+
+
+  - name: Q18 SF100
+    data:
+      - system: k3
+        times: [0, 0, 0, 0, 0]
+
+      - system: Spark
+        times: [0, 0, 0, 0, 0]
+
+      - system: Impala
+        times: [445520,441310,449280,438890,437090]

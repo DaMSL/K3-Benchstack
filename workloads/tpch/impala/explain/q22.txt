@@ -1,0 +1,40 @@
++---------------------------------------------------------------------------------------------------------+
+| Explain String                                                                                          |
++---------------------------------------------------------------------------------------------------------+
+| Estimated Per-Host Requirements: Memory=186.00MB VCores=1                                               |
+| WARNING: The following tables are missing relevant table and/or column statistics.                      |
+| default.customer, default.orders                                                                        |
+|                                                                                                         |
+| 06:AGGREGATE [FINALIZE]                                                                                 |
+| |  output: count(*), sum(c_acctbal)                                                                     |
+| |  group by: substring(c_phone, 1, 2)                                                                   |
+| |                                                                                                       |
+| 05:HASH JOIN [LEFT ANTI JOIN, BROADCAST]                                                                |
+| |  hash predicates: c_custkey = o_custkey                                                               |
+| |                                                                                                       |
+| |--10:EXCHANGE [UNPARTITIONED]                                                                          |
+| |  |                                                                                                    |
+| |  03:SCAN HDFS [default.orders]                                                                        |
+| |     partitions=1/1 size=1.63GB                                                                        |
+| |                                                                                                       |
+| 04:CROSS JOIN [BROADCAST]                                                                               |
+| |  predicates: c_acctbal > avg(c_acctbal)                                                               |
+| |                                                                                                       |
+| |--09:EXCHANGE [UNPARTITIONED]                                                                          |
+| |  |                                                                                                    |
+| |  00:SCAN HDFS [default.customer]                                                                      |
+| |     partitions=1/1 size=233.50MB                                                                      |
+| |     predicates: substring(c_phone, 1, 2) IN ('13', '31', '23', '29', '30', '18', '17')                |
+| |                                                                                                       |
+| 08:AGGREGATE [FINALIZE]                                                                                 |
+| |  output: avg:merge(c_acctbal)                                                                         |
+| |                                                                                                       |
+| 07:EXCHANGE [UNPARTITIONED]                                                                             |
+| |                                                                                                       |
+| 02:AGGREGATE                                                                                            |
+| |  output: avg(c_acctbal)                                                                               |
+| |                                                                                                       |
+| 01:SCAN HDFS [default.customer]                                                                         |
+|    partitions=1/1 size=233.50MB                                                                         |
+|    predicates: c_acctbal > 0.00, substring(c_phone, 1, 2) IN ('13', '31', '23', '29', '30', '18', '17') |
++---------------------------------------------------------------------------------------------------------+
