@@ -10,17 +10,18 @@
 
 if [ $# -ne 4 ] 
 then
-  echo "Usage: $0 query_folder query_list db_name num_trials"
+  echo "Usage: $0 query_folder query_list schema_name num_trials"
   exit 1
 fi
 
 QUERY_PATH=$1
 QUERY_LIST=$2
-DB=$3
+SCHEMA=$3
 NUM_TRIALS=$4
-VSQL="vsql $DB"
+VSQL="vsql dbadmin"
 
 echo "\timing" > /tmp/timing.txt
+echo "set SEARCH_PATH=$SCHEMA;" > /tmp/set.sql
 mkdir vertica_results
 rm vertica_results/*
 
@@ -29,8 +30,10 @@ do
   echo "On query: $q"
   for i in $(seq 1 $NUM_TRIALS);
   do
-    cat /tmp/timing.txt $QUERY_PATH/$q | $VSQL | grep Time >> vertica_results/$q\_result.txt
+    echo "  Trial $i"
+    cat  /tmp/set.sql /tmp/timing.txt $QUERY_PATH/$q | $VSQL | grep Time >> vertica_results/$q\_result.txt
   done;
 done
 
+rm /tmp/set.sql
 rm /tmp/timing.txt

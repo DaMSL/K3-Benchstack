@@ -12,17 +12,22 @@
 
 if [ $# -ne 2 ] 
 then
-  echo "Usage: $0 data_dir db_name"
+  echo "Usage: $0 data_dir schema_name"
   exit 1
 fi
 
 DIR=$1
-DB=$2
-VSQL="vsql $DB"
+SCHEMA=$2
+VSQL="vsql dbadmin"
 
-$VSQL -f schema.sql
+echo "set SEARCH_PATH=$SCHEMA;" > /tmp/set.sql
+$VSQL -c "CREATE SCHEMA IF NOT EXISTS $SCHEMA"
+cat /tmp/set.sql schema.sql | $VSQL
+
 for tbl in part supplier partsupp customer orders lineitem nation region;
 do
   echo "On table: $tbl" 
-  cd $DIR/$tbl && cat $(ls $DIR/$tbl) | $VSQL -c "COPY $tbl FROM LOCAL stdin DELIMITER '|' DIRECT;";
+  cd $DIR/$tbl && cat /tmp/set.sql $(ls $DIR/$tbl) | $VSQL -c "SET SEARCH_PATH=$SCHEMA; COPY $tbl FROM LOCAL stdin DELIMITER '|' DIRECT;";
 done
+
+rm /tmp/set.sql
