@@ -7,7 +7,7 @@ sections:
         times: [2405,2367,2381,2479,2359]
 
       - system: Spark
-        times: [0, 0, 0, 0, 0]
+        times: [31410,17694,28973,22298,24330]
 
       - system: Impala
         times: [5330,5430,5370,5440,5310]

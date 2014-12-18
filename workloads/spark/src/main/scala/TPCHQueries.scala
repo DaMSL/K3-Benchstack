@@ -200,11 +200,10 @@ object TPCHQuery18 {
     val start = System.currentTimeMillis
 
     val l_agg : SchemaRDD = lineitem.groupBy('l_orderkey)('l_orderkey as 'la_orderkey, Sum('l_quantity) as 'sum).where('sum > 300)
+    val join1 = orders.join(customer).where('o_custkey === 'c_custkey)
+    val join2 = lineitem.join(join1).where('l_orderkey === 'o_orderkey)
+    val join3 = l_agg.join(join2).where('la_orderkey === 'o_orderkey)
 
-    val orders2 = orders.join(l_agg).where('la_orderkey === 'o_orderkey)
-    val join2 = orders2.join(customer).where('o_custkey === 'c_custkey)
-    val join3 = join2.join(lineitem).where('o_orderkey === 'l_orderkey)
-    
     val result = join3.groupBy('c_name, 'c_custkey, 'o_orderkey, 'o_orderdate, 'o_totalprice)('c_name, 'c_custkey, 'o_orderkey, 'o_orderdate, 'o_totalprice, Sum('l_quantity))
 
     // Force evaluation
