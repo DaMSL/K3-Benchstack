@@ -11,11 +11,11 @@
 - hosts: master
   tasks:
     - name: Run the spark Master class inside of a Docker container
-      shell: docker run --net=host --name="sparkMaster" -d damsl/spark /software/spark-1.1.0/bin/spark-class org.apache.spark.deploy.master.Master --ip {{groups['master'][0]}}
+      shell: docker run -v /tmp --net=host --name="sparkMaster" -d damsl/spark /software/spark-1.1.0/bin/spark-class org.apache.spark.deploy.master.Master --ip {{groups['master'][0]}}
 
 - hosts: workers
   tasks:
     - name: Run the spark Worker class inside of a Docker container
-      shell: docker run -d --net=host --name="sparkWorker" damsl/spark /software/spark-1.1.0/bin/spark-class org.apache.spark.deploy.worker.Worker spark://{{groups['master'][0]}}:7077
+      shell: docker run -v /tmp -d --net=host --name="sparkWorker" damsl/spark /software/spark-1.1.0/bin/spark-class org.apache.spark.deploy.worker.Worker spark://{{groups['master'][0]}}:7077
 
 
