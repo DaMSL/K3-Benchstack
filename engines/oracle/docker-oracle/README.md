@@ -1,8 +1,7 @@
-# Instant Oracle database server
+# Instant Oracle datase server
 
-=== Yanif
-Cloned from https://github.com/wscherphof/oracle-12c
-Revised base image as unbc/oraclelinux6  https://registry.hub.docker.com/u/unbc/oraclelinux6/
+## Updated by Ben (Dec '14)
+The build is updated to run col-store in-memory from within a docker container. Container requires privileged access to the host and it needs to set shared memory for both the System Global Area (SGA) and the Program Global Area (PGA) when creating the database. I have included a "prep" script (prep.sh) which takes a single argument to set up the install/create scripts with the requested shared memory. Thus, before running anything run './prep.sh 100' to build a 100 GB in-memory oracle instance. Other annotations are updated, just follow the build instructions down below.....
 
 A [Docker](https://www.docker.com/) [image](https://registry.hub.docker.com/u/wscherphof/oracle-12c/) with [Oracle Database 12c Enterprise Edition Release 12.1.0.2.0](http://www.oracle.com/technetwork/database/enterprise-edition/overview/index.html) running in [Oracle Linux 7](http://www.oracle.com/us/technologies/linux/overview/index.html)
 - Default ORCL database on port 1521
@@ -10,11 +9,12 @@ A [Docker](https://www.docker.com/) [image](https://registry.hub.docker.com/u/ws
 ## Install
 1. [Install Docker](https://docs.docker.com/installation/#installation)
 1. `$ docker pull wscherphof/oracle-12c`
+2. That worked once, but the image was removed by Docker Support on Oracle's request, so you'll need to [build](https://github.com/wscherphof/oracle-12c#build) it yourself
 
 ## Run
 Create and run a container named orcl:
 ```
-$ docker run --privileged -dP --name orcl wscherphof/oracle-12c
+$ docker run --privileged -dP -p 11521:1521 --name orcl damsl/oracle-12c
 989f1b41b1f00c53576ab85e773b60f2458a75c108c12d4ac3d70be4e801b563
 ```
 Yes, alas, this has to run `privileged` in order to gain permission for the `mount` statement in `/tmp/start` that ups the amount of shared memory, which has a hard value of 64M in Docker; see this [GitHub issue](https://github.com/docker/docker/pull/4981)
@@ -93,6 +93,7 @@ Fixed Size		    2932632 bytes
 Variable Size		  721420392 bytes
 Database Buffers	  343932928 bytes
 Redo Buffers		    5455872 bytes
+In-Memory Area       1.7180E+10 bytes    <<<--- (UPDATE: for in-memory, this should be in logs)
 Database mounted.
 Database opened.
 Disconnected from Oracle Database 12c Enterprise Edition Release 12.1.0.2.0 - 64bit Production
@@ -126,6 +127,9 @@ There's no ssh daemon or similar configured in the image. If you need a command 
 
 ## Build
 Should you want to modify & build your own image:
+
+#### Step 0 (Updated pre-install)
+1) $ prep.sh {mem_size}  (mem_size is in GB)
 
 #### Step 1
 1) Download `linuxamd64_12102_database_1of2.zip` & `linuxamd64_12102_database_2of2.zip` from [Oracle Tech Net](http://www.oracle.com/technetwork/database/enterprise-edition/downloads/database12c-linux-download-2240591.html)
@@ -195,6 +199,7 @@ Fixed Size		    2932632 bytes
 Variable Size		  721420392 bytes
 Database Buffers	  343932928 bytes
 Redo Buffers		    5455872 bytes
+In-Memory Area           1.7180E+10 bytes  <<--UPDATE: Again, ensure this line is here
 
 Database created.
 
