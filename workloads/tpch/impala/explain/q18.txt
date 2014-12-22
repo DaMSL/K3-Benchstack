@@ -1,0 +1,57 @@
++------------------------------------------------------------------------------------+
+| Explain String                                                                     |
++------------------------------------------------------------------------------------+
+| Estimated Per-Host Requirements: Memory=6.64GB VCores=4                            |
+| WARNING: The following tables are missing relevant table and/or column statistics. |
+| default.customer, default.lineitem, default.orders                                 |
+|                                                                                    |
+| 16:EXCHANGE [UNPARTITIONED]                                                        |
+| |                                                                                  |
+| 15:AGGREGATE [FINALIZE]                                                            |
+| |  output: sum:merge(l_quantity)                                                   |
+| |  group by: c_name, c_custkey, o_orderkey, o_orderdate, o_totalprice              |
+| |                                                                                  |
+| 14:EXCHANGE [HASH(c_name,c_custkey,o_orderkey,o_orderdate,o_totalprice)]           |
+| |                                                                                  |
+| 08:AGGREGATE                                                                       |
+| |  output: sum(l_quantity)                                                         |
+| |  group by: c_name, c_custkey, o_orderkey, o_orderdate, o_totalprice              |
+| |                                                                                  |
+| 07:HASH JOIN [LEFT SEMI JOIN, BROADCAST]                                           |
+| |  hash predicates: o_orderkey = l_orderkey                                        |
+| |                                                                                  |
+| |--13:EXCHANGE [BROADCAST]                                                         |
+| |  |                                                                               |
+| |  12:AGGREGATE [FINALIZE]                                                         |
+| |  |  output: sum:merge(l_quantity)                                                |
+| |  |  group by: l_orderkey                                                         |
+| |  |  having: sum(l_quantity) > 300                                                |
+| |  |                                                                               |
+| |  11:EXCHANGE [HASH(l_orderkey)]                                                  |
+| |  |                                                                               |
+| |  04:AGGREGATE                                                                    |
+| |  |  output: sum(l_quantity)                                                      |
+| |  |  group by: l_orderkey                                                         |
+| |  |                                                                               |
+| |  03:SCAN HDFS [default.lineitem]                                                 |
+| |     partitions=1/1 size=7.24GB                                                   |
+| |                                                                                  |
+| 06:HASH JOIN [INNER JOIN, BROADCAST]                                               |
+| |  hash predicates: o_orderkey = l_orderkey                                        |
+| |                                                                                  |
+| |--10:EXCHANGE [BROADCAST]                                                         |
+| |  |                                                                               |
+| |  02:SCAN HDFS [default.lineitem]                                                 |
+| |     partitions=1/1 size=7.24GB                                                   |
+| |                                                                                  |
+| 05:HASH JOIN [INNER JOIN, BROADCAST]                                               |
+| |  hash predicates: c_custkey = o_custkey                                          |
+| |                                                                                  |
+| |--09:EXCHANGE [BROADCAST]                                                         |
+| |  |                                                                               |
+| |  01:SCAN HDFS [default.orders]                                                   |
+| |     partitions=1/1 size=1.63GB                                                   |
+| |                                                                                  |
+| 00:SCAN HDFS [default.customer]                                                    |
+|    partitions=1/1 size=233.50MB                                                    |
++------------------------------------------------------------------------------------+

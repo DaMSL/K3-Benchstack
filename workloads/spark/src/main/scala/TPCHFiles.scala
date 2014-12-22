@@ -74,38 +74,38 @@ case class Order (
 
 object TPCHFiles {
   def getLineitem(sc: SparkContext, sf: String) = {
-    val lineitemPath = s"hdfs://qp-hm1.damsl.cs.jhu.edu:54310/tpch/$sf/lineitem/lineitem"
+    val lineitemPath = s"hdfs://qp-hm1.damsl.cs.jhu.edu:54310/tpch/$sf/lineitem/"
     val csv = sc.textFile(lineitemPath).map(_.split("\\|"))
     csv.map(r => Lineitem(r(0).toInt,r(1).toInt,r(2).toInt, r(3).toInt, r(4).toDouble, r(5).toDouble, r(6).toDouble, r(7).toDouble, r(8), r(9), r(10), r(11), r(12), r(13), r(14), r(15)))
 
   }
   
   def getPartsupp(sc: SparkContext, sf: String) = {
-    val partsuppPath = s"hdfs://qp-hm1.damsl.cs.jhu.edu:54310/tpch/$sf/partsupp/partsupp"
+    val partsuppPath = s"hdfs://qp-hm1.damsl.cs.jhu.edu:54310/tpch/$sf/partsupp/"
     val csv = sc.textFile(partsuppPath).map(_.split("\\|"))
     csv.map(r => Partsupp(r(0).toInt,r(1).toInt,r(2).toInt, r(3).toDouble, r(4)))
   }
   
   def getNation(sc: SparkContext, sf: String) = {
-    val nationPath = s"hdfs://qp-hm1.damsl.cs.jhu.edu:54310/tpch/$sf/nation/nation"
+    val nationPath = s"hdfs://qp-hm1.damsl.cs.jhu.edu:54310/tpch/$sf/nation/"
     val csv = sc.textFile(nationPath).map(_.split("\\|"))
     csv.map(r => Nation(r(0).toInt,r(1),r(2).toInt, r(3)))
   }
   
   def getSupplier(sc: SparkContext, sf: String) = {
-    val supplierPath = s"hdfs://qp-hm1.damsl.cs.jhu.edu:54310/tpch/$sf/supplier/supplier"
+    val supplierPath = s"hdfs://qp-hm1.damsl.cs.jhu.edu:54310/tpch/$sf/supplier/"
     val csv = sc.textFile(supplierPath).map(_.split("\\|"))
     csv.map(r => Supplier(r(0).toInt,r(1),r(2), r(3).toInt,r(4), r(5).toDouble, r(6) ))
   }
   
   def getCustomer(sc: SparkContext, sf: String) = {
-    val customerPath = s"hdfs://qp-hm1.damsl.cs.jhu.edu:54310/tpch/$sf/customer/customer"
+    val customerPath = s"hdfs://qp-hm1.damsl.cs.jhu.edu:54310/tpch/$sf/customer/"
     val csv = sc.textFile(customerPath).map(_.split("\\|"))
     csv.map(r => Customer(r(0).toInt,r(1),r(2), r(3).toInt,r(4), r(5).toDouble, r(6), r(7) ))
   }
   
   def getOrders(sc: SparkContext, sf: String) = {
-    val ordersPath = s"hdfs://qp-hm1.damsl.cs.jhu.edu:54310/tpch/$sf/orders/orders"
+    val ordersPath = s"hdfs://qp-hm1.damsl.cs.jhu.edu:54310/tpch/$sf/orders/"
     val csv = sc.textFile(ordersPath).map(_.split("\\|"))
     csv.map(r => Order(r(0).toInt,r(1).toInt ,r(2), r(3).toDouble,r(4), r(5), r(6), r(7).toInt, r(8) ))
   }
@@ -123,8 +123,9 @@ object TPCHFiles {
 
   def cacheLineitemHive(sqlContext: HiveContext, sf: String) = {
     val lineitemHivePath = s"hdfs://qp-hm1.damsl.cs.jhu.edu:54310/tpch/$sf/lineitem/"
+    val drop_query = "DROP TABLE IF EXISTS lineitem";
     val create_query = s"""
-    | CREATE EXTERNAL TABLE IF NOT EXISTS lineitem (
+    | CREATE EXTERNAL TABLE lineitem (
     |   l_orderkey Int,
     |   l_partkey Int,
     |   l_suppkey Int,
@@ -147,6 +148,7 @@ object TPCHFiles {
     | LOCATION '$lineitemHivePath'
       """.stripMargin
   
+    sqlContext.sql(drop_query)
     sqlContext.sql(create_query)
     sqlContext.cacheTable("lineitem")
     val r1 = sqlContext.sql("SELECT COUNT(*) from lineitem").collect()
@@ -155,6 +157,7 @@ object TPCHFiles {
 
   def cacheOrdersHive(sqlContext: HiveContext, sf: String) = {
     val ordersHivePath = s"hdfs://qp-hm1.damsl.cs.jhu.edu:54310/tpch/$sf/orders/"
+    val drop_query = "DROP TABLE IF EXISTS orders"
     val create_query = s"""
     | CREATE EXTERNAL TABLE IF NOT EXISTS orders (
     | o_orderkey Int,
@@ -172,6 +175,7 @@ object TPCHFiles {
     | LOCATION '$ordersHivePath'
       """.stripMargin
   
+    sqlContext.sql(drop_query)
     sqlContext.sql(create_query)
     sqlContext.cacheTable("orders")
     val r1 = sqlContext.sql("SELECT COUNT(*) from orders").collect()
@@ -180,6 +184,7 @@ object TPCHFiles {
   
   def cacheCustomerHive(sqlContext: HiveContext, sf: String) = {
     val customerHivePath = s"hdfs://qp-hm1.damsl.cs.jhu.edu:54310/tpch/$sf/customer/"
+    val drop_query = "drop table if exists customer"
     val create_query = s"""
     | create external table if not exists customer (
     |   c_custkey int,
@@ -196,6 +201,7 @@ object TPCHFiles {
     | location '$customerHivePath'
     """.stripMargin
   
+    sqlContext.sql(drop_query)
     sqlContext.sql(create_query)
     sqlContext.cacheTable("customer")
     val r1 = sqlContext.sql("SELECT COUNT(*) from customer").collect()
@@ -204,6 +210,7 @@ object TPCHFiles {
 
   def cacheSupplierHive(sqlContext: HiveContext, sf: String) = {
     val supplierHivePath = s"hdfs://qp-hm1.damsl.cs.jhu.edu:54310/tpch/$sf/supplier/"
+    val drop_query = "drop table if exists supplier"
     val create_query = s"""
     | create external table if not exists supplier (
     |   s_suppkey int,
@@ -219,6 +226,7 @@ object TPCHFiles {
     | location '$supplierHivePath'
     """.stripMargin
   
+    sqlContext.sql(drop_query)
     sqlContext.sql(create_query)
     sqlContext.cacheTable("supplier")
     val r1 = sqlContext.sql("SELECT COUNT(*) from supplier").collect()
@@ -227,6 +235,7 @@ object TPCHFiles {
 
   def cacheRegionHive(sqlContext: HiveContext, sf: String) = {
     val regionHivePath = s"hdfs://qp-hm1.damsl.cs.jhu.edu:54310/tpch/$sf/region/"
+    val drop_query = "drop table if exists region"
     val create_query = s"""
     | create external table if not exists region (
     |   r_regionkey int,
@@ -238,6 +247,7 @@ object TPCHFiles {
     | location '$regionHivePath'
     """.stripMargin
   
+    sqlContext.sql(drop_query)
     sqlContext.sql(create_query)
     sqlContext.cacheTable("region")
     val r1 = sqlContext.sql("SELECT COUNT(*) from region").collect()
@@ -246,6 +256,7 @@ object TPCHFiles {
   
   def cacheNationHive(sqlContext: HiveContext, sf: String) = {
     val nationHivePath = s"hdfs://qp-hm1.damsl.cs.jhu.edu:54310/tpch/$sf/nation/"
+    val drop_query = "drop table if exists nation"
     val create_query = s"""
     | create external table if not exists nation (
     |   n_nationkey int,
@@ -258,6 +269,7 @@ object TPCHFiles {
     | location '$nationHivePath'
     """.stripMargin
   
+    sqlContext.sql(drop_query)
     sqlContext.sql(create_query)
     sqlContext.cacheTable("nation")
     val r1 = sqlContext.sql("SELECT COUNT(*) from nation").collect()
@@ -266,6 +278,7 @@ object TPCHFiles {
   
   def cachePartsuppHive(sqlContext: HiveContext, sf: String) = {
     val partsuppHivePath = s"hdfs://qp-hm1.damsl.cs.jhu.edu:54310/tpch/$sf/partsupp/"
+    val drop_query = "drop table if exists partsupp"
     val create_query = s"""
     | create external table if not exists partsupp (
     |   n_partsuppkey int,
@@ -278,6 +291,7 @@ object TPCHFiles {
     | location '$partsuppHivePath'
     """.stripMargin
   
+    sqlContext.sql(drop_query)
     sqlContext.sql(create_query)
     sqlContext.cacheTable("partsupp")
     val r1 = sqlContext.sql("SELECT COUNT(*) from partsupp").collect()

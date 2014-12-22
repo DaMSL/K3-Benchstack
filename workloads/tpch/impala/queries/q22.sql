@@ -40,4 +40,4 @@ AS
                           )
           ) as custsale
   group by
-          cntrycode
+          cntrycode;

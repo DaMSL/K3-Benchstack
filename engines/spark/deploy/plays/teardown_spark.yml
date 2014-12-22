@@ -2,8 +2,10 @@
   tasks: 
     - name: Kill and Remove the master container
       shell: docker rm -f sparkMaster
+      ignore_errors: yes
 
 - hosts: workers
   tasks:
     - name: Kill and Remove the datanode containers
       shell: docker rm -f sparkWorker 
+      ignore_errors: yes

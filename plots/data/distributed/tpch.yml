@@ -1,0 +1,70 @@
+---
+title: TPC-H Benchmark. Part 1.
+sections:
+  - name: Q1 SF10
+    data:
+      - system: k3
+        times: [2908,2868,2898,2883,2890]
+
+      - system: Spark
+        times: [7354, 6562,6451,7261,7195]
+
+      - system: Impala
+        times: [5470, 5530,5450,5510,5550]
+  
+  - name: Q1 SF100
+    data:
+      - system: k3
+        times: [0, 0, 0, 0, 0]
+      
+      - system: Spark
+        times: [22100,24598,21643, 21487, 21533]
+
+      - system: Impala
+        times: [93000,92980,94000,93010,93010]
+  
+  - name: Q3 SF10
+    data:
+      - system: k3
+        times: [11082,5268,6311,7220,7399]
+
+      - system: Spark
+        times: [20280, 19612, 18600, 19523, 18611]
+
+      - system: Impala
+        times: [ 18530,17950,18480,17970,17460]
+  
+  - name: Q3 SF100
+    data:
+      - system: k3
+        times: [0, 0, 0, 0, 0]
+      
+      - system: Spark
+        times: [73821,78317,94980,75375,88668]
+
+      - system: Impala
+        times: [333750, 327620, 331570, 329600, 331560]
+  
+  - name: Q5 SF10
+    data:
+      - system: k3
+        times: [13420,13987,13860,13653,13882]
+
+      - system: Spark
+        times: [23915,21269,22662,20498,23419]
+
+      - system: Impala
+        times: [25010,26000,26050,26010,26070] 
+  
+  - name: Q5 SF100
+    data:
+      - system: k3
+        times: [0, 0, 0, 0, 0]
+      
+      - system: Spark
+        #TODO: again, does not look correct
+        times: [21922,22654,23605,26894,20736]
+
+      - system: Impala
+        times: [521630,426990,421230,446650,416830]
+

@@ -1,0 +1,35 @@
+---
+title: Amplab Big Data Benchmark 
+sections:
+  - name: Q1
+    data:
+      - system: k3
+        times: [66, 70, 71, 66, 70]
+      
+      - system: Spark
+        times: [1644, 1696, 1578, 1779, 1487]
+
+      - system: Impala
+        times: [7050, 6550, 6550, 6680, 6690]
+  
+  - name: Q2
+    data:
+      - system: k3
+        times: [13498, 13420, 13520, 13498, 13420]
+      
+      - system: Spark
+        times: [65380, 63748, 66755, 66084, 64042]
+
+      - system: Impala
+        times: [132850, 132890, 134920, 133900, 131940]
+
+  - name: Q3
+    data:
+      - system: k3
+        times: [6393, 6389, 6364, 6393, 6389]
+      
+      - system: Spark
+        times: [67008, 55437, 42159, 41334, 54029]
+
+      - system: Impala
+        times: [142940,143950,142040, 141930, 143300]

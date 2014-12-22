@@ -3,5 +3,3 @@ TPCHQuery3
 TPCHQuery5
 TPCHQuery6
 TPCHQuery11
-TPCHQuery18
-TPCHQuery22

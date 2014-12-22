@@ -41,6 +41,10 @@ do
   for i in $(seq 1 $4);
   do
     echo "  Trial $i"
-    impala-shell -d $SF -i qp-hm1.damsl.cs.jhu.edu -f $QUERY_DIR/$q 2>&1 >/dev/null | grep 'Fetched' >> impala_results/$q\_$SF\_result;
+    #impala-shell -d $SF -i qp-hm1.damsl.cs.jhu.edu -f $QUERY_DIR/$q 2>&1 >/dev/null | grep 'Fetched' >> impala_results/$q\_$SF\_result;
+    cat $QUERY_DIR/$q > /tmp/query.sql
+    echo "summary; profile;" >> /tmp/query.sql 
+    impala-shell -d $SF -i qp-hm1.damsl.cs.jhu.edu -f /tmp/query.sql >> impala_results/$q\_$SF\_profile;
+    rm /tmp/query.sql
   done;
 done
