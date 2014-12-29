@@ -31,7 +31,7 @@ do
   for i in $(seq 1 $NUM_TRIALS);
   do
     echo "  Trial $i"
-    cat  /tmp/set.sql /tmp/timing.txt $QUERY_PATH/$q | $VSQL | grep Time >> vertica_results/$q\_result.txt
+    cat  /tmp/set.sql /tmp/timing.txt $QUERY_PATH/$q | $VSQL | grep Time >> vertica_results/$q
   done;
 done
 
