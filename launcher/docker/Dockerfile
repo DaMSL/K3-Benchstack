@@ -9,7 +9,7 @@ RUN wget http://archive.cloudera.com/cdh5/one-click-install/trusty/amd64/cdh5-re
 
 RUN dpkg -i cdh5-repository_1.0_all.deb
 
-RUN apt-get update && apt-get install -y git vim wget python postgresql-client-9.3 python-psycopg2 default-jdk impala-shell
+RUN apt-get update && apt-get install -y git vim wget python postgresql-client-9.3 python-psycopg2 default-jdk impala-shell python-matplotlib xvfb
 
 RUN git clone https://github.com/damsl/k3-benchstack
 
