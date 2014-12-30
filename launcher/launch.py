@@ -1,17 +1,59 @@
 import subprocess
 import os
 import datetime
+import sys
+import psycopg2
 
 class Trial:
   def __init__(self, system, query, dataset, elapsed, trial, ts):
     self.system = system
     self.query = query
     self.dataset = dataset
-    self.elapsed = elapsed
     self.trial = trial
+    self.elapsed = elapsed
     self.ts = ts
 
-def runVertica(args):
+  def tup(self):
+    return (self.system, self.query, self.dataset, self.trial, self.elapsed, self.ts) 
+
+def createTables(conn):
+  with open("sql/create_tables.sql","r") as f:
+    try:
+      query = f.read()
+      cur = conn.cursor()
+      cur.execute(query)
+      conn.commit()
+    except Exception as inst:
+      print("Failed to create tables:" )
+      print(inst)
+      sys.exit(1)
+
+def dropTables(conn):
+  with open("sql/drop_tables.sql","r") as f:
+    try:
+      query = f.read()
+      cur = conn.cursor()
+      cur.execute(query)
+      conn.commit()
+    except Exception as inst:
+      print("Failed to drop tables:" )
+      print(inst)
+      sys.exit(1)
+
+def insertTrial(conn, trial):
+  try:
+    query = "INSERT INTO trials VALUES (%s, %s, %s, %s, %s, %s)"
+    cur = conn.cursor()
+    cur.execute(query, trial.tup())
+    conn.commit()
+  except Exception as inst:
+      print("Failed to insert Trial: ")
+      print(inst)
+      sys.exit(1)
+
+
+
+def runVertica(args, conn):
   args = {}
   args['query_sql_dir'] = "../workloads/tpch/common/sql/queries"
   args['query_list_file'] = "../workloads/tpch/vertica/queries.txt"
@@ -36,14 +78,15 @@ def runVertica(args):
       i = 1
       for line in f.readlines():
         elapsed = line.split(" ")[-2]
-        print(elapsed)
         trial = Trial("Vertica", q, args['schema'], elapsed, i, ts)
-        print(trial)
+        insertTrial(conn, trial)
         trials.append(trial)
         i = i + 1
 
   return trials 
 
 if __name__ == "__main__":
-  runVertica({})
-  
+  conn = psycopg2.connect("dbname=postgres user=postgres host=127.0.0.1")
+  dropTables(conn)
+  createTables(conn)
+  runVertica({}, conn)
