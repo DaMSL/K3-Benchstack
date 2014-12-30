@@ -5,7 +5,7 @@ ENV LANG en_US.UTF-8
 ENV LANGUAGE en_US:en
 ENV LC_ALL en_US.UTF-8
 
-RUN apt-get update && apt-get install -y git vim wget python postgresql-client-9.3 python-psycopg2 default-jdk
+RUN apt-get update && apt-get install -y git vim wget python postgresql-client-9.3 python-psycopg2 default-jdk python-matplotlib xvfb
 RUN wget http://archive.cloudera.com/cdh5/one-click-install/trusty/amd64/cdh5-repository_1.0_all.deb
 RUN dpkg -i cdh5-repository_1.0_all.deb
 RUN apt-get update && apt-get install -y impala-shell
