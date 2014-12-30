@@ -19,7 +19,7 @@ def getLatestPoints(conn):
 
 def plotLatest(conn):
   points = getLatestPoints(conn)
-  plotData(points, "latest.png")
+  plotData(points, "web/latest.png")
 
 # Group Points by system (assume same set of queries, in same order)
 def groupPoints(points):
