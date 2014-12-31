@@ -53,7 +53,7 @@ def insertTrial(conn, trial):
       sys.exit(1)
 
 def runImpala(args):
-  args = {}
+  args =jjjj
   args['query_sql_dir'] = "../workloads/tpch/impala/queries/"
   args['schema_sql_dir'] = "../workloads/tpch/impala/schema/"
   args['schema'] = "tpch10g"
