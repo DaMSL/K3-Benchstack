@@ -11,7 +11,7 @@ SF=$2
 QUERY_FILE=$3
 
 # Create a database for this SF
-impala-shell -i $IMPALA_HOST -q "CREATE DATABASE $SF"
+impala-shell -i $IMPALA_HOST -q "CREATE DATABASE $SF" 2>&1 >/dev/null
 
 # Load the schema
 for f in $(ls $SCHEMA_DIR);
