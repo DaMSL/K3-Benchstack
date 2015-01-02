@@ -28,7 +28,7 @@ CREATE TABLE IF NOT EXISTS cadvisor (
 );
 
 -- Find the most recent results per (system, query, dataset) for successful results
-DROP VIEW IF EXISTS latest_results;
+DROP VIEW IF EXISTS latest_results CASCADE;
 CREATE VIEW latest_results AS
    SELECT T1.system, T1.query, T1.dataset, T2.run_id, T2.elapsed_ms
    FROM
@@ -39,9 +39,9 @@ CREATE VIEW latest_results AS
     results as T2
   WHERE T1.max_run_id = T2.run_id;
 
--- DROP VIEW IF EXISTS latest_trials_stats;
--- CREATE VIEW latest_trials_stats AS
-  -- SELECT system, dataset, query, avg(elapsed_ms) as avg, coalesce(stddev(elapsed_ms),0) as error 
-  -- FROM latest_trials as T, results as R
-  -- WHERE T.run_id = R.run_id
-  -- GROUP BY system, dataset, query;
+DROP VIEW IF EXISTS latest_results_stats CASCADE;
+CREATE VIEW latest_results_stats AS
+  SELECT system, dataset, query, avg(elapsed_ms) as avg, coalesce(stddev(elapsed_ms),0) as error 
+  FROM latest_results
+  GROUP BY system, dataset, query
+  ORDER BY dataset, query, system;

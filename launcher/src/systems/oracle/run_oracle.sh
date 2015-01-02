@@ -9,4 +9,4 @@ fi
 DB=$1
 FILE=$2
 
-sqlplus system/manager@$ORACLE_HOST:$ORACLE_PORT/$DB @$FILE | grep 'Elapsed'
+echo "quit;" | sqlplus system/manager@$ORACLE_HOST:$ORACLE_PORT/$DB @$FILE | grep 'Elapsed'

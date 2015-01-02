@@ -16,21 +16,20 @@ import db.db as db
 if __name__ == "__main__":
   print("Setting up Database")
   conn = db.getConnection()
-  #print("\t Dropping Tables")
-  #db.dropTables(conn)
+  print("\t Dropping Tables")
+  db.dropTables(conn)
   print("\t Creating Tables")
   db.createTables(conn)
 
   # Build the set of experiments to be run
   experiments = []
   # TPCH experiments
-  for i in [5]:
-  #for i in [1, 3, 5, 6, 11, 18, 22]:
+  for i in [1, 3, 5, 6, 11, 18, 22]:
     experiments.append(Experiment("tpch",str(i),"tpch10g"))
-
-  #systems = [Impala(), Vertica(), Oracle()]
-  #systems = [Vertica("mddb")]
-  systems = [Oracle("mddb")]
+  
+  # Set up systems 
+  hms = [ "qp-hm" + str(i) for i in range(1,9) ]
+  systems = [Impala(hms), Vertica("mddb"), Oracle("mddb")]
 
   print("Ensuring that all systems can run specified queries")
   for experiment in experiments:
@@ -52,23 +51,31 @@ if __name__ == "__main__":
       # Run the experiment with profiling. 
       p = Profiler(system.machines, system.container, run_id)
       p.start()
-      result = system.runExperiment(experiment)
+  
+      result = None
+      try:
+        result = system.runExperiment(experiment)
+      except Exception as inst:
+        result = Failure("Unhandled execption: " + str(inst))
+ 
       p.finished = True
       p.join()
 
-      # Upon Failure, notify user. Do not insert into database. 
+      # Upon Failure, notify user. 
       if isinstance(result, Failure):
         print("\tTrial Failed:" + result.message)
         db.insertResult(conn, Result(run_id, "Failed", 0))
+      
       # Upon skipped, notify user. Enter a 0 entry into the database.
       # (All entries will be zero, leaving a gap in the plot for this system)
       elif isinstance(result, Skipped):
         print("\tTrial skipped")
         db.insertResult(conn, Result(run_id, "Skipped", 0))
+      
       # Upon success, grab the elapsed time and enter it into the db
       elif isinstance(result, Success):
         print("\tTrial Succeeded. Elapsed Time: %s ms" % (result.elapsed))
         db.insertResult(conn, Result(run_id, "Success", result.elapsed))
   
-  #plot.plotLatest(conn)
+  plot.plotLatest(conn)
   conn.close()

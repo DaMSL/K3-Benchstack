@@ -42,7 +42,6 @@ class Oracle:
     command = "./systems/oracle/run_oracle.sh %s %s" % (database, queryFile)
     try:
       output = subprocess.check_output(command, shell=True)
-      print(output)
       # Parse hh:mm:ss output
       hms = output.split(":")
       secContrib = 1000 * float(hms[-1][:-1])
