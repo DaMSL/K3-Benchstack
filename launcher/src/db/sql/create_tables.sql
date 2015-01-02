@@ -9,6 +9,7 @@ CREATE TABLE IF NOT EXISTS trials (
 
 CREATE TABLE IF NOT EXISTS results (
   run_id        int,
+  status        text,
   elapsed_ms    double precision
 );
 
