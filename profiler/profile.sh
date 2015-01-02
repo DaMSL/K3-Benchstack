@@ -1,8 +1,10 @@
 #!/bin/bash
 
+HOST="mddb2"
+
 start() {
-    echo "python collect_cadv.py $1 &"
-    python collect_cadv.py $1 &
+    echo "python collect_cadv.py $HOST $1 &"
+    python collect_cadv.py $HOST $1 &
     echo "Data collection initiated"
 }
 
