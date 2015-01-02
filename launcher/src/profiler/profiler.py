@@ -4,33 +4,35 @@ import string
 import psycopg2
 import time
 import sys
-import Threading
+import threading
 
-class Profiler(Threading.Thread):
+class Profiler(threading.Thread):
     
-    def __init__(self, machines, engine):
+    def __init__(self, machines, engine, run_id):
+      super(Profiler, self).__init__()
       self.machines = machines
       self.engine = engine
       self.finished = False
+      self.run_id = run_id
     
     # Flatten JSON system data for easier processing
     def flatten(self, dd, separator='_', prefix=''):
         return { prefix + separator + k if prefix else k : v
                  for kk, vv in dd.items()
-                 for k, v in flatten(vv, separator, kk).items()
+                 for k, v in self.flatten(vv, separator, kk).items()
                  } if isinstance(dd, dict) else { prefix : dd }
     
     # Hook function to convert raw data into json
     def get_data(self):
         jsons = []
         for machine in self.machines:
-    	    raw=urllib2.urlopen("http://" + machine + ":8080/api/v1.2/docker/" + self.engine).read()
+    	    raw=urllib2.urlopen("http://" + machine + ":20080/api/v1.2/docker/" + self.engine).read()
     	    jsons.append(json.loads(raw))
         return jsons
     
     # Extract fields from json & insert into data table
     def parse_data(self, cur, con, id, poll, machine):
-    	tick = flatten(poll)
+    	tick = self.flatten(poll)
     	cur.execute("SELECT COUNT(timestamp) FROM cadvisor WHERE timestamp = '" + tick['timestamp'] + "';")
     	# print "Insert:  " + tick['timestamp']
     	if cur.fetchone()[0] == 0:
@@ -48,16 +50,15 @@ class Profiler(Threading.Thread):
     	con.commit()
 
     def run(self):
-	print("Collecting '" + engine + "' container on '" + machine + "'")
-	con = psycopg2.connect(host="mddb", database="postgres", user="postgres", password="password")
-	cur = con.cursor()
-	cur.execute("INSERT INTO trials (system) VALUES ('" + engine + "');")
-	cur.execute("SELECT MAX(run_id) FROM trials;")
-	run_id = cur.fetchone()[0]
-	print("Your RUN ID is  " + str(run_id))
-      
-	while not self.finished:		
-		myobjs = get_data()
-                for (myobj, machine) in zip(myobjs, machines):
-		    parse_data(cur, con, run_id, myobj.values()[0]['stats'][0], machine)
-		time.sleep(1)
+        print("\tCollecting '" + self.engine + "' container on '" + str(self.machines) + "'")
+        con = psycopg2.connect(host="mddb", database="postgres", user="postgres", password="password")
+        cur = con.cursor()
+       
+        while not self.finished:		
+            myobjs = self.get_data()
+            for (myobj, machine) in zip(myobjs, self.machines):
+                self.parse_data(cur, con, self.run_id, myobj.values()[0]['stats'][0], machine)
+            time.sleep(1)
+
+def test():
+  return Profiler(["mddb"], "orcl", 5)

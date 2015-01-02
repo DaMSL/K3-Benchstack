@@ -8,6 +8,7 @@ from systems.impala.Impala import Impala
 from systems.vertica.Vertica import Vertica
 from systems.oracle.Oracle import Oracle
 
+from profiler.profiler import Profiler
 
 import plot.plot as plot
 import db.db as db
@@ -15,20 +16,21 @@ import db.db as db
 if __name__ == "__main__":
   print("Setting up Database")
   conn = db.getConnection()
-  print("\t Dropping Tables")
-  db.dropTables(conn)
+  #print("\t Dropping Tables")
+  #db.dropTables(conn)
   print("\t Creating Tables")
   db.createTables(conn)
 
   # Build the set of experiments to be run
   experiments = []
   # TPCH experiments
-  for i in [11]:
+  for i in [5]:
   #for i in [1, 3, 5, 6, 11, 18, 22]:
     experiments.append(Experiment("tpch",str(i),"tpch10g"))
 
   #systems = [Impala(), Vertica(), Oracle()]
-  systems = [Oracle()]
+  #systems = [Vertica("mddb")]
+  systems = [Oracle("mddb")]
 
   print("Ensuring that all systems can run specified queries")
   for experiment in experiments:
@@ -47,8 +49,13 @@ if __name__ == "__main__":
       trial = Trial(system.name(), experiment.query, experiment.dataset, 1, datetime.datetime.now())
       run_id = db.insertTrial(conn, trial)
    
-      # Run the experiment 
+      # Run the experiment with profiling. 
+      p = Profiler(system.machines, system.container, run_id)
+      p.start()
       result = system.runExperiment(experiment)
+      p.finished = True
+      p.join()
+
       # Upon Failure, notify user. Do not insert into database. 
       if isinstance(result, Failure):
         print("\tTrial Failed:" + result.message)

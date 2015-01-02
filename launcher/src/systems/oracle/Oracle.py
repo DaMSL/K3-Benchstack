@@ -3,6 +3,10 @@ import subprocess
 from entities.result import *
 
 class Oracle:
+  def __init__(self, machine):
+    self.machines = [machine]
+    self.container = "orcl"
+
   def name(self):
     return "Oracle"
 

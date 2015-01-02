@@ -3,6 +3,10 @@ import subprocess
 from entities.result import *
 
 class Vertica:
+  def __init__(self, machine):
+    self.machines = [machine]
+    self.container = "vertica"
+
   def name(self):
     return "Vertica"
 
@@ -29,11 +33,12 @@ class Vertica:
   def runExperiment(self, e):
     queryFolder = self.workloadMap[e.workload]
     queryFile = os.path.join(queryFolder, e.query + ".sql")      
-    
+   
     if e.workload == 'tpch' and e.query == '5':
      return Skipped("TPCH Query 5 is too slow on Vertica")
 
-    return self.runVertica(e.dataset, queryFile) 
+    return self.runVertica(e.dataset, queryFile)
+
 
   def runVertica(self, schema, queryFile):
     command = "./systems/vertica/run_vertica.sh %s %s" % (schema, queryFile)

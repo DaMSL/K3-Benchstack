@@ -16,6 +16,7 @@ CREATE TABLE IF NOT EXISTS results (
 
 CREATE TABLE IF NOT EXISTS cadvisor (
   run_id	int,
+  machine       text,
   timestamp text unique, 
   memory_usage bigint, 
   memory_working_set bigint,
@@ -26,15 +27,17 @@ CREATE TABLE IF NOT EXISTS cadvisor (
   network_tx_bytes bigint
 );
 
--- DROP VIEW IF EXISTS latest_trials;
--- CREATE VIEW latest_trials AS
-  -- SELECT  T2.* 
-  -- FROM
-     -- (SELECT system, query, dataset, max(ts) AS max_ts 
-      -- FROM trials 
-      -- GROUP BY system, query, dataset) as T1,
-     -- trials as T2 
-  -- WHERE T1.system = T2.system and T1.query = T2.query and T1.dataset = T2.dataset and T1.max_ts = T2.ts;
+-- Find the most recent results per (system, query, dataset) for successful results
+DROP VIEW IF EXISTS latest_results;
+CREATE VIEW latest_results AS
+   SELECT T1.system, T1.query, T1.dataset, T2.run_id, T2.elapsed_ms
+   FROM
+    (SELECT system, query, dataset, max(t.run_id) as max_run_id 
+    FROM trials t, results r
+    WHERE status = 'Success' or status ='Skipped' 
+    group by system, query, dataset) as T1,
+    results as T2
+  WHERE T1.max_run_id = T2.run_id;
 
 -- DROP VIEW IF EXISTS latest_trials_stats;
 -- CREATE VIEW latest_trials_stats AS
