@@ -7,3 +7,5 @@ export VSQL_PORT=5433
 export VSQL_DATABASE=dbadmin
 
 export IMPALA_HOST=qp-hm1.damsl.cs.jhu.edu
+
+export ORACLE_HOST=mddb
