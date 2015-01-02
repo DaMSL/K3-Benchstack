@@ -8,4 +8,5 @@ export VSQL_DATABASE=dbadmin
 
 export IMPALA_HOST=qp-hm1.damsl.cs.jhu.edu
 
-export ORACLE_HOST=mddb
+export ORACLE_HOST=mddb2
+export ORACLE_PORT=11521

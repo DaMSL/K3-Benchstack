@@ -4,8 +4,11 @@ from entities.experiment import Experiment
 from entities.result import *
 from entities.trial import *
 
-from systems.impala import Impala
-from systems.vertica import Vertica
+from systems.impala.Impala import Impala
+from systems.vertica.Vertica import Vertica
+from systems.oracle.Oracle import Oracle
+
+
 import plot.plot as plot
 import db.db as db
      
@@ -18,11 +21,11 @@ if __name__ == "__main__":
   # Build the set of experiments to be run
   experiments = []
   # TPCH experiments
-  for i in [1]:
+  for i in [1, 3]:
   #for i in [1, 3, 5, 6, 11, 18, 22]:
     experiments.append(Experiment("tpch",str(i),"tpch10g"))
 
-  systems = [Impala.Impala(), Vertica.Vertica()]
+  systems = [Impala(), Vertica(), Oracle()]
 
   print("Ensuring that all systems can run specified queries")
   for experiment in experiments:
@@ -50,9 +53,9 @@ if __name__ == "__main__":
         #db.insertTrial(trial)
       # Upon success, grab the elapsed time and enter it into the db
       elif isinstance(result, Success):
-        print("\tTrial Succeeded")
+        print("\tTrial Succeeded. Elapsed Time: %s ms" % (result.elapsed))
         trial = Trial(system.name(), experiment.query, experiment.dataset, result.elapsed, 1, datetime.datetime.now())
         #db.insertTrial(conn, trial)
   
-  plot.plotLatest(conn)
+  #plot.plotLatest(conn)
   conn.close()

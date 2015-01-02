@@ -8,4 +8,4 @@ class Experiment:
     self.dataset = dataset
 
   def name(self):
-    return ("workload: %s. query: %s. dataset: %s" % (self.workload, self.query, self.dataset))
+    return ("(Workload: %s, Query: %s, Dataset: %s)" % (self.workload, self.query, self.dataset))
