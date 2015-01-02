@@ -23,7 +23,7 @@ if __name__ == "__main__":
   # Build the set of experiments to be run
   experiments = []
   # TPCH experiments
-  for i in [5]:
+  for i in [11]:
   #for i in [1, 3, 5, 6, 11, 18, 22]:
     experiments.append(Experiment("tpch",str(i),"tpch10g"))
 
