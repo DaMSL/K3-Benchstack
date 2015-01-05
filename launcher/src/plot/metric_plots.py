@@ -19,14 +19,15 @@ def conv_cpu(c):
 
 
 class Metric:
-    def __init__(self, label, convert, title, axis):
+    def __init__(self, label, convert, title, axis, delta=False):
         self.label = label
         self.convert = convert
         self.title = title
         self.axis = axis
+        self.delta = delta
 
-cpu_total = Metric("cpu_usage_total", conv_cpu, "CPU Total", "Time (ms)")
-cpu_system = Metric("cpu_usage_system", conv_cpu, "CPU System", "Time (ms)")
+cpu_total = Metric("cpu_usage_total", conv_cpu, "CPU Total", "Time (ms)", True)
+cpu_system = Metric("cpu_usage_system", conv_cpu, "CPU System", "Time (ms)", True)
 mem_usage = Metric("memory_usage", conv_mem, "MEM Usage", "Mem (MB)")
 
 distro_sys = ['Impala', 'Spark']
@@ -35,16 +36,11 @@ distro_sys = ['Impala', 'Spark']
 def get_cadvdata_single (con, metric, id, delta=False):
     cur = con.cursor()
     # Get data 
-    cur.execute("SELECT %s FROM cadvisor WHERE run_id= %d ORDER BY timestamp;" % (metric.label, id))
-    raw = []
-    for row in cur.fetchall():
-        raw.append(metric.convert(row[0]))
+    cur.execute("SELECT %s FROM cadvisor WHERE trial_id= %d ORDER BY timestamp;" % (metric.label, id))
+    raw = [metric.convert(row[0]) for row in cur.fetchall()]
     if not delta:
         return (range(len(raw)), raw)
-        
-    incr = {}
-    for m in raw:
-        incr[m] = [(raw[m][i] - raw[m][i-1]) for i in range(1, len(raw[m]))]
+    incr = [(raw[i] - raw[i-1]) for i in range(1, len(raw))]
     return (range(len(incr)), incr)
 
 
@@ -52,7 +48,7 @@ def get_cadvdata_dist(con, metric, id, delta=False, average=False, debug=False):
     cur = con.cursor()
     
     # Get machine & data value 
-    cur.execute("SELECT machine, %s FROM cadvisor WHERE run_id= %d ORDER BY timestamp;" % (metric.label, id))
+    cur.execute("SELECT machine, %s FROM cadvisor WHERE trial_id= %d ORDER BY timestamp;" % (metric.label, id))
     raw = {}
     for row in cur.fetchall():
         if (not row[0] in raw):
@@ -82,23 +78,23 @@ def get_cadvdata_dist(con, metric, id, delta=False, average=False, debug=False):
     return (range(len(result)), result)
 
 def draw_graph(con, trial, metric):
-    run, sys, qry, dset = trial
+    run, tnum, sys, qry, dset, wkld = trial
     cur = con.cursor()
     fig= plt.figure(figsize=(5,4))
-    x, y = (get_cadvdata_dist(con, metric, run, delta=True, average=True)
+    x, y = (get_cadvdata_dist(con, metric, run, metric.delta, average=True)
         if sys in distro_sys
-        else get_cadvdata_single(con, metric, run))
+        else get_cadvdata_single(con, metric, run, metric.delta))
     plt.plot(x, y, label=sys)
     plt.title(metric.title)
     plt.legend()
     plt.xlabel("Time (sec)")
     plt.ylabel(metric.axis)
-    fig.savefig(("../../web/%s_%s_q%s_%s.jpg" % (metric.label, sys, qry, dset)), dpi=100)
+    fig.savefig(("../../web/%s_%s_%s_q%s_%s_%s.jpg" % (metric.label, sys, wkld, qry, dset, tnum)), dpi=100)
 
 if __name__ == '__main__':
     con = psycopg2.connect(host="mddb", database="postgres", user="postgres", password="password")
     cur = con.cursor()
-    cur.execute("SELECT run_id, system, query, dataset FROM trials;")
+    cur.execute("SELECT trial_id, trial_num, system, query, dataset, workload FROM trials as T, experiments AS E WHERE T.experiment_id = E.experiment_id;")
     for row in cur.fetchall():
         draw_graph(con, row, cpu_total)
         draw_graph(con, row, mem_usage)
