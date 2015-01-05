@@ -16,8 +16,8 @@ import db.db as db
 if __name__ == "__main__":
   print("Setting up Database")
   conn = db.getConnection()
-  print("\t Dropping Tables")
-  db.dropTables(conn)
+  #print("\t Dropping Tables")
+  #db.dropTables(conn)
   print("\t Creating Tables")
   db.createTables(conn)
 
@@ -27,7 +27,7 @@ if __name__ == "__main__":
   # TPCH experiments
   for i in [1]:
   #for i in [1, 3, 5, 6, 11, 18, 22]:
-    experiments.append(Experiment("tpch",str(i),"tpch10g"))
+    experiments.append(Experiment("tpch",str(i),"tpch100g"))
   
   # Set up systems 
   hms = [ "qp-hm" + str(i) for i in range(1,9) ]
