@@ -2,7 +2,7 @@ import psycopg2
 import sys
 
 def getConnection():
-  conn = psycopg2.connect("dbname=postgres")
+  conn = psycopg2.connect("dbname=postgres password=password")
   return conn
 
 def createTables(conn):

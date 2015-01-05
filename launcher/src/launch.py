@@ -1,13 +1,23 @@
+import sys
 import datetime 
 
+# Entities are simple Python objects
+# That correspond to a row in a table in the database.
+# The .tup() method allows for easy insertion as a tuple
 from entities.experiment import Experiment
 from entities.result import *
 from entities.trial import *
 
+# Each system provides two methods:
+# .checkExperiment(e) which performs some initial checks to ensure the experiment can be run on the system
+# .runExperiment(e) runs the actual experiment and returns a Result
 from systems.impala.Impala import Impala
 from systems.vertica.Vertica import Vertica
 from systems.oracle.Oracle import Oracle
+from systems.spark.Spark import Spark
 
+# Profiler's are python Threads that poll a web-service for Docker OS-level metrics
+# On all the machines specified in system.machines
 from profiler.profiler import Profiler
 
 import plot.plot as plot
@@ -16,22 +26,18 @@ import db.db as db
 if __name__ == "__main__":
   print("Setting up Database")
   conn = db.getConnection()
-  #print("\t Dropping Tables")
-  #db.dropTables(conn)
+  
   print("\t Creating Tables")
   db.createTables(conn)
 
-  numTrials = 2
-  # Build the set of experiments to be run
+  numTrials = 1
   experiments = []
-  # TPCH experiments
   for i in [1]:
   #for i in [1, 3, 5, 6, 11, 18, 22]:
-    experiments.append(Experiment("tpch",str(i),"tpch100g"))
+    experiments.append(Experiment("tpch",str(i),"tpch10g"))
   
-  # Set up systems 
   hms = [ "qp-hm" + str(i) for i in range(1,9) ]
-  systems = [Impala(hms), Vertica("mddb"), Oracle("mddb")]
+  systems = [Spark(hms), Impala(hms), Vertica("mddb"), Oracle("mddb")]
 
   print("Ensuring that all systems can run specified queries")
   for experiment in experiments:
@@ -67,21 +73,21 @@ if __name__ == "__main__":
         p.finished = True
         p.join()
 
-        # Upon Failure, notify user. 
         if result.status == "Failure":
-          print("\tTrial Failed:" + result.message)
+          print("\tTrial Failed: %s" % (result.notes) )
           db.insertResult(conn, result)
         
-        # Upon skipped, notify user. Enter a 0 entry into the database.
-        # (All entries will be zero, leaving a gap in the plot for this system)
         elif result.status == "Skipped":
-          print("\tTrial skipped")
+          print("\tTrial skipped: %s" % (result.notes))
           db.insertResult(conn, result)
         
-        # Upon success, grab the elapsed time and enter it into the db
         elif result.status == "Success":
           print("\tTrial Succeeded. Elapsed Time: %s ms" % (result.elapsed))
           db.insertResult(conn, result)
-  
+
+        else:
+          print("\t Unknown result status: %s. Exiting." % (result.status))
+          sys.exit(1)
+       
   #plot.plotLatest(conn)
   conn.close()

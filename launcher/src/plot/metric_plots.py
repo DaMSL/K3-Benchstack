@@ -89,7 +89,7 @@ def draw_graph(con, trial, metric):
     plt.legend()
     plt.xlabel("Time (sec)")
     plt.ylabel(metric.axis)
-    fig.savefig(("../../web/%s_%s_%s_q%s_%s_%s.jpg" % (metric.label, sys, wkld, qry, dset, tnum)), dpi=100)
+    fig.savefig(("../web/%s_%s_%s_q%s_%s_%s.jpg" % (metric.label, sys, wkld, qry, dset, tnum)), dpi=100)
 
 if __name__ == '__main__':
     con = psycopg2.connect(host="mddb", database="postgres", user="postgres", password="password")
