@@ -189,9 +189,9 @@ object TPCHQuery18 {
     import sqlContext._ 
 
     // Load base tables
-    val lineitem : SchemaRDD = TPCHFiles.getLineitem(sc, sf).cache()
-    val orders : SchemaRDD = TPCHFiles.getOrders(sc, sf).cache()
-    val customer : SchemaRDD = TPCHFiles.getCustomer(sc, sf).cache()
+    val lineitem : SchemaRDD = TPCHFiles.getLineitem(sc, sf).select('l_orderkey, 'l_quantity).cache()
+    val orders : SchemaRDD = TPCHFiles.getOrders(sc, sf).select('o_orderkey, 'o_orderdate, 'o_totalprice, 'o_custkey)cache()
+    val customer : SchemaRDD = TPCHFiles.getCustomer(sc, sf).select('c_name, 'c_custkey).cache()
     // Force cache
     println(lineitem.count())
     println(orders.count())
