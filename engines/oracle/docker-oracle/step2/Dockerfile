@@ -12,6 +12,7 @@ RUN $ORACLE_HOME/root.sh
 RUN mkdir -p $ORACLE_BASE/oradata && chown -R oracle:oinstall $ORACLE_BASE/oradata && chmod -R 775 $ORACLE_BASE/oradata
 RUN mkdir -p $ORACLE_BASE/fast_recovery_area && chown -R oracle:oinstall $ORACLE_BASE/fast_recovery_area && chmod -R 775 $ORACLE_BASE/fast_recovery_area
 
+ADD sysctl.conf /etc/sysctl.conf
 ADD initORCL.ora $ORACLE_HOME/dbs/initORCL.ora
 ADD createdb.sql $ORACLE_HOME/config/scripts/createdb.sql
 ADD create /tmp/create
