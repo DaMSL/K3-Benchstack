@@ -21,10 +21,12 @@ if __name__ == "__main__":
   print("\t Creating Tables")
   db.createTables(conn)
 
+  numTrials = 2
   # Build the set of experiments to be run
   experiments = []
   # TPCH experiments
-  for i in [1, 3, 5, 6, 11, 18, 22]:
+  for i in [1]:
+  #for i in [1, 3, 5, 6, 11, 18, 22]:
     experiments.append(Experiment("tpch",str(i),"tpch10g"))
   
   # Set up systems 
@@ -41,41 +43,45 @@ if __name__ == "__main__":
   print("Running experiments")
   for experiment in experiments:
     print("------Running experiment: %s------" % experiment.name()  )
+    # Enter experiment into the database
+    exp_id = db.insertExperiment(conn, experiment)
+
     for system in systems:
       print("\tRunning System: %s" % (system.name()) )
-
-      # Enter a new trial into the database
-      trial = Trial(system.name(), experiment.query, experiment.dataset, 1, datetime.datetime.now())
-      run_id = db.insertTrial(conn, trial)
+      for trialNum in range(1, numTrials + 1):
+      
+        # Enter a new trial into the database
+        trial = Trial(exp_id, trialNum, system.name(), datetime.datetime.now())
+        trial_id = db.insertTrial(conn, trial)
    
-      # Run the experiment with profiling. 
-      p = Profiler(system.machines, system.container, run_id)
-      p.start()
+        # Run the experiment with profiling. 
+        p = Profiler(system.machines, system.container, trial_id)
+        p.start()
   
-      result = None
-      try:
-        result = system.runExperiment(experiment)
-      except Exception as inst:
-        result = Failure("Unhandled execption: " + str(inst))
+        result = None
+        try:
+          result = system.runExperiment(experiment, trial_id)
+        except Exception as inst:
+          result = Result(trial_id, "Failure", 0, "Unhandled exception: " + str(inst))
  
-      p.finished = True
-      p.join()
+        p.finished = True
+        p.join()
 
-      # Upon Failure, notify user. 
-      if isinstance(result, Failure):
-        print("\tTrial Failed:" + result.message)
-        db.insertResult(conn, Result(run_id, "Failed", 0))
-      
-      # Upon skipped, notify user. Enter a 0 entry into the database.
-      # (All entries will be zero, leaving a gap in the plot for this system)
-      elif isinstance(result, Skipped):
-        print("\tTrial skipped")
-        db.insertResult(conn, Result(run_id, "Skipped", 0))
-      
-      # Upon success, grab the elapsed time and enter it into the db
-      elif isinstance(result, Success):
-        print("\tTrial Succeeded. Elapsed Time: %s ms" % (result.elapsed))
-        db.insertResult(conn, Result(run_id, "Success", result.elapsed))
+        # Upon Failure, notify user. 
+        if result.status == "Failure":
+          print("\tTrial Failed:" + result.message)
+          db.insertResult(conn, result)
+        
+        # Upon skipped, notify user. Enter a 0 entry into the database.
+        # (All entries will be zero, leaving a gap in the plot for this system)
+        elif result.status == "Skipped":
+          print("\tTrial skipped")
+          db.insertResult(conn, result)
+        
+        # Upon success, grab the elapsed time and enter it into the db
+        elif result.status == "Success":
+          print("\tTrial Succeeded. Elapsed Time: %s ms" % (result.elapsed))
+          db.insertResult(conn, result)
   
-  plot.plotLatest(conn)
+  #plot.plotLatest(conn)
   conn.close()

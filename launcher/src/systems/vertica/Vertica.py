@@ -30,22 +30,22 @@ class Vertica:
     else:
       return True
   
-  def runExperiment(self, e):
+  def runExperiment(self, e, trial_id):
     queryFolder = self.workloadMap[e.workload]
     queryFile = os.path.join(queryFolder, e.query + ".sql")      
    
     if e.workload == 'tpch' and e.query == '5':
-     return Skipped("TPCH Query 5 is too slow on Vertica")
+     return Result(trial_id, "Skipped", 0, "TPCH Query 5 is too slow on Vertica")
 
-    return self.runVertica(e.dataset, queryFile)
+    return self.runVertica(e.dataset, queryFile, trial_id)
 
 
-  def runVertica(self, schema, queryFile):
+  def runVertica(self, schema, queryFile, trial_id):
     command = "./systems/vertica/run_vertica.sh %s %s" % (schema, queryFile)
     try:
       output = subprocess.check_output(command, shell=True)
       elapsed = output.split(" ")[-2]
-      return Success(float(elapsed))
+      return Result(trial_id, "Success", float(elapsed), "")
 
     except Exception as inst:
-      return Failure("Vertica Run failed: " + str(inst))
+      return Result(trial_id, "Failure", 0, "Vertica Run failed: " + str(inst))

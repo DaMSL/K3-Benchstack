@@ -48,9 +48,9 @@ class Impala:
    
     return True 
 
-  def runExperiment(self,e):
+  def runExperiment(self,e, trial_id):
     if e.workload == 'tpch' and e.query == '11':
-      return self.runTPCH11(e)
+      return self.runTPCH11(e, trial_id)
 
     schemaFolder = self.schemaMap[e.workload]
     scaleFactor = self.scaleFactorMap[e.dataset]
@@ -63,11 +63,10 @@ class Impala:
       output = subprocess.check_output(command, shell=True)
       # Convert from seconds to milliseconds
       elapsed = 1000 * float(output.split(" ")[-1][:-2])
-      return Success(elapsed)
+      return Result(trial_id, "Success", elapsed, "")
 
     except Exception as inst:
-      return Failure("Run failed: " + str(inst))
-
+      return Result(trial_id, "Failure", 0, "Run failed: " + str(inst))
 
  
   def checkTPCH11(self):
@@ -81,7 +80,7 @@ class Impala:
 
     return True
 
-  def runTPCH11(self, e):
+  def runTPCH11(self, e, trial_id):
     scaleFactor = self.scaleFactorMap[e.dataset]
     schemaFolder = self.schemaMap[e.workload]
     command1 = "./systems/impala/run_impala.sh %s %s %s" % (schemaFolder, scaleFactor, self.tpch11SubQueryFile)
@@ -92,7 +91,7 @@ class Impala:
       
       output = subprocess.check_output(command2, shell=True)
       elapsed2 = 1000 * float(output.split(" ")[-1][:-2])
-      return Success(elapsed1 + elapsed2)
+      return Result(trial_id, "Success", elapsed1 + elapsed2, "")
 
     except Exception as inst:
-      return Failure("Run failed: " + str(inst))
+      return Result(trial_id, "Failure", 0, "Run failed: " + str(inst))

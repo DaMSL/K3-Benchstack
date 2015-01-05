@@ -1,21 +1,28 @@
+CREATE TABLE IF NOT EXISTS experiments (
+  experiment_id serial primary key,
+  workload             text,
+  query                text,
+  dataset              text
+);
+
 CREATE TABLE IF NOT EXISTS trials (
-  run_id        serial primary key,
+  trial_id      serial primary key,
+  experiment_id integer, 
+  trial_num     integer,
   system        text,
-  query         text,
-  dataset       text,
-  trial         integer,
   ts            timestamp 
 );
 
 CREATE TABLE IF NOT EXISTS results (
-  run_id        int,
+  trial_id      int,
   status        text,
-  elapsed_ms    double precision
+  elapsed_ms    double precision,
+  notes         text
 );
 
 
 CREATE TABLE IF NOT EXISTS cadvisor (
-  run_id	int,
+  trial_id	int,
   machine       text,
   timestamp text unique, 
   memory_usage bigint, 
@@ -28,20 +35,20 @@ CREATE TABLE IF NOT EXISTS cadvisor (
 );
 
 -- Find the most recent results per (system, query, dataset) for successful results
-DROP VIEW IF EXISTS latest_results CASCADE;
-CREATE VIEW latest_results AS
-   SELECT T1.system, T1.query, T1.dataset, T2.run_id, T2.elapsed_ms
-   FROM
-    (SELECT system, query, dataset, max(t.run_id) as max_run_id 
-    FROM trials t, results r
-    WHERE status = 'Success' or status ='Skipped' 
-    group by system, query, dataset) as T1,
-    results as T2
-  WHERE T1.max_run_id = T2.run_id;
-
-DROP VIEW IF EXISTS latest_results_stats CASCADE;
-CREATE VIEW latest_results_stats AS
-  SELECT system, dataset, query, avg(elapsed_ms) as avg, coalesce(stddev(elapsed_ms),0) as error 
-  FROM latest_results
-  GROUP BY system, dataset, query
-  ORDER BY dataset, query, system;
+--DROP VIEW IF EXISTS latest_results CASCADE;
+--CREATE VIEW latest_results AS
+--   SELECT T1.system, T1.query, T1.dataset, T2.run_id, T2.elapsed_ms
+--   FROM
+--    (SELECT system, query, dataset, max(t.trial_id) as max_trial_id 
+--    FROM trials t, results r
+--    WHERE status = 'Success' or status ='Skipped' 
+--    group by system, query, dataset) as T1,
+--    results as T2
+--  WHERE T1.max_run_id = T2.run_id;
+--
+--DROP VIEW IF EXISTS latest_results_stats CASCADE;
+--CREATE VIEW latest_results_stats AS
+--  SELECT system, dataset, query, avg(elapsed_ms) as avg, coalesce(stddev(elapsed_ms),0) as error 
+--  FROM latest_results
+--  GROUP BY system, dataset, query
+--  ORDER BY dataset, query, system;

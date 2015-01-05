@@ -30,15 +30,15 @@ class Oracle:
     else:
       return True
   
-  def runExperiment(self, e):
+  def runExperiment(self, e, trial_id):
     queryFolder = self.workloadMap[e.workload]
     queryFile = os.path.join(queryFolder, e.query + ".sql")      
    
     # TODO different database for each dataset 
     # instead of "orcl"
-    return self.runOracle("orcl", queryFile) 
+    return self.runOracle("orcl", queryFile, trial_id) 
 
-  def runOracle(self, database, queryFile):
+  def runOracle(self, database, queryFile, trial_id):
     command = "./systems/oracle/run_oracle.sh %s %s" % (database, queryFile)
     try:
       output = subprocess.check_output(command, shell=True)
@@ -48,7 +48,7 @@ class Oracle:
       minContrib = 60 * 1000 * float(hms[-2])
       hourContrib = 60 * 60 * 1000 * float(hms[-3]) 
       elapsed = secContrib + minContrib + hourContrib
-      return Success(float(elapsed))
+      return Result(trial_id, "Success", float(elapsed), "")
 
     except Exception as inst:
-      return Failure("Oracle Run failed: " + str(inst))
+      return Result(trial_id, "Failure", 0, "Oracle Run failed: " + str(inst))

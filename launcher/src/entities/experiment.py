@@ -9,3 +9,6 @@ class Experiment:
 
   def name(self):
     return ("(Workload: %s, Query: %s, Dataset: %s)" % (self.workload, self.query, self.dataset))
+
+  def tup(self):
+    return (self.workload, self.query, self.dataset)

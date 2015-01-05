@@ -8,12 +8,12 @@ import threading
 
 class Profiler(threading.Thread):
     
-    def __init__(self, machines, engine, run_id):
+    def __init__(self, machines, engine, trial_id):
       super(Profiler, self).__init__()
       self.machines = machines
       self.engine = engine
       self.finished = False
-      self.run_id = run_id
+      self.trial_id = trial_id
     
     # Flatten JSON system data for easier processing
     def flatten(self, dd, separator='_', prefix=''):
@@ -57,7 +57,7 @@ class Profiler(threading.Thread):
         while not self.finished:		
             myobjs = self.get_data()
             for (myobj, machine) in zip(myobjs, self.machines):
-                self.parse_data(cur, con, self.run_id, myobj.values()[0]['stats'][0], machine)
+                self.parse_data(cur, con, self.trial_id, myobj.values()[0]['stats'][0], machine)
             time.sleep(1)
 
 def test():
