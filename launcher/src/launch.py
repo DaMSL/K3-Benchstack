@@ -78,6 +78,8 @@ def runExperiments(experiments, systems, numTrials):
           log.logEvent(4,"Received interrupt. Shutting down...")
           p.finished = True
           p.join()
+          result = Result(trial_id, "Failure", 0, "Cancelled by User ")
+          db.insertResult(conn, result)
           sys.exit(1)
         except Exception as inst:
           result = Result(trial_id, "Failure", 0, "Unhandled exception: " + str(inst))

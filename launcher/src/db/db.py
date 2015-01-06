@@ -32,14 +32,12 @@ def dropTables(conn):
 # Insert an experiment and return the experiment_id associated with it
 def insertExperiment(conn, exp):
   try:
-    query = "INSERT INTO experiments (workload, query, dataset) VALUES (%s, %s, %s)"
+    query = "INSERT INTO experiments (workload, query, dataset) VALUES (%s, %s, %s) RETURNING experiment_id"
     cur = conn.cursor()
     cur.execute(query, exp.tup())
+    val = int(cur.fetchone()[0])
     conn.commit()
-
-    query = "SELECT MAX(experiment_id) FROM experiments;"
-    cur.execute(query)
-    return int(cur.fetchone()[0])
+    return val
 
   except Exception as inst:
       print("Failed to insert Experiment: ")
@@ -50,14 +48,12 @@ def insertExperiment(conn, exp):
 # Insert a trial and return the trial_id associated with it.
 def insertTrial(conn, trial):
   try:
-    query = "INSERT INTO trials (experiment_id, trial_num, system, ts) VALUES (%s, %s, %s, %s)"
+    query = "INSERT INTO trials (experiment_id, trial_num, system, ts) VALUES (%s, %s, %s, %s) RETURNING trial_id"
     cur = conn.cursor()
     cur.execute(query, trial.tup())
+    val = int(cur.fetchone()[0])
     conn.commit()
-
-    query = "SELECT MAX(trial_id) FROM trials;"
-    cur.execute(query)
-    return int(cur.fetchone()[0])
+    return val
 
   except Exception as inst:
       print("Failed to insert Trial: ")
