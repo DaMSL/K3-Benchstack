@@ -33,6 +33,31 @@ CREATE TABLE IF NOT EXISTS cadvisor (
   network_tx_bytes bigint
 );
 
+-- Results of all trials
+DROP VIEW IF EXISTS trial_results CASCADE;
+CREATE VIEW trial_results AS
+SELECT 
+  experiment_id, system, trial_num, status, elapsed_ms
+FROM 
+  trials t, results r
+WHERE
+      t.trial_id = r.trial_id  
+  and r.status <> 'Failure'
+ORDER BY 
+  experiment_id, system, trial_num;
+
+-- Statistics of each experiment
+DROP VIEW IF EXISTS experiment_stats CASCADE;
+CREATE VIEW experiment_stats AS
+SELECT
+  experiment_id, system, AVG(elapsed_ms) as avg_time, coalesce(stddev(elapsed_ms), 0) as error, count(*) as num_trials
+FROM
+  trial_results
+GROUP BY
+  experiment_id, system
+ORDER BY
+  experiment_id, system;
+
 -- Find the most recent results per (system, query, dataset) for successful results
 --DROP VIEW IF EXISTS latest_results CASCADE;
 --CREATE VIEW latest_results AS
