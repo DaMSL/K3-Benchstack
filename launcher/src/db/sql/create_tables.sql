@@ -50,13 +50,19 @@ ORDER BY
 DROP VIEW IF EXISTS experiment_stats CASCADE;
 CREATE VIEW experiment_stats AS
 SELECT
-  experiment_id, system, AVG(elapsed_ms) as avg_time, coalesce(stddev(elapsed_ms), 0) as error, count(*) as num_trials
+  e.workload, e.dataset, e.query, T.*
 FROM
-  trial_results
-GROUP BY
-  experiment_id, system
+  experiments e,
+  (SELECT
+    experiment_id, system, AVG(elapsed_ms) as avg_time, coalesce(stddev(elapsed_ms), 0) as error, count(*) as num_trials
+  FROM
+    trial_results
+  GROUP BY
+    experiment_id, system) T
+WHERE
+  e.experiment_id = T.experiment_id
 ORDER BY
-  experiment_id, system;
+  T.experiment_id, T.system;
 
 -- Find the most recent results per (system, query, dataset) for successful results
 --DROP VIEW IF EXISTS latest_results CASCADE;

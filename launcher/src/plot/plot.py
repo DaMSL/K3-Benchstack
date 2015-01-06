@@ -11,6 +11,7 @@ class Point:
     self.avg = avg
     self.err = err
 
+
 def getLatestPoints(conn):
   result = []
   cur = conn.cursor()
