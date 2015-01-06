@@ -21,41 +21,47 @@ from systems.spark.Spark import Spark
 from profiler.profiler import Profiler
 
 import plot.plot as plot
-import db.db as db
-from utils.utils import InterruptException
+import db.db as db 
+
+import utils.log as log
 
 # Initialize the database, returning a usable connection
 def initDatabase(shouldDrop):
-  print("Setting up Database")
+  log.logHeader("Initializing the database")
   conn = db.getConnection()
 
   if shouldDrop:
-    print("\tDropping Tables")
+    log.logEvent(1, "Dropping Tables")
     db.dropTables(conn)
   
-  print("\t Creating Tables")
+  log.logEvent(1, "Creating Tables") 
   db.createTables(conn)
 
+  log.logEvent(1, "SUCCESS")
+  log.endSection()
   return conn
 
 def checkExperiments(experiments, systems):
-  print("Ensuring that all systems can run specified queries")
+  log.logHeader("Ensuring that all systems can run specified experiments")
   for experiment in experiments:
     for system in systems:
       if not system.checkExperiment(experiment):
-        print("%s can not run experiment: %s. Aborting." % (system.name(), experiment.query) )
+        log.logEvent(1, ("%s can not run experiment: %s. Aborting." % (system.name(), experiment.query) ))
         sys.exit(1)
+  log.logEvent(1, "SUCCESS")
+  log.endSection()
 
 def runExperiments(experiments, systems, numTrials):
-  print("Running experiments")
+  log.logHeader("Running Experiments") 
   for experiment in experiments:
-    print("------Running experiment: %s------" % experiment.name()  )
+    log.logEvent(1, "Running experiment: %s" % experiment.name() )
     # Enter experiment into the database
     exp_id = db.insertExperiment(conn, experiment)
 
     for system in systems:
-      print("\tRunning System: %s" % (system.name()) )
+      log.logEvent(2, "Running System: %s" % (system.name()) )
       for trialNum in range(1, numTrials + 1):
+        log.logEvent(3, "Running Trial: %d" % (trialNum) )
       
         # Enter a new trial into the database
         trial = Trial(exp_id, trialNum, system.name(), datetime.datetime.now())
@@ -69,7 +75,7 @@ def runExperiments(experiments, systems, numTrials):
         try:
           result = system.runExperiment(experiment, trial_id)
         except KeyboardInterrupt as inst:
-          print("Received interrupt. Shutting down...")
+          log.logEvent(4,"Received interrupt. Shutting down...")
           p.finished = True
           p.join()
           sys.exit(1)
@@ -80,20 +86,21 @@ def runExperiments(experiments, systems, numTrials):
         p.join()
 
         if result.status == "Failure":
-          print("\tTrial Failed: %s" % (result.notes) )
+          log.logEvent(4, "Trial Failed: %s" % (result.notes) )
           db.insertResult(conn, result)
         
         elif result.status == "Skipped":
-          print("\tTrial skipped: %s" % (result.notes))
+          log.logEvent(4,"Trial skipped: %s" % (result.notes))
           db.insertResult(conn, result)
         
         elif result.status == "Success":
-          print("\tTrial Succeeded. Elapsed Time: %s ms" % (result.elapsed))
+          log.logEvent(4, "Trial Succeeded. Elapsed Time: %s ms" % (result.elapsed))
           db.insertResult(conn, result)
 
         else:
-          print("\t Unknown result status: %s. Exiting." % (result.status))
+          log.logEvent(4, "Unknown result status: %s. Exiting." % (result.status))
           sys.exit(1)
+    log.endSection()
 
 hms = [ "qp-hm" + str(i) for i in range(1,9) ]
 allSystems = [Spark(hms), Impala(hms), Vertica("mddb"), Oracle("mddb")]
@@ -103,7 +110,7 @@ if __name__ == "__main__":
   conn = initDatabase(False)
 
   systems = allSystems
-  numTrials = 1
+  numTrials = 2
   experiments = []
   for i in [1]:
     experiments.append(Experiment("tpch",str(i),"tpch10g"))

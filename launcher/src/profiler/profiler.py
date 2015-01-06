@@ -50,7 +50,7 @@ class Profiler(threading.Thread):
     	con.commit()
 
     def run(self):
-        print("\tCollecting '" + self.engine + "' container on '" + str(self.machines) + "'")
+        #print("\tCollecting '" + self.engine + "' container on '" + str(self.machines) + "'")
         con = psycopg2.connect(host="mddb", database="postgres", user="postgres", password="password")
         cur = con.cursor()
        
