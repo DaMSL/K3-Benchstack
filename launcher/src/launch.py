@@ -68,7 +68,8 @@ def runExperiments(experiments, systems, numTrials):
         result = None
         try:
           result = system.runExperiment(experiment, trial_id)
-        except InterruptException as inst:
+        except KeyboardInterrupt as inst:
+          print("Received interrupt. Shutting down...")
           p.finished = True
           p.join()
           sys.exit(1)
