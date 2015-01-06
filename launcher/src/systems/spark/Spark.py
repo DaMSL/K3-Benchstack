@@ -1,6 +1,6 @@
 import sys
 import os
-import subprocess
+import utils.utils as utils
 
 from entities.result import *
 
@@ -37,8 +37,8 @@ class Spark:
     # Check if we need to build the jar file for spark programs
     if not os.path.isfile(self.jarFile):
       try:
-        buildCommand = "cd %s && sbt package" % (self.jarFile)
-        subprocess.check_output(buildCommand)
+        buildCommand = "cd %s && sbt package" % (self.buildDir)
+        utils.runCommand(buildCommand)
       except Exception as inst:
         print("Failed to build jar file for Spark queries") 
         print(inst)
@@ -53,12 +53,8 @@ class Spark:
 
     className = self.getClassName(e)
     sf = self.scaleFactorMap[e.dataset]
-    command = "./systems/spark/run_spark.sh %s %s %s" % (self.jarFile, sf, className) 
+    command = "systems/spark/run_spark.sh %s %s %s" % (self.jarFile, sf, className) 
 
-    try:
-      output = subprocess.check_output(command, shell=True)
-      elapsed = float(output.split(":")[-1][:-1])
-      return Result(trial_id, "Success", elapsed, "")
-
-    except Exception as inst:
-      return Result(trial_id, "Failure", 0, "Run failed: " + str(inst))
+    output = utils.runCommand(command)
+    elapsed = float(output.split(":")[-1][:-1])
+    return Result(trial_id, "Success", elapsed, "")

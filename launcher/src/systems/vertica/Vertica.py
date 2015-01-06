@@ -1,5 +1,5 @@
 import os
-import subprocess
+import utils.utils as utils
 from entities.result import *
 
 class Vertica:
@@ -42,10 +42,6 @@ class Vertica:
 
   def runVertica(self, schema, queryFile, trial_id):
     command = "./systems/vertica/run_vertica.sh %s %s" % (schema, queryFile)
-    try:
-      output = subprocess.check_output(command, shell=True)
-      elapsed = output.split(" ")[-2]
-      return Result(trial_id, "Success", float(elapsed), "")
-
-    except Exception as inst:
-      return Result(trial_id, "Failure", 0, "Vertica Run failed: " + str(inst))
+    output = utils.runCommand(command)
+    elapsed = output.split(" ")[-2]
+    return Result(trial_id, "Success", float(elapsed), "")

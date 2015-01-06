@@ -20,7 +20,6 @@ CREATE TABLE IF NOT EXISTS results (
   notes         text
 );
 
-
 CREATE TABLE IF NOT EXISTS cadvisor (
   trial_id	int,
   machine       text,

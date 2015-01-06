@@ -1,5 +1,5 @@
 import os
-import subprocess
+import utils.utils as utils
 
 from entities.result import *
 
@@ -59,15 +59,10 @@ class Impala:
 
     command = "./systems/impala/run_impala.sh %s %s %s" % (schemaFolder, scaleFactor, queryFile)
     
-    try:
-      output = subprocess.check_output(command, shell=True)
-      # Convert from seconds to milliseconds
-      elapsed = 1000 * float(output.split(" ")[-1][:-2])
-      return Result(trial_id, "Success", elapsed, "")
-
-    except Exception as inst:
-      return Result(trial_id, "Failure", 0, "Run failed: " + str(inst))
-
+    output = utils.runCommand(command)
+    # Convert from seconds to milliseconds
+    elapsed = 1000 * float(output.split(" ")[-1][:-2])
+    return Result(trial_id, "Success", elapsed, "")
  
   def checkTPCH11(self):
     if not os.path.isfile(self.tpch11MainQueryFile):
@@ -85,13 +80,10 @@ class Impala:
     schemaFolder = self.schemaMap[e.workload]
     command1 = "./systems/impala/run_impala.sh %s %s %s" % (schemaFolder, scaleFactor, self.tpch11SubQueryFile)
     command2 = "./systems/impala/run_impala.sh %s %s %s" % (schemaFolder, scaleFactor, self.tpch11MainQueryFile)
-    try:
-      output = subprocess.check_output(command1, shell=True)
-      elapsed1 = 1000 * float(output.split(" ")[-1][:-2])
-      
-      output = subprocess.check_output(command2, shell=True)
-      elapsed2 = 1000 * float(output.split(" ")[-1][:-2])
-      return Result(trial_id, "Success", elapsed1 + elapsed2, "")
+    output = utils.runCommand(comand1)
+    elapsed1 = 1000 * float(output.split(" ")[-1][:-2])
+    
+    output = utils.runCommand(comand2)
+    elapsed2 = 1000 * float(output.split(" ")[-1][:-2])
+    return Result(trial_id, "Success", elapsed1 + elapsed2, "")
 
-    except Exception as inst:
-      return Result(trial_id, "Failure", 0, "Run failed: " + str(inst))

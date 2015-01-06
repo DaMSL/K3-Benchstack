@@ -22,30 +22,31 @@ from profiler.profiler import Profiler
 
 import plot.plot as plot
 import db.db as db
-     
-if __name__ == "__main__":
+from utils.utils import InterruptException
+
+# Initialize the database, returning a usable connection
+def initDatabase(shouldDrop):
   print("Setting up Database")
   conn = db.getConnection()
+
+  if shouldDrop:
+    print("\tDropping Tables")
+    db.dropTables(conn)
   
   print("\t Creating Tables")
   db.createTables(conn)
 
-  numTrials = 1
-  experiments = []
-  for i in [1]:
-  #for i in [1, 3, 5, 6, 11, 18, 22]:
-    experiments.append(Experiment("tpch",str(i),"tpch10g"))
-  
-  hms = [ "qp-hm" + str(i) for i in range(1,9) ]
-  systems = [Spark(hms), Impala(hms), Vertica("mddb"), Oracle("mddb")]
+  return conn
 
+def checkExperiments(experiments, systems):
   print("Ensuring that all systems can run specified queries")
   for experiment in experiments:
     for system in systems:
       if not system.checkExperiment(experiment):
         print("%s can not run experiment: %s. Aborting." % (system.name(), experiment.query) )
-        exit(1)
+        sys.exit(1)
 
+def runExperiments(experiments, systems, numTrials):
   print("Running experiments")
   for experiment in experiments:
     print("------Running experiment: %s------" % experiment.name()  )
@@ -67,6 +68,10 @@ if __name__ == "__main__":
         result = None
         try:
           result = system.runExperiment(experiment, trial_id)
+        except InterruptException as inst:
+          p.finished = True
+          p.join()
+          sys.exit(1)
         except Exception as inst:
           result = Result(trial_id, "Failure", 0, "Unhandled exception: " + str(inst))
  
@@ -88,6 +93,22 @@ if __name__ == "__main__":
         else:
           print("\t Unknown result status: %s. Exiting." % (result.status))
           sys.exit(1)
-       
+
+hms = [ "qp-hm" + str(i) for i in range(1,9) ]
+allSystems = [Spark(hms), Impala(hms), Vertica("mddb"), Oracle("mddb")]
+allTPCH = [1, 3, 5, 6, 11, 18, 22]
+
+if __name__ == "__main__":
+  conn = initDatabase(False)
+
+  systems = allSystems
+  numTrials = 1
+  experiments = []
+  for i in [1]:
+    experiments.append(Experiment("tpch",str(i),"tpch10g"))
+  
+  checkExperiments(experiments, systems)
+  runExperiments(experiments, systems, numTrials)
+
   #plot.plotLatest(conn)
   conn.close()
