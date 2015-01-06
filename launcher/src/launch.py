@@ -1,5 +1,6 @@
 import sys
 import datetime 
+import argparse
 
 # Entities are simple Python objects
 # That correspond to a row in a table in the database.
@@ -41,6 +42,7 @@ def initDatabase(shouldDrop):
   log.endSection()
   return conn
 
+# Verify that experiments are runnable on all systems, exiting if they are not.
 def checkExperiments(experiments, systems):
   log.logHeader("Ensuring that all systems can run specified experiments")
   for experiment in experiments:
@@ -108,14 +110,65 @@ hms = [ "qp-hm" + str(i) for i in range(1,9) ]
 allSystems = [Spark(hms), Impala(hms), Vertica("mddb"), Oracle("mddb")]
 allTPCH = [1, 3, 5, 6, 11, 18, 22]
 
-if __name__ == "__main__":
-  conn = initDatabase(False)
+systemMap = {'Spark': Spark(hms), 'Impala': Impala(hms), 'Vertica': Vertica("mddb"), 'Oracle': Oracle("mddb")}
 
+def parseSystems(lst):
+  result = []
+  for system in lst:
+    if system not in systemMap:
+      print("Unrecognized System: %s" % (system))
+      sys.exit(1)
+    else:
+      result.append(systemMap[system])
+
+  return result
+      
+def parseTPCHExperiments(lst, dataset):
+  result = []
+  for query in lst:
+    result.append(Experiment("tpch",query,dataset))
+  return result
+ 
+def parseArgs():
+  parser = argparse.ArgumentParser() 
+  parser.add_argument('--systems', nargs='+', help='Space seperated list of systems to run. Choices include (Spark, Impala, Vertica, Oracle). If omitted, all systems will be used')
+  parser.add_argument('--trials', type=int, default=10, help='Number of trials to run each experiment. Default is 10.')
+  parser.add_argument('--tpch10g', nargs='*', help='Run the TPCH workload on the 10G dataset. Provide a space seperated list of queries to run.')
+  parser.add_argument('--tpch100g', nargs='*',  help='Run the TPCH workload on the 100G dataset. Provide a space seperated list of queries to run.')
+  args = parser.parse_args()
+
+  log.logHeader("Parsing Arguments: ")
   systems = allSystems
-  numTrials = 2
+  if args.systems:
+    systems = parseSystems(args.systems)
+    log.logEvent(1, "Using specified systems: %s" % (str(args.systems)))
+  else:
+    log.logEvent(1, "Using all available systems. (Default)")
+
   experiments = []
-  for i in [1]:
-    experiments.append(Experiment("tpch",str(i),"tpch10g"))
+  if args.tpch10g:
+    experiments.extend(parseTPCHExperiments(args.tpch10g, "tpch10g"))
+  if args.tpch100g:
+    experiments.extend(parseTPCHExperiments(args.tpch100g, "tpch100g"))
+  
+  if len(experiments) == 0:
+    log.logEvent(1, "No Experiments Specified: Exiting.")
+    sys.exit(1)
+  else:
+    log.logEvent(1, "Experiments to run: ")
+    for exp in experiments:
+      log.logEvent(2, exp.name())
+
+  log.endSection() 
+
+  numTrials = args.trials
+
+  return (experiments, systems, numTrials)
+ 
+if __name__ == "__main__":
+  (experiments, systems, numTrials) = parseArgs()
+  
+  conn = initDatabase(False)
   
   checkExperiments(experiments, systems)
   runExperiments(experiments, systems, numTrials)
