@@ -1,6 +1,9 @@
 import os
+import re
+
 import utils.utils as utils
 from entities.result import *
+from entities.operator import *
 
 class Vertica:
   def __init__(self, machine):
@@ -43,5 +46,46 @@ class Vertica:
   def runVertica(self, schema, queryFile, trial_id):
     command = "./systems/vertica/run_vertica.sh %s %s" % (schema, queryFile)
     output = utils.runCommand(command)
-    elapsed = output.split(" ")[-2]
-    return Result(trial_id, "Success", float(elapsed), "")
+    # First line of output is a HINT for profiling
+    lines = output.split("\n")
+    hint = lines[0]
+    try:
+      m = re.search("[.]*transaction_id=(\d+) and statement_id=(\d+)[.]*", hint)
+      transaction = m.group(1)
+      statement = m.group(2)
+    except Exception as inst:
+      return Result(trial_id, "Failure", 0, "Failed to parse profiling hint: %s" % (str(inst)))
+    operators = [] 
+    try:  
+      operators = self.doOperatorProfiling(trial_id, transaction, statement)
+    except Exception as inst:
+      return Result(trial_id, "Failure", 0, "Failed to query Vertica profiling tables %s" % (str(inst)))
+    
+    # Second line is the elapsed time
+    elapsed = lines[1].split(" ")[-2]
+    result = Result(trial_id, "Success", float(elapsed), "")
+    result.setOperators(operators)
+    return result
+
+  def doOperatorProfiling(self, trial_id, t_id, s_id):
+    query = ""
+    with open("systems/vertica/sql/profiling/operators.sql.template","r") as f:
+      query = f.read() % {'t_id': t_id, 's_id': s_id}
+
+    tempfile = "systems/vertica/sql/profiling/curr_operators.sql"
+    with open(tempfile, "w") as f:
+      f.write(query)
+
+    output = utils.runCommand("systems/vertica/sql/profiling/run_sql.sh %s" % tempfile)
+    
+    utils.runCommand("rm %s" % (tempfile) )
+    operators = []
+    lines = output.split('\n')
+    for line in lines:
+      vals = [ val.strip() for val in line.split(',')]
+      if len(vals) == 4:
+        operators.append(Operator(trial_id, vals[0], vals[1], vals[2], vals[3]))
+
+    return operators
+ 
+        

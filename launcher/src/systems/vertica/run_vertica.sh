@@ -16,12 +16,13 @@ SCHEMA=$1
 QUERY_FILE=$2
 VSQL="vsql"
 
-# Enable timing and select a search path
+# Enable timing and select a search path. Enable profiling.
 echo "\timing" > /tmp/timing.txt
-echo "set SEARCH_PATH=$SCHEMA;" > /tmp/set.sql
+echo "set SEARCH_PATH=$SCHEMA; profile " > /tmp/set.sql
 
-# TODO write output to log. then grep for result.
-cat /tmp/set.sql /tmp/timing.txt $QUERY_FILE | $VSQL | grep Time
+# Grep for HINT: find out where to look in the profiling tables
+# Grep for Time .
+cat /tmp/set.sql /tmp/timing.txt $QUERY_FILE | $VSQL 2>&1 | grep "Time\|HINT"
 
 rm /tmp/set.sql
 rm /tmp/timing.txt

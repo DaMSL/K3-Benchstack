@@ -100,6 +100,8 @@ def runExperiments(experiments, systems, numTrials):
         elif result.status == "Success":
           log.logEvent(4, "Trial Succeeded. Elapsed Time: %s ms" % (result.elapsed))
           db.insertResult(conn, result)
+          for op in result.operators:
+            db.insertOperator(conn, op)
 
         else:
           log.logEvent(4, "Unknown result status: %s. Exiting." % (result.status))

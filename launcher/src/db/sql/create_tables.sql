@@ -33,6 +33,14 @@ CREATE TABLE IF NOT EXISTS cadvisor (
   network_tx_bytes bigint
 );
 
+CREATE TABLE IF NOT EXISTS operator_metrics (
+  trial_id          int,
+  operator_num      int,
+  operator_name     text,
+  elapsed_ms        double precision,
+  allocated_mb      double precision 
+);
+
 -- Results of all trials
 DROP VIEW IF EXISTS trial_results CASCADE;
 CREATE VIEW trial_results AS

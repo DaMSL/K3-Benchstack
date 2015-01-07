@@ -70,3 +70,14 @@ def insertResult(conn, result):
       print("Failed to insert Result: ")
       print(inst)
       sys.exit(1)
+
+def insertOperator(conn, operator):
+  try:
+    query = "INSERT INTO operator_metrics VALUES (%s, %s, %s, %s, %s)"
+    cur = conn.cursor()
+    cur.execute(query, operator.tup())
+    conn.commit()
+  except Exception as inst:
+      print("Failed to insert Operator: ")
+      print(inst)
+      sys.exit(1)

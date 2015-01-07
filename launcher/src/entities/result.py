@@ -12,5 +12,11 @@ class Result:
     self.elapsed = elapsed
     self.notes = notes
 
+    self.operators = []
+
   def tup(self):
     return (self.trial_id, self.status, self.elapsed, self.notes)
+
+  # Operator profiling info
+  def setOperators(self, operators):
+    self.operators = operators
