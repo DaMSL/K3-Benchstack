@@ -7,25 +7,63 @@ ENV LANGUAGE en_US:en
 ENV LC_ALL en_US.UTF-8
 
 # Dependencies
-RUN apt-get update && apt-get install -y git vim wget python postgresql-client-9.3 python-psycopg2 default-jdk python-matplotlib xvfb libaio-dev unzip
+RUN apt-get update && apt-get install -y git vim wget python postgresql-client-9.3 python-psycopg2 python-matplotlib xvfb libaio-dev unzip
+
+# Java
+RUN sed 's/main$/main universe/' -i /etc/apt/sources.list
+RUN apt-get update && apt-get install -y software-properties-common python-software-properties
+RUN add-apt-repository ppa:webupd8team/java -y
+
+RUN apt-get update
+RUN echo oracle-java7-installer shared/accepted-oracle-license-v1-1 select true | /usr/bin/debconf-set-selections
+
+RUN apt-get install -y oracle-java7-installer
+ENV JAVA_HOME /usr/lib/jvm/java-7-oracle/
+
+# Install Scala
+RUN mkdir /software
+WORKDIR /software
+RUN wget http://www.scala-lang.org/files/archive/scala-2.10.4.tgz
+RUN tar -xvzf scala-2.10.4.tgz
+ENV SCALA_HOME /software/scala-2.10.4/bin/
+
+# Install Spark
+RUN apt-get install -y git
+RUN wget http://mirrors.gigenet.com/apache/spark/spark-1.1.0/spark-1.1.0.tgz
+RUN tar -xvzf spark-1.1.0.tgz
+WORKDIR /software/spark-1.1.0
+RUN sbt/sbt -Dhadoop.version=2.2.0 -Pyarn -Phive assembly/assembly
+
+WORKDIR /software
+
+RUN wget https://dl.bintray.com/sbt/native-packages/sbt/0.13.7/sbt-0.13.7.tgz
+RUN tar -xvzf sbt-0.13.7.tgz
+RUN mv sbt/bin/sbt-launch.jar /usr/bin/
+ADD sbt /usr/bin/
+RUN chmod +x /usr/bin/sbt
+RUN sbt
+
+ENV SPARK_HOME /software/spark-1.1.0-bin-hadoop2.4/
 
 # Impala
+WORKDIR /
 RUN wget http://archive.cloudera.com/cdh5/one-click-install/trusty/amd64/cdh5-repository_1.0_all.deb
 RUN dpkg -i cdh5-repository_1.0_all.deb
 RUN apt-get update && apt-get install -y impala-shell
 
 # Vertica
-RUN mkdir /software
 ADD vertica-client-7.1.1-0.linux.x86_64.tar.gz /software/
 RUN ln -s /software/opt/vertica/bin/vsql /usr/bin/vsql
 
 # Oracle
-
 ADD instantclient-basic-linux.x64-12.1.0.2.0.zip  /oracle/
 ADD instantclient-sqlplus-linux.x64-12.1.0.2.0.zip /oracle/
 WORKDIR /oracle
 RUN unzip instantclient-basic-linux.x64-12.1.0.2.0.zip
 RUN unzip instantclient-sqlplus-linux.x64-12.1.0.2.0.zip
+RUN ln -s /oracle/instantclient_12_1/sqlplus /usr/bin/sqlplus
+ENV LD_LIBRARY_PATH /oracle/instantclient_12_1/
+
 
 WORKDIR /
 RUN git clone https://github.com/damsl/k3-benchstack
