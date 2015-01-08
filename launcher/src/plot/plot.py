@@ -11,10 +11,11 @@ class Point:
     self.avg = avg
     self.err = err
 
+
 def getLatestPoints(conn):
   result = []
   cur = conn.cursor()
-  cur.execute("SELECT * FROM latest_trials_stats");
+  cur.execute("SELECT * FROM latest_results_stats");
   return [Point(t) for t in cur.fetchall() ] 
 
 def plotLatest(conn):

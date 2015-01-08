@@ -4,14 +4,19 @@
 #   Skipped => The system can't run the query, so it was skipped. 
 #   Success => Query ran successfully, elapsed time was captured
 
-class Failure:
-  def __init__(self, message):
-    self.message = message
-
-class Skipped:
-  def __init__(self, message):
-    self.message = message  
-
-class Success:
-  def __init__(self, elapsed):
+# The Result class represents a single row in the results table.
+class Result:
+  def __init__(self, trial_id, status, elapsed, notes):
+    self.trial_id = trial_id
+    self.status = status
     self.elapsed = elapsed
+    self.notes = notes
+
+    self.operators = []
+
+  def tup(self):
+    return (self.trial_id, self.status, self.elapsed, self.notes)
+
+  # Operator profiling info
+  def setOperators(self, operators):
+    self.operators = operators

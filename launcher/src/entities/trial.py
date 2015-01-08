@@ -1,14 +1,11 @@
-# Successfuly experiments will be entered into a database.
-# The Trial class represents a single row in the database. 
-
+# The Trial class represents a single row in the trials table.
 class Trial:
-  def __init__(self, system, query, dataset, elapsed, trial, ts):
+  def __init__(self, experiment_id, trial_num, system, ts):
+    self.experiment_id = experiment_id
+    self.trial_num = trial_num
     self.system = system
-    self.query = query
-    self.dataset = dataset
-    self.trial = trial
-    self.elapsed = elapsed
     self.ts = ts
 
   def tup(self):
-    return (self.system, self.query, self.dataset, self.trial, self.elapsed, self.ts) 
+    return (self.experiment_id, self.trial_num, self.system, self.ts) 
+

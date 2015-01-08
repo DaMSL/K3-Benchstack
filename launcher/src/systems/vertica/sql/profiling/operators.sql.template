@@ -1,0 +1,34 @@
+SELECT 
+  coalesce(Times.localplan_id, Allocations.localplan_id) as operator_num,
+  coalesce(Times.operator_name, Allocations.operator_name) as operator_name, 
+  coalesce(Times.elapsed_ms, 0) as elapsed_ms,
+  coalesce( Allocations.mb_allocated, 0) as mb_allocated
+FROM
+  -- Grab clock time per operator for given transaction and statement
+  (SELECT 
+    operator_name, localplan_id, max(counter_value)/1000 as elapsed_ms
+  FROM
+    EXECUTION_ENGINE_PROFILES
+  WHERE
+        transaction_id=%(t_id)s
+    and statement_id=%(s_id)s
+    and counter_name='clock time (us)'
+  GROUP BY
+    operator_name, localplan_id) Times
+FULL OUTER JOIN
+  -- Grab memory allocated per operator for given transaction and statement
+  (SELECT 
+    operator_name, localplan_id, sum(counter_value)/(1024*1024) as mb_allocated
+  FROM
+    EXECUTION_ENGINE_PROFILES
+  WHERE
+        transaction_id=%(t_id)s
+    and statement_id=%(s_id)s
+    and counter_name='memory allocated (bytes)'
+  GROUP BY
+    operator_name, localplan_id) Allocations
+ON      
+      Times.operator_name = Allocations.operator_name
+  and Times.localplan_id = Allocations.localplan_id 
+ORDER BY
+  operator_num

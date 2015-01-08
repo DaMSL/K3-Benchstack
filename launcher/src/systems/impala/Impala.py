@@ -1,9 +1,17 @@
 import os
-import subprocess
+import utils.utils as utils
 
 from entities.result import *
 
 class Impala:
+  def __init__(self, machines):
+    self.machines = machines
+    self.container = "Impala_slave" 
+    # Special code for running TPCH Query 11
+    # Need to run subquery and main query  
+    self.tpch11SubQueryFile = './systems/impala/sql/tpch/q11_10G/11sub.sql'
+    self.tpch11MainQueryFile = './systems/impala/sql/tpch/q11_10G/11.sql'
+
   def name(self):
     return "Impala"
 
@@ -28,7 +36,7 @@ class Impala:
       return False
    
     if e.dataset == 'tpch10g' and e.query == '11':
-      return checkTPCH11()
+      return self.checkTPCH11()
 
     scaleFactor = self.scaleFactorMap[e.dataset]
     queryFolder = self.queryMap[e.workload]
@@ -40,9 +48,9 @@ class Impala:
    
     return True 
 
-  def runExperiment(self,e):
+  def runExperiment(self,e, trial_id):
     if e.workload == 'tpch' and e.query == '11':
-      return runTPCH11()
+      return self.runTPCH11(e, trial_id)
 
     schemaFolder = self.schemaMap[e.workload]
     scaleFactor = self.scaleFactorMap[e.dataset]
@@ -51,42 +59,31 @@ class Impala:
 
     command = "./systems/impala/run_impala.sh %s %s %s" % (schemaFolder, scaleFactor, queryFile)
     
-    try:
-      output = subprocess.check_output(command, shell=True)
-      # Convert from seconds to milliseconds
-      elapsed = 1000 * float(output.split(" ")[-1][:-2])
-      return Success(elapsed)
-
-    except Exception as inst:
-      return Failure("Run failed: " + str(inst))
-
-
-  # Special code for running TPCH Query 11
-  # Need to run subquery and main query  
-  tpch11SubQueryFile = './systems/impala/sql/tpch/q11_10G/11sub.sql'
-  tpch11MainQueryFile = './systems/impala/sql/tpch/q11_10G/11.sql'
+    output = utils.runCommand(command)
+    # Convert from seconds to milliseconds
+    elapsed = 1000 * float(output.split(" ")[-1][:-2])
+    return Result(trial_id, "Success", elapsed, "")
  
   def checkTPCH11(self):
-    if not os.path.isfile(tpch11MainQueryFile):
-      print("Could not find main query for Impala tpch11: %s" % tpch11MainQueryFile) 
+    if not os.path.isfile(self.tpch11MainQueryFile):
+      print("Could not find main query for Impala tpch11: %s" % self.tpch11MainQueryFile) 
       return False
 
-    if not os.path.isfile(tpch11SubQueryFile):
-      print("Could not find sub query for Impala tpch11: %s" % tpch11SubQueryFile)
+    if not os.path.isfile(self.tpch11SubQueryFile):
+      print("Could not find sub query for Impala tpch11: %s" % self.tpch11SubQueryFile)
       return False
 
-  def runTPCH11(self, e):
+    return True
+
+  def runTPCH11(self, e, trial_id):
     scaleFactor = self.scaleFactorMap[e.dataset]
     schemaFolder = self.schemaMap[e.workload]
-    command1 = "./systems/impala/run_impala.sh %s %s %s" % (schemaFolder, scaleFactor, tpch11SubQueryFile)
-    command2 = "./systems/impala/run_impala.sh %s %s %s" % (schemaFolder, scaleFactor, tpch11MainQueryFile)
-    try:
-      output = subprocess.check_output(self.command1, shell=True)
-      elapsed1 = 1000 * float(output.split(" ")[-1][:-2])
-      
-      output = subprocess.check_output(self.command2, shell=True)
-      elapsed2 = 1000 * float(output.split(" ")[-1][:-2])
-      return Success(elapsed1 + elapsed2)
+    command1 = "./systems/impala/run_impala.sh %s %s %s" % (schemaFolder, scaleFactor, self.tpch11SubQueryFile)
+    command2 = "./systems/impala/run_impala.sh %s %s %s" % (schemaFolder, scaleFactor, self.tpch11MainQueryFile)
+    output = utils.runCommand(comand1)
+    elapsed1 = 1000 * float(output.split(" ")[-1][:-2])
+    
+    output = utils.runCommand(comand2)
+    elapsed2 = 1000 * float(output.split(" ")[-1][:-2])
+    return Result(trial_id, "Success", elapsed1 + elapsed2, "")
 
-    except Exception as inst:
-      return Failure("Run failed: " + str(inst))
