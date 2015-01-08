@@ -4,14 +4,14 @@ CREATE VIEW mbReserved AS
     transaction_id,
     statement_id,
     operator_name, 
-    localplan_id, 
+    path_id, 
     sum(counter_value)/1024/1024 as mb_reserved
   FROM
     EXECUTION_ENGINE_PROFILES
   WHERE
     counter_name='memory reserved (bytes)'
   group by
-    transaction_id, statement_id, operator_name, localplan_id;
+    transaction_id, statement_id, operator_name, path_id;
 
 DROP VIEW IF EXISTS mbAllocated;
 CREATE VIEW mbAllocated AS
@@ -19,14 +19,14 @@ CREATE VIEW mbAllocated AS
     transaction_id,
     statement_id,
     operator_name, 
-    localplan_id, 
+    path_id, 
     sum(counter_value)/1024/1024 as mb_allocated
   FROM
     EXECUTION_ENGINE_PROFILES
   WHERE
     counter_name='memory allocated (bytes)'
   group by
-    transaction_id, statement_id, operator_name, localplan_id;
+    transaction_id, statement_id, operator_name, path_id;
 
 DROP VIEW IF EXISTS reservedPercentages;
 CREATE VIEW reservedPercentages AS
@@ -34,7 +34,7 @@ CREATE VIEW reservedPercentages AS
     mbr.transaction_id,
     mbr.statement_id,
     mbr.operator_name,
-    mbr.localplan_id,
+    mbr.path_id,
     100 * mbr.mb_reserved / TotalReserved.total as percentReserved
   FROM  
     (SELECT 
@@ -55,7 +55,7 @@ CREATE VIEW allocatedPercentages AS
     mba.transaction_id,
     mba.statement_id,
     mba.operator_name,
-    mba.localplan_id,
+    mba.path_id,
     100 * mba.mb_allocated / TotalAllocated.total as percentAllocated
   FROM  
     (SELECT 

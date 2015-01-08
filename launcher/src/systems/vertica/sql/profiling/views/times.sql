@@ -1,18 +1,17 @@
--- Use sum or max here?
 DROP VIEW IF EXISTS clockTimes;  
 CREATE VIEW clockTimes AS
   SELECT 
    transaction_id,
    statement_id,
    operator_name, 
-   localplan_id,
+   path_id,
    max(counter_value)/1000 as clock_time
   FROM
     EXECUTION_ENGINE_PROFILES
   WHERE
     counter_name='clock time (us)'
   group by
-    transaction_id, statement_id, operator_name, localplan_id;
+    transaction_id, statement_id, operator_name, path_id;
 
 DROP VIEW IF EXISTS executionTimes;
 CREATE VIEW executionTimes AS
@@ -20,14 +19,14 @@ CREATE VIEW executionTimes AS
    transaction_id,
    statement_id,
    operator_name, 
-   localplan_id,
+   path_id,
    max(counter_value)/1000 as execution_time
   FROM
     EXECUTION_ENGINE_PROFILES
   WHERE
     counter_name='execution time (us)'
   group by
-    transaction_id, statement_id, operator_name, localplan_id;
+    transaction_id, statement_id, operator_name, path_id;
 
 DROP VIEW IF EXISTS clockPercentages;
 CREATE VIEW clockPercentages AS
@@ -35,7 +34,7 @@ CREATE VIEW clockPercentages AS
     ct.transaction_id,
     ct.statement_id,
     ct.operator_name,
-    ct.localplan_id,
+    ct.path_id,
     100 * ct.clock_time / Totals.total as percent_clock_time
   FROM
     (SELECT transaction_id, statement_id, sum(clock_time) as total
@@ -49,7 +48,7 @@ CREATE VIEW executionPercentages AS
     ct.transaction_id,
     ct.statement_id,
     ct.operator_name,
-    ct.localplan_id,
+    ct.path_id,
     100 * ct.execution_time / Totals.total as percent_execution_time
   FROM
     (SELECT transaction_id, statement_id, sum(execution_time) as total
