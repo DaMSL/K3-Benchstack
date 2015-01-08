@@ -1,4 +1,4 @@
-SELECT l_returnflag, l_linestatus,
+ SELECT /*+ MONITOR PARALLEL */ l_returnflag, l_linestatus,
  SUM(l_quantity) AS sum_qty,
  SUM(l_extendedprice) AS sum_base_price,
  SUM(l_extendedprice * (1 - l_discount)) AS sum_disc_price,

@@ -1,4 +1,4 @@
-SELECT cntrycode,
+SELECT /*+ MONITOR PARALLEL */ cntrycode,
  count(*) AS numcust,
  sum(c_acctbal) AS totacctbal
 FROM (

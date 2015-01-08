@@ -21,7 +21,7 @@ SELECT plan_line_id
   ,plan_operation || ' ' || plan_options
   ,plan_object_name
   ,count(ash.sql_plan_line_id) AS numsamples
-  ,max(workarea_max_mem)
+  ,coalesce(max(workarea_max_mem), 0)/1024/1024
 FROM v$sql_plan_monitor pm
   ,v$active_session_history ash
 WHERE pm.plan_line_id = ash.sql_plan_line_id(+)

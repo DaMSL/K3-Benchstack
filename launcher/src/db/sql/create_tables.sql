@@ -72,22 +72,3 @@ WHERE
   e.experiment_id = T.experiment_id
 ORDER BY
   T.experiment_id, T.system;
-
--- Find the most recent results per (system, query, dataset) for successful results
---DROP VIEW IF EXISTS latest_results CASCADE;
---CREATE VIEW latest_results AS
---   SELECT T1.system, T1.query, T1.dataset, T2.run_id, T2.elapsed_ms
---   FROM
---    (SELECT system, query, dataset, max(t.trial_id) as max_trial_id 
---    FROM trials t, results r
---    WHERE status = 'Success' or status ='Skipped' 
---    group by system, query, dataset) as T1,
---    results as T2
---  WHERE T1.max_run_id = T2.run_id;
---
---DROP VIEW IF EXISTS latest_results_stats CASCADE;
---CREATE VIEW latest_results_stats AS
---  SELECT system, dataset, query, avg(elapsed_ms) as avg, coalesce(stddev(elapsed_ms),0) as error 
---  FROM latest_results
---  GROUP BY system, dataset, query
---  ORDER BY dataset, query, system;

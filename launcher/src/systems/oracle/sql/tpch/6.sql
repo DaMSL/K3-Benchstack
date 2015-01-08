@@ -1,4 +1,4 @@
-select
+select /*+ MONITOR */
         sum(l_extendedprice * l_discount) as revenue
 from
         lineitem

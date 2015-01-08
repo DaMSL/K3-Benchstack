@@ -1,6 +1,7 @@
 import os
 import utils.utils as utils
 from entities.result import *
+from entities.operator import *
 
 class Oracle:
   def __init__(self, machine):
@@ -47,11 +48,21 @@ class Oracle:
   def runOracle(self, host, database, queryFile, trial_id):
     command = "ORACLE_HOST=%s ./systems/oracle/run_oracle.sh %s %s" % (host, database, queryFile)
     output = utils.runCommand(command)
-    # Parse hh:mm:ss output
-    hms = output.split(":")
-    secContrib = 1000 * float(hms[-1][:-1])
-    minContrib = 60 * 1000 * float(hms[-2])
-    hourContrib = 60 * 60 * 1000 * float(hms[-3]) 
-    elapsed = secContrib + minContrib + hourContrib
-    return Result(trial_id, "Success", float(elapsed), "")
 
+    operators = []
+    lines = output.split('\n')
+    elapsed = 0
+    for line in lines:
+      vals = [ val.strip() for val in line.split(',') ]
+      if len(vals) == 7:
+        operator_num = vals[0]
+        operator_name = vals[1]
+        memory = vals[4]
+        time = vals[5]
+        percent_time = vals[6]
+        operators.append(Operator(trial_id, operator_num, operator_name, time, percent_time, memory))
+        elapsed += float(time)
+    result =  Result(trial_id, "Success", elapsed, "")
+    result.setOperators(operators)
+
+    return result 

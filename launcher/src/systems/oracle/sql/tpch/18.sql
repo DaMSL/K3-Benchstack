@@ -1,4 +1,4 @@
-select  c_name,
+select  /*+ MONITOR PARALLEL */ c_name,
         c_custkey,
         o_orderkey,
         o_orderdate,
