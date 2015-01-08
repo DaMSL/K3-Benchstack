@@ -13,6 +13,9 @@ BEGIN
     WHERE sql_fulltext like '%@@QUERYFLAG@@%' and sql_fulltext NOT LIKE '%@@IGNORE_FLAG@@%' and rownum=1;
 END;
 /
+SELECT extract(second from max(sample_time) - min(sample_time))
+FROM v$active_session_history
+WHERE sql_id=:lastsql;
 SELECT qstats.*
 ,numsamples * 100 AS Time_ms
 ,round((numsamples / totalsamples * 100), 2) AS PERCENT
@@ -28,6 +31,8 @@ WHERE pm.plan_line_id = ash.sql_plan_line_id(+)
   AND pm.sql_id = ash.sql_id(+)
   AND pm.sql_exec_id = ash.sql_exec_id(+)
   AND pm.sql_id = :lastsql
+  AND pm.sid IN (
+    SELECT sid FROM v$session)
 GROUP BY plan_line_id
   ,plan_operation || ' ' || plan_options
   ,plan_object_name
@@ -37,4 +42,5 @@ ORDER BY plan_line_id
   SELECT count(*) AS totalsamples
   FROM v$active_session_history
   WHERE sql_id = :lastsql
+    AND sql_exec_id IS NOT NULL
   ) ns;
