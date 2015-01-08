@@ -8,7 +8,7 @@
 
 if [ $# -ne 2 ] 
 then
-  echo "Usage: $0 schema_name query_file"
+  echo "Usage: $0 schema_name(amplab, tpch10g, tpch100g) query_file"
   exit 1
 fi
 
