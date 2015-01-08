@@ -27,7 +27,7 @@ Upon startup, the container will pull the K3-Benchstack repo, load the configura
 
 Each system provides a shell script for executing a single experiment on a single dataset, then reporting the elapsed time.
 
-The scripts are located at launcher/systems/*system*/run\_*system*.sh
+The scripts are located at launcher/src/systems/*<system>*/run\_*<system>*.sh
 
 The scripts generally take a query file and a dataset name as arguments, but see usage for exact details. All necessary files will be located within the system's diectory.
 
