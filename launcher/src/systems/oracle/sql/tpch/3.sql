@@ -1,4 +1,3 @@
-SET timing ON;
 SELECT l_orderkey,
  sum(l_extendedprice * (1 - l_discount)) AS revenue,
  o_orderdate,
@@ -9,4 +8,4 @@ WHERE c_mktsegment = 'BUILDING'
  AND l_orderkey = o_orderkey
  AND o_orderdate < DATE '1995-03-15'
  AND l_shipdate > DATE '1995-03-15'
-GROUP BY l_orderkey, o_orderdate, o_shippriority;
+GROUP BY l_orderkey, o_orderdate, o_shippriority

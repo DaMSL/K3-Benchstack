@@ -1,4 +1,3 @@
-SET timing ON;
 select
         ps_partkey,
         sum(ps_supplycost * ps_availqty) as "value"
@@ -23,4 +22,4 @@ group by
                                 ps_suppkey = s_suppkey
                                 and s_nationkey = n_nationkey
                                 and n_name = 'GERMANY'
-                );
+                )

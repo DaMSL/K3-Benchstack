@@ -1,4 +1,3 @@
-SET timing ON;
 select  c_name,
         c_custkey,
         o_orderkey,
@@ -26,4 +25,4 @@ group by
         c_custkey,
         o_orderkey,
         o_orderdate,
-        o_totalprice;
+        o_totalprice

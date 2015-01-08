@@ -9,11 +9,15 @@ fi
 DB=$1
 FILE=$2
 
+now=$(date)
+
+echo "SET FEEDBACK OFF;" > /tmp/oracleq.sql
 echo "SET TERM OFF;" >> /tmp/oracleq.sql
 cat $FILE >> /tmp/oracleq.sql
-cat getlast.sql >> /tmp/oracleq.sql
+echo '/*+ MONITOR */ ' >> /tmp/oracle.sql
+echo "/* $now */;">> /tmp/oracleq.sql
+sed "s/@@QUERYFLAG@@/$now/g" sql/getlast.sql >> /tmp/oracleq.sql
+
 echo "quit;" >> /tmp/oracleq.sql
 
-sqlplus system/manager@$ORACLE_HOST:$ORACLE_PORT/$DB @/tmp/oracleq.sql
-
-rm /tmp/oracleq.sql
+sqlplus -s system/manager@$ORACLE_HOST:$ORACLE_PORT/$DB @/tmp/oracleq.sql

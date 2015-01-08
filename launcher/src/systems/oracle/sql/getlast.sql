@@ -1,15 +1,16 @@
-set pages 0;
-set lin 2000;
 set long 20000;
 set longc 200000;
 set colsep ',';
-set term on
+set lin 2000;
+set pages 0;
+set term on;
+set serveroutput on;
 VARIABLE lastsql VARCHAR2(16);
 BEGIN
-  SELECT prev_sql_id 
+  SELECT /* @@IGNORE_FLAG@@ */ sql_id 
     INTO :lastsql
-    FROM v$session s, v$sqlarea a 
-    WHERE s.sql_address=a.address AND s.sql_hash_value=a.hash_value and rownum=1;  
+    FROM v$sql 
+    WHERE sql_fulltext like '%@@QUERYFLAG@@%' and sql_fulltext NOT LIKE '%@@IGNORE_FLAG@@%' and rownum=1;
 END;
 /
 SELECT qstats.*
@@ -37,6 +38,3 @@ ORDER BY plan_line_id
   FROM v$active_session_history
   WHERE sql_id = :lastsql
   ) ns;
-
-
-

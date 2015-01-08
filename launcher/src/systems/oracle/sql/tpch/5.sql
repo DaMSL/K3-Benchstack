@@ -1,4 +1,3 @@
-SET timing ON;
 SELECT n_name, sum(l_extendedprice * (1 - l_discount)) AS revenue
 FROM customer, orders, lineitem, supplier, nation, region
 WHERE c_custkey = o_custkey
@@ -10,4 +9,4 @@ WHERE c_custkey = o_custkey
  AND r_name = 'ASIA'
  AND o_orderdate >= DATE '1994-01-01'
  AND o_orderdate < DATE '1995-01-01'
-GROUP BY n_name;
+GROUP BY n_name

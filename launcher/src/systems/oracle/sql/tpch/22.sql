@@ -1,4 +1,3 @@
-SET timing ON;
 SELECT cntrycode,
  count(*) AS numcust,
  sum(c_acctbal) AS totacctbal
@@ -21,4 +20,4 @@ FROM (
    WHERE o_custkey = c_custkey
    )
  )
-GROUP BY cntrycode;
+GROUP BY cntrycode
