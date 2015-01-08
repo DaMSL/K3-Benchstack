@@ -73,7 +73,7 @@ def insertResult(conn, result):
 
 def insertOperator(conn, operator):
   try:
-    query = "INSERT INTO operator_metrics VALUES (%s, %s, %s, %s, %s)"
+    query = "INSERT INTO operator_metrics VALUES (%s, %s, %s, %s, %s, %s)"
     cur = conn.cursor()
     cur.execute(query, operator.tup())
     conn.commit()
