@@ -46,6 +46,10 @@ CREATE TABLE IF NOT EXISTS plots (
   experiment_id     int
 );
 
+CREATE TABLE IF NOT EXISTS metric_plots (
+  trial_id     int
+);
+
 -- Results of all trials
 DROP VIEW IF EXISTS trial_results CASCADE;
 CREATE VIEW trial_results AS

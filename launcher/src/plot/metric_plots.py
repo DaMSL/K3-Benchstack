@@ -1,10 +1,13 @@
 import psycopg2
 import sys
+import os
 import datetime as dt
 import matplotlib as mpl
 mpl.use('Agg')
 import matplotlib.pyplot as plt
 
+import db.db as db
+import utils.utils as utils
 
 def conv_ts(ts):
     time = ts.split('.')
@@ -15,7 +18,6 @@ def conv_mem(m):
 
 def conv_cpu(c):
     return float(c / 1000000)
-
 
 
 class Metric:
@@ -40,7 +42,8 @@ def get_cadvdata_single (con, metric, id, delta=False):
     raw = [metric.convert(row[0]) for row in cur.fetchall()]
     if not delta:
         return (range(len(raw)), raw)
-    incr = [(raw[i] - raw[i-1]) for i in range(1, len(raw))]
+    incr = [(raw[i] - raw[i-1]) for i in xrange(1, len(raw))]
+    cur.close()
     return (range(len(incr)), incr)
 
 
@@ -56,7 +59,11 @@ def get_cadvdata_dist(con, metric, id, delta=False, average=False, debug=False):
         raw[row[0]].append(metric.convert(row[1]))
     instance = {}
     for m in raw:
-        instance[m] = [(raw[m][i] - raw[m][i-1]) for i in range(1, len(raw[m]))] if delta else raw[m]
+        instance[m] = [(raw[m][i] - raw[m][i-1]) for i in xrange(1, len(raw[m]))] if delta else raw[m]
+
+    if len(instance) == 0:
+      print("Got zero results for %s plot trial: %s" % (metric.label, id))
+      return (0, [])
 
     # First, find min data points
     num_vals = sys.maxint
@@ -67,7 +74,7 @@ def get_cadvdata_dist(con, metric, id, delta=False, average=False, debug=False):
 
     # Then, find average for each data point among all machines
     result = []
-    for ts in range(num_vals):
+    for ts in xrange(num_vals):
         total = 0.0
         for m in instance:
             total += instance[m][ts]
@@ -75,28 +82,34 @@ def get_cadvdata_dist(con, metric, id, delta=False, average=False, debug=False):
             result.append(total / float(num_mach))
         else:
             result.append(total)
+    cur.close()
     return (range(len(result)), result)
 
 def draw_graph(con, trial, metric):
-    run, tnum, sys, qry, dset, wkld = trial
+    exp_id, run, tnum, sys, qry, dset, wkld = trial
     cur = con.cursor()
     fig= plt.figure(figsize=(5,4))
     x, y = (get_cadvdata_dist(con, metric, run, metric.delta, average=True)
         if sys in distro_sys
         else get_cadvdata_single(con, metric, run, metric.delta))
+
+    if x == 0:
+      return 
+
     plt.plot(x, y, label=sys)
     plt.title(metric.title)
     plt.legend()
     plt.xlabel("Time (sec)")
     plt.ylabel(metric.axis)
-    fig.savefig(("../web/%s_%s_%s_q%s_%s_%s.jpg" % (metric.label, sys, wkld, qry, dset, tnum)), dpi=100)
+    directory = "../web/%s/%s/%s/experiment_%s/%s/%s/" % (wkld, dset, qry, exp_id, sys, metric.label)
+    utils.runCommand("mkdir -p %s" % (directory))
+    f = os.path.join(directory, "trial_%s.jpg" % (run))
+    fig.savefig(f, dpi=100)
+    plt.close(fig)
+    db.registerMetricPlot(con,run)
 
-if __name__ == '__main__':
-    con = psycopg2.connect(host="mddb", database="postgres", user="postgres", password="password")
-    cur = con.cursor()
-    cur.execute("SELECT trial_id, trial_num, system, query, dataset, workload FROM trials as T, experiments AS E WHERE T.experiment_id = E.experiment_id;")
-    for row in cur.fetchall():
-        draw_graph(con, row, cpu_total)
-        draw_graph(con, row, mem_usage)
-
-
+def draw_all(conn):
+  results = db.getMetricPlotData(conn)
+  for row in results:
+    draw_graph(conn, row, cpu_total)
+    draw_graph(conn, row, mem_usage)

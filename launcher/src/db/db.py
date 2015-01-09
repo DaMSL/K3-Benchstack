@@ -94,6 +94,18 @@ def getPlotData(conn):
       print(inst)
       sys.exit(1)
 
+def getMetricPlotData(conn):
+  try:
+    query = "SELECT T.experiment_id,trial_id, trial_num, system, query, dataset, workload FROM trials as T, experiments AS E WHERE T.experiment_id = E.experiment_id and NOT EXISTS (select * from metric_plots where trial_id = T.trial_id);"
+    cur = conn.cursor()
+    cur.execute(query)
+    results = cur.fetchall()
+    return results
+  except Exception as inst:
+      print("Failed to get new metric plot data: ")
+      print(inst)
+      sys.exit(1)
+
 def registerPlot(conn, exp_id):
   try:
     query = "INSERT INTO plots VALUES (%s);"
@@ -102,5 +114,16 @@ def registerPlot(conn, exp_id):
     conn.commit()
   except Exception as inst:
       print("Failed to insert plot: ")
+      print(inst)
+      sys.exit(1)
+
+def registerMetricPlot(conn, trial_id):
+  try:
+    query = "INSERT INTO metric_plots VALUES (%s);"
+    cur = conn.cursor()
+    cur.execute(query, (trial_id,) )
+    conn.commit()
+  except Exception as inst:
+      print("Failed to insert metric plot: ")
       print(inst)
       sys.exit(1)
