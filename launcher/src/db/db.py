@@ -81,3 +81,26 @@ def insertOperator(conn, operator):
       print("Failed to insert Operator: ")
       print(inst)
       sys.exit(1)
+
+def getPlotData(conn):
+  try:
+    query = "select * from experiment_stats e where not exists (select * from plots where experiment_id = e.experiment_id);"
+    cur = conn.cursor()
+    cur.execute(query)
+    results = cur.fetchall()
+    return results
+  except Exception as inst:
+      print("Failed to get new plot data: ")
+      print(inst)
+      sys.exit(1)
+
+def registerPlot(conn, exp_id):
+  try:
+    query = "INSERT INTO plots VALUES (%s);"
+    cur = conn.cursor()
+    cur.execute(query, (exp_id,) )
+    conn.commit()
+  except Exception as inst:
+      print("Failed to insert plot: ")
+      print(inst)
+      sys.exit(1)

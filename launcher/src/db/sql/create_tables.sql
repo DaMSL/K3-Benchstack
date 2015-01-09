@@ -42,6 +42,10 @@ CREATE TABLE IF NOT EXISTS operator_metrics (
   memory            double precision 
 );
 
+CREATE TABLE IF NOT EXISTS plots (
+  experiment_id     int
+);
+
 -- Results of all trials
 DROP VIEW IF EXISTS trial_results CASCADE;
 CREATE VIEW trial_results AS

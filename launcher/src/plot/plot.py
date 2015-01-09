@@ -1,75 +1,74 @@
 import sys
+import os
 import numpy as np
 import matplotlib.pyplot as plt
 
-class Point:
+import db.db as db
+import utils.utils as utils
+
+
+# Create a bar entry from a row in the experiment_stats table
+class Bar:
   def __init__(self, tup):
-    (sys, dataset, query, avg, err) = tup
+    (wkld, ds, qry, eid, sys, avg, err, num) = tup
+    self.exp_name = "%s.%s.%s" % (wkld, ds, qry)
+    self.workload = wkld
+    self.dataset = ds
+    self.query = qry
+    self.exp_id = eid
     self.system = sys
-    self.dataset = dataset
-    self.query = query
     self.avg = avg
     self.err = err
 
+def plotNewExperiments(conn):
+  tups = db.getPlotData(conn)
+  bars = [Bar(tup) for tup in tups]
+  plotBarCharts(bars, conn)
 
-def getLatestPoints(conn):
-  result = []
-  cur = conn.cursor()
-  cur.execute("SELECT * FROM latest_results_stats");
-  return [Point(t) for t in cur.fetchall() ] 
+def plotBarCharts(bars, conn):
+  experiments = {}
 
-def plotLatest(conn):
-  points = getLatestPoints(conn)
-  plotData(points, "../web/latest.png")
+  # Group all bars by experiment
+  for bar in bars:
+    if bar.exp_name not in experiments:
+      experiments[bar.exp_name] = []
+    experiments[bar.exp_name].append(bar)
 
-# Group Points by system (assume same set of queries, in same order)
-def groupPoints(points):
-  data = {}
-  queries = []
-  for point in points:
-    if point.system not in data:
-      data[point.system] = {'means': [], 'stds': []}
-    data[point.system]['means'].append(float(point.avg))
-    data[point.system]['stds'].append(float(point.err))
-    key = (point.dataset, point.query)
-    if key not in queries:
-      queries.append(key)
-  return (data,queries)
+  # One plot for each key 
+  for key in experiments:
+    directory = "../web/%s/%s/experiment_%s/" % (experiments[key][0].workload, experiments[key][0].dataset, experiments[key][0].exp_id)
+    utils.runCommand("mkdir -p %s" % (directory) )
+    f = "%s.png" % (experiments[key][0].query)
+    outfile = os.path.join(directory, f)
+    plotBarChart(key, experiments[key], outfile, conn)
 
-def plotData(points, outfile):
-  (data,queries) = groupPoints(points)
-  title = "Benchmarks" 
-  numSections = len(queries)
-  xLabels = [ ds + "." + q for (ds, q) in queries ]
-
+def plotBarChart(name, bars, outfile, conn):
+  title = name
+  numSections = 1
+  
   # Start plotting
   ind = np.arange(numSections)
   width = 0.25
   fig, ax = plt.subplots()
 
   # Add Bars
-  bars = []
+  mpbars = []
   i = 0
   colors = ['r', 'y', 'g', 'b' ]
-
-  for sys in sorted(data):
-    means = data[sys]['means']
-    stds  = data[sys]['stds']
-    bar = ax.bar(ind + (i * width), means, width, color=colors[i], yerr=stds)
-    bars.append(bar)
+  for bar in bars:
+    means = [bar.avg]
+    stds  = [bar.err]
+    mpbar = ax.bar(ind + (i * width), means, width, color=colors[i], yerr=stds)
+    mpbars.append(mpbar)
     i = i + 1
 
   ax.set_ylabel("Time (ms)")
   ax.set_title(title)
   ax.set_xticks(ind+width)
-  ax.set_xticklabels(xLabels)
-  ax.legend([bar[0] for bar in bars], sorted([sys for sys in data]), loc=2)
+  ax.legend([mpbar[0] for mpbar in mpbars], [bar.system for bar in bars], loc=2)
+  ax.set_xticklabels([]) 
   plt.savefig(outfile)
 
-if __name__ == "__main__":
-  t = ("Vertica", "tpch10g", "1", "100", "10")
-  t2 = ("Impala", "tpch10g", "1", "120", "15")  
-  t3 = ("Impala", "tpch10g", "2", "121", "25")  
-  t4 = ("Vertica", "tpch10g", "2", "110", "5")  
-  points = [Point(t), Point(t2), Point(t3), Point(t4)]
-  plotData(points, "foo.png")
+  eid = bars[0].exp_id
+  db.registerPlot(conn, eid)
+

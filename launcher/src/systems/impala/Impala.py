@@ -80,10 +80,10 @@ class Impala:
     schemaFolder = self.schemaMap[e.workload]
     command1 = "./systems/impala/run_impala.sh %s %s %s" % (schemaFolder, scaleFactor, self.tpch11SubQueryFile)
     command2 = "./systems/impala/run_impala.sh %s %s %s" % (schemaFolder, scaleFactor, self.tpch11MainQueryFile)
-    output = utils.runCommand(comand1)
+    output = utils.runCommand(command1)
     elapsed1 = 1000 * float(output.split(" ")[-1][:-2])
     
-    output = utils.runCommand(comand2)
+    output = utils.runCommand(command2)
     elapsed2 = 1000 * float(output.split(" ")[-1][:-2])
     return Result(trial_id, "Success", elapsed1 + elapsed2, "")
 
