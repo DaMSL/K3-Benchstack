@@ -1,11 +1,11 @@
 import sys
 import os
 import numpy as np
-import matplotlib.pyplot as plt
 
 import db.db as db
 import utils.utils as utils
 import metric_plots as mplots
+import matplotlib.pyplot as plt
 
 # Create a bar entry from a row in the experiment_stats table
 class Bar:

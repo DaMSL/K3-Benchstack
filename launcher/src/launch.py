@@ -174,12 +174,12 @@ def plotNew(conn):
   log.endSection()
  
 if __name__ == "__main__":
-  #(experiments, systems, numTrials) = parseArgs()
+  (experiments, systems, numTrials) = parseArgs()
   
   conn = initDatabase(False)
   
-  #checkExperiments(experiments, systems)
-  #runExperiments(experiments, systems, numTrials)
+  checkExperiments(experiments, systems)
+  runExperiments(experiments, systems, numTrials)
 
   plotNew(conn)
   conn.close()

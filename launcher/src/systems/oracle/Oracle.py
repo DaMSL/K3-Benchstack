@@ -48,18 +48,27 @@ class Oracle:
   def runOracle(self, host, database, queryFile, trial_id):
     command = "ORACLE_HOST=%s ./systems/oracle/run_oracle.sh %s %s" % (host, database, queryFile)
     output = utils.runCommand(command)
+    print(output)
     operators = []
     lines = output.split('\n')
     elapsed = 1000 * float(lines[0].strip())
-    for line in lines[1:]:
+    print("TOTAL ELAPSED TIME: %f " % elapsed)
+    exec_time = 1000 * float(lines[1].strip())
+    print("TOTAL EXEC TIME:    %f " % exec_time)
+    preexec_time = elapsed - exec_time
+    print("PRE-EXEC TIME:      %f " % preexec_time)
+    prexec_percent = 100.0
+    for line in lines[2:]:
       vals = [ val.strip() for val in line.split(',') ]
       if len(vals) == 7:
         operator_num = vals[0]
         operator_name = vals[1]
-        memory = vals[4]
+        memory = int(vals[4])
         time = vals[5]
         percent_time = vals[6]
         operators.append(Operator(trial_id, operator_num, operator_name, time, percent_time, memory))
+        prexec_percent -= float(percent_time)
+    operators.append(Operator(trial_id, -1, 'Pre-Execution', preexec_time, prexec_percent, 0))
     result =  Result(trial_id, "Success", elapsed, "")
     result.setOperators(operators)
 
