@@ -1,6 +1,9 @@
 import sys
 import os
+import json
 import utils.utils as utils
+from entities.result import *
+from entities.operator import *
 
 from entities.result import *
 
@@ -47,6 +50,8 @@ class Spark:
     # TODO Check that the correct class exists in the jar file using sbt "show discoveredMainClasses"
     return True
 
+
+
   def runExperiment(self, e, trial_id):
     if e.dataset == "tpch100g" and e.workload == "tpch" and (e.query == "18" or e.query == "22"):
       return Result(trial_id, "Skipped", 0, "TPCH 100G Query %s fails to finish on Spark" % (e.query))
@@ -55,6 +60,31 @@ class Spark:
     sf = self.scaleFactorMap[e.dataset]
     command = "systems/spark/run_spark.sh %s %s %s" % (self.jarFile, sf, className) 
 
-    output = utils.runCommand(command)
-    elapsed = float(output.split(":")[-1][:-1])
-    return Result(trial_id, "Success", elapsed, "")
+    output = utils.runCommand(command).split('\n')
+    print ("OUTPUT:")
+    print (output)
+    logfile = output[0].split(':')[-1]+'/EVENT_LOG_1' 
+    elapsed = float(output[1].split(":")[-1][:-1])
+    print ("LOGFILE:" , logfile)
+    source_data = open(logfile, 'r').read()
+    ops = []
+    for row in source_data.split('\n'):
+      if row == '':
+        continue
+      event = json.loads(row)
+      if event['Event'] == 'SparkListenerStageCompleted':
+        stage = event['Stage Info']
+        op_num = stage['Stage ID']
+        op_name = stage['Stage Name'].split('.')[0].encode('ascii')
+        op_time = stage['Completion Time'] - stage['Submission Time']
+        op_percent = float(op_time) / elapsed
+        op_mem = 0
+        for rdd in stage['RDD Info']:
+          op_mem += rdd['Memory Size']/1024/1024
+        ops.append(Operator(trial_id, op_num, op_name, op_time, op_percent, op_mem))
+    print "OP LIST:"
+    for op in ops:
+      print op
+    result = Result(trial_id, "Success", elapsed, "")
+    result.setOperators(ops)
+    return result
