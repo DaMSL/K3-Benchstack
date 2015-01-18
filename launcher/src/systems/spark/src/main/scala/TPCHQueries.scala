@@ -15,6 +15,8 @@ object TPCHQuery1 {
     val sf = args(0)
     TPCHFiles.cacheLineitem(sc,sqlContext, sf)
 
+    println("RUNNING QUERY 1")
+
     // Query with timing
     val query = """
       |select
@@ -36,7 +38,7 @@ object TPCHQuery1 {
       |        l_returnflag,
       |        l_linestatus
       """.stripMargin
-    Common.timeSqlQuery(query, s"tpch/q1$sf")
+    Common.timeSqlQuery(query, s"tpch/q1$sf", true)
   }
 }
 
@@ -54,7 +56,7 @@ object TPCHQuery5 {
     TPCHFiles.cacheNationHive(sqlContext, sf)
     TPCHFiles.cacheRegionHive(sqlContext, sf)
 
-    // Query with timing
+    // Query with timing 
     val query = """
       | select
       |   n.n_name,
@@ -73,7 +75,7 @@ object TPCHQuery5 {
       | group by
       |   n.n_name  
      """.stripMargin
-    Common.timeHiveQuery(query, "tpch/q5")
+    Common.timeHiveQuery(query, "tpch/q5", true)
   }
 }
 
@@ -99,7 +101,7 @@ object TPCHQuery6 {
      |   and l_discount <= 0.07
      |   and l_quantity < 24 
      """.stripMargin
-    Common.timeSqlQuery(query, s"tpch/q6$sf")
+    Common.timeSqlQuery(query, s"tpch/q6$sf", true)
   }
 }
 
@@ -133,7 +135,7 @@ object TPCHQuery3 {
       |         o.o_shippriority,
       |         o.o_orderdate
     """.stripMargin
-    Common.timeHiveQuery(query, s"tpch/q3$sf")
+    Common.timeHiveQuery(query, s"tpch/q3$sf", true)
   }
 }
 
