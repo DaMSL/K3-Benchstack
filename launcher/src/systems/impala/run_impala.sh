@@ -18,8 +18,11 @@ for f in $(ls $SCHEMA_DIR);
 do 
   echo "Creating $SCHEMA_DIR/$f"
   sed s/@@SCALE_FACTOR@@/$SF/g $SCHEMA_DIR/$f > /tmp/query.sql
-  impala-shell -d $SF -i $IMPALA_HOST -f /tmp/query.sql 2>&1 >/dev/null
+  impala-shell --quiet -d $SF -i $IMPALA_HOST -f /tmp/query.sql 2>&1 >/dev/null;
 done
 rm /tmp/query.sql
 
-impala-shell -d $SF -i $IMPALA_HOST -f $QUERY_FILE 2>&1 >/dev/null | grep 'Fetched'
+cat $QUERY_FILE > /tmp/query.sql
+echo "SUMMARY;" >> /tmp/query.sql
+impala-shell -d $SF -i $IMPALA_HOST -f /tmp/query.sql 2>&1
+rm /tmp/query.sql

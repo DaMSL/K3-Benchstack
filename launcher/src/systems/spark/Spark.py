@@ -103,8 +103,6 @@ class Spark:
         cur_depth += 1
         line = line[1:]
       ops.append((cur_depth, line[:line.find(' ')]))
-    for o in ops:
-      print o
 
     #  Split Query plan into jobs based on exchange operations
     cur_op = sparkJob(0)
@@ -117,13 +115,10 @@ class Spark:
           joblist.append(cur_op)
       else:
         cur_op.addOp(op)
-    for j in joblist:
-      print j.name()
 
 
     #  Find the JSON formatted event log (should be first line of output
     out_lines = output.split('\n')
-    print out_lines
     for l in output.split('\n'):
       if "EventLoggingListener" in l:
         logfile = l.split(':')[-1]+'/EVENT_LOG_1'
@@ -176,10 +171,12 @@ class Spark:
     com_job.set(-1, "COMM / OTHER", 0, run_time - exec_time)
     com_job.percent = 100.0 * float(com_job.time()) / float(run_time)
 
+    '''
     for j in joblist:
       print (j.job_id, j.name(), j.time(), j.percent, j.mem)
     print (pre_job.job_id, pre_job.name(), pre_job.time(), pre_job.percent, pre_job.mem)
     print (com_job.job_id, com_job.name(), com_job.time(), com_job.percent, com_job.mem)
+    '''
     operations = [Operator(trial_id, -1, pre_job.name(), pre_job.time(), pre_job.percent, 0)]
     operations.append(Operator(trial_id, -1, com_job.name(), com_job.time(), com_job.percent, 0))
     for j in joblist:

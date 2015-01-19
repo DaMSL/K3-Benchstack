@@ -176,6 +176,10 @@ object TPCHQuery11 {
     // Force evaluation 
     val num_results = result.count()
     val end = System.currentTimeMillis
+
+    println("====== START PLAN ---->>")
+    println(result.queryExecution.executedPlan.toString())
+    println("<<---- END PLAN   ======")
     println("Num Results: " + num_results )
     println("Elapsed: " + (end - start).toString)
     
