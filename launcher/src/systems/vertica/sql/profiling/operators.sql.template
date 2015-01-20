@@ -1,4 +1,4 @@
-SELECT  path_id as operator_num, operator_name, clock_time, percent_clock_time, mb_reserved
+SELECT  path_id as operator_num, operator_name, clock_time, percent_clock_time, mb_reserved, description
 FROM importantStats
 WHERE
       transaction_id = %(t_id)s

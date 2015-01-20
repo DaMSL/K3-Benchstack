@@ -83,7 +83,8 @@ class Vertica:
     lines = output.split('\n')
     for line in lines:
       vals = [ val.strip() for val in line.split(',')]
-      if len(vals) == 5:
+      if len(vals) >= 6:
         operators.append(Operator(trial_id, vals[0], vals[1], vals[2], vals[3], vals[4]))
+        desc = "".join(vals[5:]))
 
     return operators
