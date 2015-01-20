@@ -81,10 +81,15 @@ class Vertica:
     utils.runCommand("rm %s" % (tempfile) )
     operators = []
     lines = output.split('\n')
+    totalTime = 0
     for line in lines:
-      vals = [ val.strip() for val in line.split(',')]
-      if len(vals) >= 6:
-        operators.append(Operator(trial_id, vals[0], vals[1], vals[2], vals[3], vals[4]))
-        desc = "".join(vals[5:]))
+      vals = [ val.strip() for val in line.split('~')]
+      print(vals)
+      if len(vals) == 5:
+        operators.append(Operator(trial_id, vals[0], vals[1], float(vals[2]), 0, vals[3]))
+        desc = vals[4] 
+        totalTime += float(vals[2])
+    for op in operators:
+      op.percent_time = (100.0 * op.time) / totalTime
 
     return operators
