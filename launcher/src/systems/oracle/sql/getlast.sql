@@ -26,21 +26,20 @@ SELECT qstats.*
 ,round((numsamples / totalsamples * 100), 2) AS PERCENT
 FROM (
 SELECT plan_line_id
+  ,max(plan_depth) as depth
   ,plan_operation || ' ' || plan_options
-  ,count(distinct session_id) as parallel_ops
+  ,max(object) as object
   ,count(ash.sql_plan_line_id) AS numsamples
-  ,mem
+  ,max(mem)
 FROM (
-select sql_id, plan_line_id, plan_operation, plan_options, sid, COALESCE(max(workarea_max_mem), 0) as mem from v$sql_plan_monitor where sql_id=:lastsql group by sql_id, plan_line_id, plan_operation, plan_options, sid  order by plan_line_id) pm
+select sql_id, plan_line_id, plan_depth, plan_operation, plan_options, max(plan_object_name) as object, sid, COALESCE(max(workarea_max_mem), 0) as mem from v$sql_plan_monitor where sql_id=:lastsql group by sql_id, plan_line_id, plan_depth, plan_operation, plan_options, sid  order by plan_line_id) pm
   ,v$active_session_history ash
 WHERE pm.plan_line_id = ash.sql_plan_line_id(+)
   AND pm.sql_id = ash.sql_id(+)
   AND pm.sid = ash.session_id(+)
---  AND pm.sql_exec_id = ash.sql_exec_id(+)
   AND pm.sql_id=:lastsql
 GROUP BY plan_line_id
   ,plan_operation || ' ' || plan_options
-  , mem
 ORDER BY plan_line_id
 ) qstats
 ,(

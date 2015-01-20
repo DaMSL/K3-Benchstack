@@ -35,20 +35,10 @@ object Common {
       // Run Query
       val result =  sqlContext.sql(query)
 
-      // Display Executed Query Plan
-//      if (printPlan) {
-//        println("===========================================")
-//        println(result.queryExecution.executedPlan.toString())
-//        println("===========================================")
-//      }
-
-      // Force evaluation with .count
-//      println("Num Results: " + result.count )
-
       // Stop timer
       var end = System.currentTimeMillis
-//      println("Elapsed: " + (end - start).toString)
 
+      // Display results
       printOutput(result, (end - start))
 
       // TODO: Force overwrite or change filename (this throws an error) Save results to HDFS
@@ -64,13 +54,11 @@ object Common {
       // Run Query
       val result =  hiveContext.sql(query)
 
-      // Force evaluation with .count
-//      println("Num Results: " + result.count )
-
       // Stop timer
       var end = System.currentTimeMillis
-//      println("Elapsed: " + (end - start).toString)
 
+
+      // Display results
       printOutput(result, (end - start))
 
       // TODO: Force overwrite or change filename (this throws an error) Save results to HDFS

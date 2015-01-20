@@ -9,26 +9,29 @@ from entities.result import *
 
 
 class sparkJob(object):
-    def __init__ (self, depth):
-        self.depth = depth
-        self.oplist = []
-        self.mem = 0
-        self.start = 0
-        self.end = 0
-        self.percent = 0.0
-        self.job_id = 0
-    def addOp(self, op):
-        if op not in self.oplist:
-            self.oplist.append(op)
-    def name(self):
-        return('-'.join(self.oplist))
-    def time(self):
-        return self.end - self.start
-    def set(self, job_id, name, start, end):
-        self.job_id = job_id
-        self.oplist = [name]
-        self.start= start
-        self.end = end
+  def __init__ (self, depth):
+    self.depth = depth
+    self.oplist = []
+    self.objs = []
+    self.mem = 0
+    self.start = 0
+    self.end = 0
+    self.percent = 0.0
+    self.job_id = 0
+  def addOp(self, op):
+    if op not in self.oplist:
+      self.oplist.append(op)
+  def name(self):
+     return(','.join(self.oplist))
+  def objects(self):
+     return(','.join(self.objs))
+  def time(self):
+     return self.end - self.start
+  def set(self, job_id, name, start, end):
+    self.job_id = job_id
+    self.oplist = [name]
+    self.start= start
+    self.end = end
 
   #  Helper function to check if a Spark job exists in a given list
 def checkJob (jl, d):
@@ -105,8 +108,27 @@ class Spark:
       ops.append((cur_depth, line[:line.find(' ')]))
 
     #  Split Query plan into jobs based on exchange operations
+    joblist = []
+    
+    #  Exception for Query 11: manually add in sub-query:
+    if e.query == '11':
+      cur_op = sparkJob(-2)
+      cur_op.addOp('Aggregate')
+      joblist.append(cur_op)
+      cur_op = sparkJob(-1)
+      cur_op.addOp('Aggregate')
+      cur_op.addOp('Project')
+      joblist.append(cur_op)
+
+    if e.query == '22':
+      depth = 0
+      for op in ['Filter, ExistingRdd', 'Aggregate', 'Aggregate, Project, Filter, ExistingRdd', 'Project, ExistingRdd', 'ExistingRdd']:
+        cur_op = sparkJob(depth)
+        cur_op.addOp(op)
+        joblist.append(cur_op)
+        depth += 1
+      
     cur_op = sparkJob(0)
-    joblist = [cur_op]
     for depth, op in ops:
       if op.startswith('Exchange'):
         exists = checkJob(joblist, depth)
@@ -149,8 +171,12 @@ class Spark:
       for s in jobmap[j]:
         start_time.append(stagelist[s]['Submission Time'])
         end_time.append(stagelist[s]['Completion Time'])
+        obj = []
         for rdd in stagelist[s]['RDD Info']:
           joblist[j].mem += rdd['Memory Size']/1024/1024
+          if not rdd['Name'].isdigit():
+            obj.append(rdd['Name'])
+      joblist[j].objs.append(','.join(obj))
       joblist[j].start = min(start_time)
       joblist[j].end = max(end_time)
       joblist[j].job_id = j
@@ -177,10 +203,10 @@ class Spark:
     print (pre_job.job_id, pre_job.name(), pre_job.time(), pre_job.percent, pre_job.mem)
     print (com_job.job_id, com_job.name(), com_job.time(), com_job.percent, com_job.mem)
     '''
-    operations = [Operator(trial_id, -1, pre_job.name(), pre_job.time(), pre_job.percent, 0)]
-    operations.append(Operator(trial_id, -1, com_job.name(), com_job.time(), com_job.percent, 0))
+    operations = [Operator(trial_id, -1, pre_job.name(), pre_job.time(), pre_job.percent, 0, '')]
+    operations.append(Operator(trial_id, -1, com_job.name(), com_job.time(), com_job.percent, 0, ''))
     for j in joblist:
-      operations.append(Operator(trial_id, j.job_id, j.name(), j.time(), j.percent, j.mem))
+      operations.append(Operator(trial_id, j.job_id, j.name(), j.time(), j.percent, j.mem, j.objects()))
 
     result = Result(trial_id, "Success", run_time, "")
     result.setOperators(operations)

@@ -86,7 +86,7 @@ class Vertica:
       vals = [ val.strip() for val in line.split('~')]
       print(vals)
       if len(vals) == 5:
-        operators.append(Operator(trial_id, vals[0], vals[1], float(vals[2]), 0, vals[3]))
+        operators.append(Operator(trial_id, vals[0], vals[1], float(vals[2]), 0, vals[3], str(vals[4])))
         desc = vals[4] 
         totalTime += float(vals[2])
     for op in operators:

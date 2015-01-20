@@ -178,11 +178,13 @@ object TPCHQuery11 {
     val end = System.currentTimeMillis
 
     println("====== START PLAN ---->>")
+    //println(total_sum.queryExecution.executedPlan.toString())
     println(result.queryExecution.executedPlan.toString())
     println("<<---- END PLAN   ======")
     println("Num Results: " + num_results )
-    println("Elapsed: " + (end - start).toString)
-    
+    println("Elapsed: " + (end - start).toString())
+
+
     // TODO save result to HDFS 
   }
 }
@@ -215,8 +217,9 @@ object TPCHQuery18 {
     // Force evaluation
     val num_results = result.count()
     val end = System.currentTimeMillis
-    println("Num Results: " + num_results )
-    println("Elapsed: " + (end - start).toString)
+    //println("Num Results: " + num_results )
+    //println("Elapsed: " + (end - start).toString)
+    Common.printOutput(result, (end - start))
 
     // TODO save result to HDFS
   }
@@ -256,8 +259,18 @@ object TPCHQuery22 {
 
     val num_results = res2.count()
     val end = System.currentTimeMillis
+    println("====== START PLAN ---->>")
+//    println(r.queryExecution.executedPlan.toString())
+//    println("  Exchange Manual")
+//    println("   " + r2.queryExecution.executedPlan.toString())
+//    println("           Exchange Manual")
+//    println("            " + res.queryExecution.executedPlan.toString())
+//    println("               Exchange Manual")
+//    println("                " + res2.queryExecution.executedPlan.toString())
+    println("<<---- END PLAN   ======")
     println("Num Results: " + num_results.toString)
     println("Elapsed: " + (end - start).toString) 
+    
 
     // TODO save result to HDFS
 

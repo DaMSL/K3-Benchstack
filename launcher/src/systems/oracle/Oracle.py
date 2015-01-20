@@ -1,7 +1,41 @@
 import os
+import sys
 import utils.utils as utils
 from entities.result import *
 from entities.operator import *
+
+
+
+class oracleJob(object):
+  def __init__ (self, depth):
+    self.depth = depth
+    self.oplist = []
+    self.objs = []
+    self.mem = 0
+    self.time = 0
+    self.percent = 0.0
+  def addOp(self, op, obj):
+    if op not in self.oplist:
+      self.oplist.append(op)
+    if len(obj) > 0 and obj not in self.objs:
+      self.objs.append(obj)
+  def name(self):
+    return(','.join(self.oplist))
+  def objects(self):
+    return(','.join(self.objs))
+  def time(self):
+    return self.end - self.start
+  def update(self, mem, time, percent):
+    self.time += time
+    self.percent += percent
+
+  #  Helper function to check if a Spark job exists in a given list
+def checkJob (jl, d):
+  for job in jl:
+    if job.depth == d:
+      return jl.index(job)
+  return -1
+
 
 class Oracle:
   def __init__(self, machine):
@@ -49,7 +83,7 @@ class Oracle:
     command = "ORACLE_HOST=%s ./systems/oracle/run_oracle.sh %s %s" % (host, database, queryFile)
     output = utils.runCommand(command)
     print(output)
-    operators = []
+    #operators = []
     lines = output.split('\n')
     elapsed = 1000 * float(lines[0].strip())
     print("TOTAL ELAPSED TIME: %f " % elapsed)
@@ -58,17 +92,48 @@ class Oracle:
     preexec_time = elapsed - exec_time
     print("PRE-EXEC TIME:      %f " % preexec_time)
     prexec_percent = 100.0
+    ops = []
+    '''
     for line in lines[2:]:
       vals = [ val.strip() for val in line.split(',') ]
-      if len(vals) == 7:
+      if len(vals) == 8:
         operator_num = vals[0]
-        operator_name = vals[1]
-        memory = int(vals[4])
-        time = vals[5]
-        percent_time = vals[6]
-        operators.append(Operator(trial_id, operator_num, operator_name, time, percent_time, memory))
+        operator_name = vals[2]
+        op_object = vals[3]
+        memory = int(vals[5])
+        time = vals[6]
+        percent_time = vals[7]
+        #operators.append(Operator(trial_id, operator_num, operator_name, time, percent_time, memory))
         prexec_percent -= float(percent_time)
-    operators.append(Operator(trial_id, -1, 'Pre-Execution', preexec_time, prexec_percent, 0))
+        ops.append((vals[1], operator_name))
+    '''
+    #  Split Query plan into jobs based on exchange operations
+    cur_op = oracleJob(0)
+    joblist = [cur_op]
+    for line in lines[2:]:
+      vals = [ val.strip() for val in line.split(',') ]
+      if len(vals) != 8:
+        continue
+      depth, op, obj, mem, time, percent = (int(vals[1]), vals[2], vals[3], long(vals[5]), int(vals[6]), float(vals[7]))
+      print (depth, op, obj, mem, time, percent)
+      prexec_percent -= float(percent)
+      if op.startswith('PX REC'):
+        exists = checkJob(joblist, depth)
+        cur_op = joblist[exists] if exists > 0 else oracleJob(depth)
+        if exists < 0:
+          joblist.append(cur_op)
+      elif op.startswith('PX'):
+        cur_op.update(mem, time, percent)
+      else:
+        cur_op.addOp(op, obj)
+        cur_op.update(mem, time, percent)
+
+    for j in joblist:
+      print (j.name(), j.time, j.percent, j.mem) 
+
+    operators = [Operator(trial_id, i, joblist[i].name(), joblist[i].time, joblist[i].percent, joblist[i].mem, joblist[i].objects()) for i in range(len(joblist))]
+    operators.append(Operator(trial_id, -1, 'Pre-Execution', preexec_time, prexec_percent, 0, ""))
+#    operators.append(Operator(trial_id, operator_num, operator_name, time, percent_time, memory))
     result =  Result(trial_id, "Success", elapsed, "")
     result.setOperators(operators)
 
