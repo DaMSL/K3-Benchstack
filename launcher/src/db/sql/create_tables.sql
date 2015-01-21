@@ -39,7 +39,8 @@ CREATE TABLE IF NOT EXISTS operator_metrics (
   operator_name     text,
   time              double precision,
   percent_time      double precision,
-  memory            double precision 
+  memory            double precision,
+  object            text
 );
 
 CREATE TABLE IF NOT EXISTS plots (
@@ -71,12 +72,26 @@ SELECT
 FROM
   experiments e,
   (SELECT
-    experiment_id, trial_id, system, AVG(elapsed_ms) as avg_time, coalesce(stddev(elapsed_ms), 0) as error, count(*) as num_trials
+    experiment_id, system, AVG(elapsed_ms) as avg_time, coalesce(stddev(elapsed_ms), 0) as error, count(*) as num_trials
   FROM
     trial_results
   GROUP BY
-    experiment_id, trial_id, system) T
+    experiment_id, system) T
 WHERE
   e.experiment_id = T.experiment_id
 ORDER BY
   T.experiment_id, T.system;
+
+DROP VIEW IF EXISTS operator_plots CASCADE;
+CREATE VIEW operator_plots AS
+SELECT 
+  experiment_id, system, operator_name, substring(object,0,20) as obj , operator_num, avg(percent_time) as percent_time 
+FROM 
+  trials 
+natural join 
+  experiments 
+natural join 
+  operator_metrics 
+group by 
+  experiment_id, system, operator_name, obj, operator_num 
+order by experiment_id, system, operator_num;

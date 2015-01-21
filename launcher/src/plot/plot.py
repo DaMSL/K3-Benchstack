@@ -6,6 +6,7 @@ import db.db as db
 import utils.utils as utils
 import metric_plots as mplots
 import matplotlib.pyplot as plt
+import matplotlib.colors
 
 # Create a bar entry from a row in the experiment_stats table
 class Bar:
@@ -43,6 +44,62 @@ def plotBarCharts(bars, conn):
     outfile = os.path.join(directory, f)
     plotBarChart(key, experiments[key], outfile, conn)
 
+def plotOpBars(expId):
+  absolutes = False
+
+  systems = ['Vertica', 'Oracle', 'Spark', 'Impala']
+  inds = np.array([0, .3, .6, .9])
+  width = .2
+
+  plt.figure(figsize=(5,4))
+
+  for ind, sys in zip(inds, systems):
+    plotOpBar(ind, sys, width, absolutes=absolutes, expId)
+
+  ax = plt.gca()
+  ax.set_xlim(0, 1.1)
+  if not absolutes:
+    ax.set_ylim(0,100)
+ 
+  if absolutes: 
+    plt.ylabel('Time (s)')
+  else:
+    plt.ylabel('Percent Time')
+  plt.xticks(inds+width/2., systems)
+
+  if absolutes:
+    plt.title('Time by Operation')
+  else:
+    plt.title('Percent Time by Operation') 
+
+  plt.show()
+  plt.savefig("../web/test.png")
+
+def plotOpBar(ind, system, width, absolutes, expId):
+  conn = db.getConnection()
+  query = "SELECT * from operator_plots where experiment_id=%s and system='%s'" % (expId, system)
+  cur = conn.cursor()
+  cur.execute(query)
+ 
+  data = [ (tup[2], tup[-1]) for tup in cur.fetchall() ]
+
+  factor = 1 
+  if absolutes:
+    query = "select avg_time/1000 from experiment_stats where experiment_id =%s and system='%s';" % (expId, system)
+    cur = conn.cursor()
+    cur.execute(query) 
+    time = float(cur.fetchone()[0])
+    factor = time / 100.0
+
+  bottom = 0
+  colors = matplotlib.colors.cnames.values()
+  i = 0
+  for x in data: 
+    val = factor * x[1]
+    p = plt.bar(ind, val, width, color=colors[i], bottom=bottom)
+    bottom += val
+    i += 1
+
 def plotBarChart(name, bars, outfile, conn):
   title = name
   numSections = 1
@@ -74,3 +131,5 @@ def plotBarChart(name, bars, outfile, conn):
   eid = bars[0].exp_id
   db.registerPlot(conn, eid)
 
+if __name__ == "__main__":
+  plotOpBars()
