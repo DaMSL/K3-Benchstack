@@ -82,7 +82,7 @@ class Oracle:
   def runOracle(self, host, database, queryFile, trial_id):
     command = "ORACLE_HOST=%s ./systems/oracle/run_oracle.sh %s %s" % (host, database, queryFile)
     output = utils.runCommand(command)
-    print(output)
+ #   print(output)
     #operators = []
     lines = output.split('\n')
     if lines[0].strip() == '' or lines[1].strip() == '':
@@ -92,36 +92,44 @@ class Oracle:
    
     elapsed = 1000 * float(lines[0].strip())
     exec_time = 1000 * float(lines[1].strip())
-    print("TOTAL ELAPSED TIME: %f " % elapsed)
-    print("TOTAL EXEC TIME:    %f " % exec_time)
+#    print("TOTAL ELAPSED TIME: %f " % elapsed)
+#    print("TOTAL EXEC TIME:    %f " % exec_time)
     preexec_time = elapsed - exec_time
-    print("PRE-EXEC TIME:      %f " % preexec_time)
+#    print("PRE-EXEC TIME:      %f " % preexec_time)
     prexec_percent = 100.0
     ops = []
 
     #  Split Query plan into jobs based on exchange operations
     cur_op = oracleJob(0)
     joblist = [cur_op]
+    total_time = preexec_time
     for line in lines[2:]:
       vals = [ val.strip() for val in line.split(',') ]
       if len(vals) != 8:
         continue
       depth, op, obj, mem, time, percent = (int(vals[1]), vals[2], vals[3], long(vals[5]), int(vals[6]), float(vals[7]))
-      print (depth, op, obj, mem, time, percent)
-      prexec_percent -= float(percent)
+      total_time += time
+
+#      print (depth, op, obj, mem, time, percent)
+#      prexec_percent -= float(percent)
       if op.startswith('PX REC'):
         exists = checkJob(joblist, depth)
         cur_op = joblist[exists] if exists > 0 else oracleJob(depth)
+        cur_op.update(mem, time, 0)
         if exists < 0:
           joblist.append(cur_op)
       elif op.startswith('PX'):
-        cur_op.update(mem, time, percent)
+        cur_op.update(mem, time, 0)
       else:
         cur_op.addOp(op, obj)
-        cur_op.update(mem, time, percent)
-
+        cur_op.update(mem, time, 0)
+    
     for j in joblist:
-      print (j.name(), j.time, j.percent, j.mem) 
+      j.percent = 100.0 * j.time / float(total_time)
+    prexec_percent = 100.0 * preexec_time / float(total_time)
+
+#    for j in joblist:
+#      print (j.name(), j.time, j.percent, j.mem) 
 
     operators = [Operator(trial_id, i, joblist[i].name(), joblist[i].time, joblist[i].percent, joblist[i].mem, joblist[i].objects()) for i in range(len(joblist))]
     operators.append(Operator(trial_id, -1, 'Pre-Execution', preexec_time, prexec_percent, 0, ""))

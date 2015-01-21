@@ -44,9 +44,19 @@ def plotBarCharts(bars, conn):
     outfile = os.path.join(directory, f)
     plotBarChart(key, experiments[key], outfile, conn)
 
-def plotOpBars(expId):
-  absolutes = True
+def plotMostRecentOps():
+  conn = db.getConnection()
+  query = "SELECT experiment_id, workload, dataset, query FROM most_recent;" 
+  cur = conn.cursor()
+  cur.execute(query)
+  for row in cur.fetchall():
+    expId, wkld, ds, qry = row
+    plotOpBars(expId, True, "../web/%s.%s.%s.operators.absolutes.png" % (wkld, ds, qry))
+    plotOpBars(expId, False, "../web/%s.%s.%s.operators.percents.png" % (wkld, ds, qry))
 
+
+
+def plotOpBars(expId, absolutes, outfile):
   systems = ['Vertica', 'Oracle', 'Spark', 'Impala']
   inds = np.array([0, .3, .6, .9])
   width = .2
@@ -57,6 +67,7 @@ def plotOpBars(expId):
   cur.execute(query)
   (wkld, qry, ds) = cur.fetchone()
 
+  fig = plt.figure()
   #plt.figure(figsize=(5,4))
 
   for ind, sys in zip(inds, systems):
@@ -82,7 +93,8 @@ def plotOpBars(expId):
     plt.title('Percent Time by Operation') 
 
   plt.show()
-  plt.savefig("../web/test.png")
+  plt.savefig(outfile)
+  plt.close(fig)
 
 def plotOpBar(ind, system, width, absolutes, expId):
   conn = db.getConnection()
@@ -109,36 +121,32 @@ def plotOpBar(ind, system, width, absolutes, expId):
     bottom += val
     i += 1
 
-def plotBarChart(name, bars, outfile, conn):
-  title = name
-  numSections = 1
+def plotAllTimes():
+  systems = ['Vertica', 'Oracle', 'Spark', 'Impala']
+  colors = ['r', 'g', 'b', 'c']
+  wkld = 'tpch'
+  queries = [1, 3, 5, 6, 11, 18, 22]
+  width = 0.2 
   
-  # Start plotting
-  ind = np.arange(numSections)
-  width = 0.25
-  fig, ax = plt.subplots()
+  for sys in range(len(systems)):
+    conn = db.getConnection()
+    query = "SELECT avg_time, error from summary where system='%s' order by query" % systems[sys]
+    cur = conn.cursor()
+    cur.execute(query)
+    data = zip(*[ (tup[0]/1000, tup[1]/1000) for tup in cur.fetchall() ])
+    index = np.arange(len(data[0]))
+    p = plt.bar(index + width*sys, data[0], width, color=colors[sys], yerr=data[1], label=systems[sys])
 
-  # Add Bars
-  mpbars = []
-  i = 0
-  colors = ['r', 'y', 'g', 'b', 'c', 'm', 'k','r','y' ]
-  for bar in bars:
-    means = [bar.avg]
-    stds  = [bar.err]
-    mpbar = ax.bar(ind + (i * width), means, width, color=colors[i], yerr=stds)
-    mpbars.append(mpbar)
-    i = i + 1
-
-  ax.set_ylabel("Time (ms)")
-  ax.set_title(title)
-  ax.set_xticks(ind+width)
-  ax.legend([mpbar[0] for mpbar in mpbars], [bar.system for bar in bars], loc=2)
-  ax.set_xticklabels([]) 
-  plt.savefig(outfile)
-  plt.close(fig)
-
-  eid = bars[0].exp_id
-  db.registerPlot(conn, eid)
+  ax = plt.gca()
+  plt.title("%s Execution Times" % wkld.upper()) 
+  plt.xlabel("Query") 
+  plt.ylabel('Time (s)')
+  plt.xticks(index + 2*width, queries)
+  plt.legend()
+  plt.tight_layout()
+  plt.show()
+  plt.savefig("../web/times.png")
 
 if __name__ == "__main__":
-  plotOpBars(1)
+  #plotMostRecentOps()
+  plotAllTimes()

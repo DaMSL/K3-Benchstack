@@ -119,11 +119,10 @@ class Spark:
       cur_op.addOp('Aggregate')
       cur_op.addOp('Project')
       joblist.append(cur_op)
-    
-    cur_op = sparkJob(0)
+      cur_op = sparkJob(0)
 
     #  Exception for Query 22: manually add in nested queries:
-    if e.query == '22':
+    elif e.query == '22':
       depth = 0
       for op in ['Filter, ExistingRdd', 'Aggregate', 'Aggregate, Project, Filter, ExistingRdd', 'Project, ExistingRdd', 'ExistingRdd']:
         cur_op = sparkJob(depth)
@@ -131,6 +130,7 @@ class Spark:
         joblist.append(cur_op)
         depth += 1
     else:
+      cur_op = sparkJob(0)
       joblist.append(cur_op)  
 
     for depth, op in ops:

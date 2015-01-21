@@ -168,6 +168,8 @@ class Impala:
     
     output = utils.runCommand(command2)
     r2 = self.parseOutput(trial_id, output)
+    for op in r2.operators:
+      op.operator_num = len(r1.operators) + op.operator_num + 1
 
     allOps = r1.operators + r2.operators
     
