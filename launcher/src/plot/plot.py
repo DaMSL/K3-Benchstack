@@ -45,19 +45,28 @@ def plotBarCharts(bars, conn):
     plotBarChart(key, experiments[key], outfile, conn)
 
 def plotOpBars(expId):
-  absolutes = False
+  absolutes = True
 
   systems = ['Vertica', 'Oracle', 'Spark', 'Impala']
   inds = np.array([0, .3, .6, .9])
   width = .2
+  
+  conn = db.getConnection()
+  query = "SELECT workload, query, dataset from experiments where experiment_id=%s" % (expId)
+  cur = conn.cursor()
+  cur.execute(query)
+  (wkld, qry, ds) = cur.fetchone()
 
-  plt.figure(figsize=(5,4))
+  #plt.figure(figsize=(5,4))
 
   for ind, sys in zip(inds, systems):
-    plotOpBar(ind, sys, width, absolutes=absolutes, expId)
+    plotOpBar(ind, sys, width, absolutes, expId)
 
   ax = plt.gca()
   ax.set_xlim(0, 1.1)
+ 
+  plt.xlabel("%s Query %s" % (wkld.upper(), qry)) 
+
   if not absolutes:
     ax.set_ylim(0,100)
  
@@ -132,4 +141,4 @@ def plotBarChart(name, bars, outfile, conn):
   db.registerPlot(conn, eid)
 
 if __name__ == "__main__":
-  plotOpBars()
+  plotOpBars(1)

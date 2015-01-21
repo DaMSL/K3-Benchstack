@@ -95,3 +95,13 @@ natural join
 group by 
   experiment_id, system, operator_name, obj, operator_num 
 order by experiment_id, system, operator_num;
+
+DROP VIEW IF EXISTS most_recent;
+create view most_recent as 
+select workload, query, dataset, max(experiment_id) as experiment_id 
+from experiments 
+group by workload, query, dataset;
+
+DROP VIEW IF EXISTS summary;
+create view summary as
+select experiment_id, workload,query,dataset,system, avg_time, error  from most_recent natural join experiment_stats;

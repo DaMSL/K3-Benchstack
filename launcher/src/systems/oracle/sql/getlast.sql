@@ -43,6 +43,6 @@ GROUP BY plan_line_id
 ORDER BY plan_line_id
 ) qstats
 ,(
-  SELECT count(*) AS totalsamples
+  SELECT NULLIF(count(*), 0) AS totalsamples
   FROM v$active_session_history
   WHERE sql_id=:lastsql) ns;

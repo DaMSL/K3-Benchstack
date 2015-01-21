@@ -85,28 +85,20 @@ class Oracle:
     print(output)
     #operators = []
     lines = output.split('\n')
+    if lines[0].strip() == '' or lines[1].strip() == '':
+      elapsed = 100
+      result =  Result(trial_id, "Success", elapsed, "")
+      return result
+   
     elapsed = 1000 * float(lines[0].strip())
-    print("TOTAL ELAPSED TIME: %f " % elapsed)
     exec_time = 1000 * float(lines[1].strip())
+    print("TOTAL ELAPSED TIME: %f " % elapsed)
     print("TOTAL EXEC TIME:    %f " % exec_time)
     preexec_time = elapsed - exec_time
     print("PRE-EXEC TIME:      %f " % preexec_time)
     prexec_percent = 100.0
     ops = []
-    '''
-    for line in lines[2:]:
-      vals = [ val.strip() for val in line.split(',') ]
-      if len(vals) == 8:
-        operator_num = vals[0]
-        operator_name = vals[2]
-        op_object = vals[3]
-        memory = int(vals[5])
-        time = vals[6]
-        percent_time = vals[7]
-        #operators.append(Operator(trial_id, operator_num, operator_name, time, percent_time, memory))
-        prexec_percent -= float(percent_time)
-        ops.append((vals[1], operator_name))
-    '''
+
     #  Split Query plan into jobs based on exchange operations
     cur_op = oracleJob(0)
     joblist = [cur_op]
