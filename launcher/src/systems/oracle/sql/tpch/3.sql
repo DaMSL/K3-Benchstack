@@ -1,4 +1,4 @@
- SELECT /*+ MONITOR */ l_orderkey,
+ SELECT /*+ MONITOR PARALLEL */ l_orderkey,
  sum(l_extendedprice * (1 - l_discount)) AS revenue,
  o_orderdate,
  o_shippriority
