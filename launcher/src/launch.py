@@ -1,6 +1,7 @@
 import sys
 import datetime 
 import argparse
+import traceback
 
 # Entities are simple Python objects
 # That correspond to a row in a table in the database.
@@ -53,7 +54,7 @@ def checkExperiments(experiments, systems):
   log.logEvent(1, "SUCCESS")
   log.endSection()
 
-def runExperiments(experiments, systems, numTrials):
+def runExperiments(experiments, systems, numTrials, debug=False):
   log.logHeader("Running Experiments") 
   for experiment in experiments:
     log.logEvent(1, "Running experiment: %s" % experiment.name() )
@@ -84,6 +85,7 @@ def runExperiments(experiments, systems, numTrials):
           db.insertResult(conn, result)
           sys.exit(1)
         except Exception as inst:
+          print(traceback.format_exc())
           result = Result(trial_id, "Failure", 0, "Unhandled exception: " + str(inst))
  
         p.finished = True
@@ -177,9 +179,10 @@ if __name__ == "__main__":
   (experiments, systems, numTrials) = parseArgs()
   
   conn = initDatabase(False)
+  debug = True
   
   checkExperiments(experiments, systems)
-  runExperiments(experiments, systems, numTrials)
+  runExperiments(experiments, systems, numTrials, debug)
 
-  plotNew(conn)
+  #plotNew(conn)
   conn.close()

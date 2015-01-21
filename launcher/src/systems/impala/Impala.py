@@ -135,7 +135,7 @@ class Impala:
 
       # approx. memory usage
       maxMem = maxMem * numHosts
-      operators.append(Operator(trial_id, opNum, opName, time, 0, maxMem))
+      operators.append(Operator(trial_id, opNum, opName, time, 0, maxMem, obj))
       totalTime = totalTime + time
 
     for operator in operators:

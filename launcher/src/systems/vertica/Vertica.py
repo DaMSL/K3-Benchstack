@@ -84,7 +84,6 @@ class Vertica:
     totalTime = 0
     for line in lines:
       vals = [ val.strip() for val in line.split('~')]
-      print(vals)
       if len(vals) == 5:
         operators.append(Operator(trial_id, vals[0], vals[1], float(vals[2]), 0, vals[3], str(vals[4])))
         desc = vals[4] 

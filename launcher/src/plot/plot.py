@@ -55,7 +55,7 @@ def plotBarChart(name, bars, outfile, conn):
   # Add Bars
   mpbars = []
   i = 0
-  colors = ['r', 'y', 'g', 'b' ]
+  colors = ['r', 'y', 'g', 'b', 'c', 'm', 'k','r','y' ]
   for bar in bars:
     means = [bar.avg]
     stds  = [bar.err]
