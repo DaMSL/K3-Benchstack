@@ -119,6 +119,8 @@ class Spark:
       cur_op.addOp('Aggregate')
       cur_op.addOp('Project')
       joblist.append(cur_op)
+    
+    cur_op = sparkJob(0)
 
     #  Exception for Query 22: manually add in nested queries:
     if e.query == '22':
@@ -128,9 +130,9 @@ class Spark:
         cur_op.addOp(op)
         joblist.append(cur_op)
         depth += 1
-      
-    cur_op = sparkJob(0)
-    print "JOBLIST: " + str(len(joblist))
+    else:
+      joblist.append(cur_op)  
+
     for depth, op in ops:
       if op.startswith('Exchange'):
         exists = checkJob(joblist, depth)
@@ -139,8 +141,6 @@ class Spark:
           joblist.append(cur_op)
       else:
         cur_op.addOp(op)
-    for j in joblist:
-      print (j.job_id, j.name(), j.time(), j.percent, j.mem)
 
 
     #  Find the JSON formatted event log (should be first line of output
@@ -169,7 +169,6 @@ class Spark:
       stagelist[s['Stage ID']] = s
 
     # Collect metrics from all stages grouped by job ID
-    print "JOBMAP: " + str(len(jobmap))
     for j in range(len(jobmap)):
       start_time = []
       end_time = []
@@ -177,7 +176,6 @@ class Spark:
         start_time.append(stagelist[s]['Submission Time'])
         end_time.append(stagelist[s]['Completion Time'])
         obj = []
-        print "CHECK: " + str(joblist) + " vs " + str(j)
         for rdd in stagelist[s]['RDD Info']:
           joblist[j].mem += rdd['Memory Size']/1024/1024
           if not rdd['Name'].isdigit():

@@ -54,7 +54,7 @@ CREATE TABLE IF NOT EXISTS metric_plots (
 DROP VIEW IF EXISTS trial_results CASCADE;
 CREATE VIEW trial_results AS
 SELECT 
-  experiment_id, system, trial_num, status, elapsed_ms
+  experiment_id, t.trial_id, system, trial_num, status, elapsed_ms
 FROM 
   trials t, results r
 WHERE
@@ -71,11 +71,11 @@ SELECT
 FROM
   experiments e,
   (SELECT
-    experiment_id, system, AVG(elapsed_ms) as avg_time, coalesce(stddev(elapsed_ms), 0) as error, count(*) as num_trials
+    experiment_id, trial_id, system, AVG(elapsed_ms) as avg_time, coalesce(stddev(elapsed_ms), 0) as error, count(*) as num_trials
   FROM
     trial_results
   GROUP BY
-    experiment_id, system) T
+    experiment_id, trial_id, system) T
 WHERE
   e.experiment_id = T.experiment_id
 ORDER BY
