@@ -133,6 +133,7 @@ class Spark:
       cur_op = sparkJob(0)
       joblist.append(cur_op)  
 
+    
     for depth, op in ops:
       if op.startswith('Exchange'):
         exists = checkJob(joblist, depth)
@@ -167,6 +168,9 @@ class Spark:
     # Sort stage list
     for s in stages:
       stagelist[s['Stage ID']] = s
+
+    if len(joblist) > len(jobmap):
+      joblist = joblist[:len(jobmap)]
 
     # Collect metrics from all stages grouped by job ID
     for j in range(len(jobmap)):

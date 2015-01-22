@@ -28,9 +28,10 @@ class Metric:
         self.axis = axis
         self.delta = delta
 
-cpu_total = Metric("cpu_usage_total", conv_cpu, "CPU Total", "Time (ms)", True)
-cpu_system = Metric("cpu_usage_system", conv_cpu, "CPU System", "Time (ms)", True)
-mem_usage = Metric("memory_usage", conv_mem, "MEM Usage", "Mem (MB)")
+cpu_total = Metric("cpu_usage_total", conv_cpu, "CPU_Total", "Time (ms)", True)
+cpu_system = Metric("cpu_usage_system", conv_cpu, "CPU_System", "Time (ms)", True)
+mem_usage = Metric("memory_usage", conv_mem, "MEM_Usage", "Mem (MB)")
+sys_color = {'Vertica':'r', 'Oracle':'g', 'Spark':'b', 'Impala':'c'}
 
 distro_sys = ['Impala', 'Spark']
 
@@ -85,7 +86,7 @@ def get_cadvdata_dist(con, metric, id, delta=False, average=False, debug=False):
     cur.close()
     return (range(len(result)), result)
 
-def draw_graph(con, trial, metric):
+def draw_graph(con, trial, metric, consolidate_graphs=False):
     exp_id, run, tnum, sys, qry, dset, wkld = trial
     cur = con.cursor()
     fig= plt.figure(figsize=(5,4))
@@ -96,20 +97,54 @@ def draw_graph(con, trial, metric):
     if x == 0:
       return 
 
-    plt.plot(x, y, label=sys)
+    plt.plot(x, y, label=sys, color=sys_color[sys])
     plt.title(metric.title)
-    plt.legend()
+    plt.legend(loc='best')
     plt.xlabel("Time (sec)")
     plt.ylabel(metric.axis)
-    directory = "../web/%s/%s/%s/experiment_%s/%s/%s/" % (wkld, dset, qry, exp_id, sys, metric.label)
+    directory = "../web/cadvisor_graphs/experiment_%d" % exp_id if consolidate_graphs else "../web/%s/%s/%s/experiment_%s/%s/%s/" % (wkld, dset, qry, exp_id, sys, metric.label)
     utils.runCommand("mkdir -p %s" % (directory))
-    f = os.path.join(directory, "trial_%s.jpg" % (run))
+    f = os.path.join(directory, "%s_%s_%s.jpg" % (metric.title, sys, tnum))
     fig.savefig(f, dpi=100)
     plt.close(fig)
     db.registerMetricPlot(con,run)
+    if consolidate_graphs:
+      buildIndex(directory, dset.upper(), exp_id, qry)
 
 def draw_all(conn):
   results = db.getMetricPlotData(conn)
   for row in results:
     draw_graph(conn, row, cpu_total)
     draw_graph(conn, row, mem_usage)
+
+def getExperimentMetrics(conn, expid):
+  try:
+    query = "SELECT T.experiment_id,trial_id, trial_num, system, query, dataset, workload FROM trials as T, experiments AS E WHERE T.experiment_id = E.experiment_id and T.experiment_id = %d order by system, trial_num;" % expid
+    cur = conn.cursor()
+    cur.execute(query)
+    results = cur.fetchall()
+    return results
+  except Exception as inst:
+      print("Failed to get metric plot data for experiment %d: " % expid)
+      print(inst)
+      sys.exit(1)
+
+def buildIndex(path, wkld, exp_id, qry):
+  title = 'Workload: %s, Experiment: %s,  Query: %s</title>' % (wkld, exp_id, qry)
+  index =  '<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 3.2 Final//EN"><html>'
+  index += '<title>%s</title>' % title
+  index += '<body><h2>%s</h2>' % title
+  for img in sorted(os.listdir(path)):
+    index += '<img src="%s" />' % img  
+  index += '</body></html>'
+  indexfile = open(path + '/index.html', 'w')
+  indexfile.write(index)
+  indexfile.close()
+
+if __name__ == "__main__":
+  conn = db.getConnection()
+  for x in [2, 15, 16, 33, 37, 34, 38, 39, 40]:
+    results = getExperimentMetrics(conn, x)
+    for row in results:
+      draw_graph(conn, row, cpu_total, True)
+      draw_graph(conn, row, mem_usage, True) 

@@ -121,6 +121,8 @@ def plotOpBar(ind, system, width, absolutes, expId):
     bottom += val
     i += 1
 
+
+
 def plotAllTimes():
   systems = ['Vertica', 'Oracle', 'Spark', 'Impala']
   colors = ['r', 'g', 'b', 'c']
@@ -130,12 +132,17 @@ def plotAllTimes():
   
   for sys in range(len(systems)):
     conn = db.getConnection()
-    query = "SELECT avg_time, error from summary where system='%s' order by query" % systems[sys]
+    query = "SELECT avg_time, error from summary where system='%s' order by query::int" % systems[sys]
     cur = conn.cursor()
     cur.execute(query)
-    data = zip(*[ (tup[0]/1000, tup[1]/1000) for tup in cur.fetchall() ])
+    data = zip(*[ (tup[0]/1000.0, tup[1]/1000.0) for tup in cur.fetchall() ])
     index = np.arange(len(data[0]))
-    p = plt.bar(index + width*sys, data[0], width, color=colors[sys], yerr=data[1], label=systems[sys])
+    plt.bar(index + width*sys, data[0], width, color=colors[sys], yerr=data[1], label=systems[sys])
+    for x, y in zip (index, data[0]):
+      if y < 5:
+        plt.text(x + width*sys + width/2., y, '%.1f' % y, size='x-small', ha='center', va='bottom')
+
+    
 
   ax = plt.gca()
   plt.title("%s Execution Times" % wkld.upper()) 
@@ -148,5 +155,5 @@ def plotAllTimes():
   plt.savefig("../web/times.png")
 
 if __name__ == "__main__":
-  #plotMostRecentOps()
+  plotMostRecentOps()
   plotAllTimes()

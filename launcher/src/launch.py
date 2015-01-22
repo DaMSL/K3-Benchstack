@@ -171,7 +171,8 @@ def parseArgs():
 
 def plotNew(conn):
   log.logHeader("Plotting New Experiments")
-  plot.plotNewExperiments(conn)
+  plot.plotMostRecentOps()
+  plot.plotAllTimes()
   log.logEvent(1, "SUCCESS")
   log.endSection()
  
@@ -184,5 +185,5 @@ if __name__ == "__main__":
   checkExperiments(experiments, systems)
   runExperiments(experiments, systems, numTrials, debug)
 
-  #plotNew(conn)
+  plotNew(conn)
   conn.close()
