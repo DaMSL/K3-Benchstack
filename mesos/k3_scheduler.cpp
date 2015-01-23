@@ -17,7 +17,7 @@
  */
 
 #include <libgen.h>
-
+#include <time.h>
 #include <iostream>
 #include <string>
 #include <fstream>
@@ -42,9 +42,9 @@
 #define TOTAL_PEERS 4
 #define MASTER "zk://192.168.0.10:2181,192.168.0.11:2181,192.168.0.18:2181/mesos"
 #define FILE_SERVER "http://192.168.0.10:8000"
-#define DOCKER_IMAGE "damsl/k3-debug"
+#define DOCKER_IMAGE "damsl/k3-mesos"
 #define CONDENSED true
-
+#define MEM_REQUESTED 80000
 
 using namespace mesos;
 
@@ -95,6 +95,19 @@ static map<string, string> ip_addr = {{"damsl","192.168.0.1"},
 			{"qp-hm6","192.168.0.45"},
 			{"qp-hm7","192.168.0.46"},
 			{"qp-hm8","192.168.0.47"}  };
+
+std::string currTime() {
+  time_t rawtime;
+  struct tm * timeinfo;
+  char buffer [80];
+
+  time (&rawtime);
+  timeinfo = localtime (&rawtime);
+
+  strftime (buffer,80,"%I:%M:%S%p",timeinfo);
+  return std::string(buffer);
+
+}
 
 
 // Forward Declare
@@ -165,6 +178,8 @@ public:
 		cout << "[DISCONNECTED]" << endl;
 	}
 
+        
+
 	virtual void resourceOffers(SchedulerDriver* driver, const vector<Offer>& offers)  {
 		cout << "[RESOURCE OFFER] " << offers.size() << " Offer(s)" << endl;
 
@@ -204,6 +219,7 @@ public:
 				} else if (resource.name() == "mem" &&
 				           resource.type() == Value::SCALAR) {
 					mem = resource.scalar().value();
+                                  
 				}
 				//  CHECK OTHER RESOURCES HERE
 			}
@@ -237,7 +253,7 @@ public:
 				
 				// Create profile for Resource allocation & other info
 				profile.cpu = localPeers;		//assume: 1 cpu per peer
-				profile.mem = floor(mem / localPeers); // use all mem
+				profile.mem = floor(mem); // use all mem
 				profile.offer = cur_offer;
 				
 				for (int p=0; p<localPeers; p++)  {
@@ -279,7 +295,7 @@ public:
 			map<string, string> mountPoints;
 
 			
-//			hostParams["logging"] = "-l INFO";
+			hostParams["logging"] = "-l INFO";
 			hostParams["binary"] = k3binary;
 			hostParams["totalPeers"] = peerList.size();
 			hostParams["peerStart"] = profile.peers.front();
@@ -385,13 +401,20 @@ public:
 
 //		cout << "Task " << taskId << " -> " << taskState[status.state()] << endl;
 
-		if (status.state() == TASK_FINISHED)  {
+		if (status.state() == TASK_FINISHED || status.state() == TASK_KILLED)  {
 			executorsFinished++;
+			cout << "Task " << taskId << " -> " << taskState[status.state()] << endl;
+		}
+		
+                if (status.state() == TASK_RUNNING)  {
 			cout << "Task " << taskId << " -> " << taskState[status.state()] << endl;
 		}
 
 		if (status.state() == TASK_LOST)  {
+                        executorsFinished++;
 			cout << "Task " << taskId << " -> " << taskState[status.state()] << endl;
+                        cout << "Aborting!" << endl;
+                        driver->stop();
 		}
 
 		if (executorsFinished == executorsAssigned)
@@ -503,8 +526,8 @@ int main(int argc, char** argv)
 
 	FrameworkInfo framework;
 	framework.set_user(""); // Have Mesos fill in the current user.
-	framework.set_name(k3binary + "-" + stringify(total_peers));
-	framework.mutable_id()->set_value(k3binary);
+	framework.set_name(k3binary + "-" + stringify(total_peers) + "-" + currTime());
+	framework.mutable_id()->set_value(k3binary + "-" + currTime());
 
 	
 	// FROM: Example Frame, left unchanged for adding Creds/ChckPts, etc..
@@ -538,6 +561,9 @@ int main(int argc, char** argv)
 		driver = new MesosSchedulerDriver(&scheduler, framework, master);
 	}
 
+
+      
+        
 	int status = driver->run() == DRIVER_STOPPED ? 0 : 1;
 
 	// Ensure that the driver process terminates.
@@ -606,13 +632,14 @@ ExecutorInfo makeExecutor (string programBinary, YAML::Node hostParams,
 			Volume * volume = container.add_volumes();
 			volume->set_host_path(mnt.first);
 			volume->set_container_path(mnt.second);
-			volume->set_mode(Volume_Mode_RW);
+			volume->set_mode(Volume_Mode_RO);
 		}
 		// Mount local volume inside Container -- useful for extracting output files
 		Volume * volume = container.add_volumes();
 		volume->set_host_path("/local/mesos");
 		volume->set_container_path("/mnt/out");
 		volume->set_mode(Volume_Mode_RW);
+ 
 
 		executor.mutable_container()->MergeFrom(container);		
 		
