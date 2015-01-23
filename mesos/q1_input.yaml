@@ -3,4 +3,4 @@ x: 1000
 master: auto
 outputFile: /mnt/out/outfile
 data: {var: dataFiles, path: /local/data/amplab/1024/rankings, policy: global}
-server: qp-hm1
+server_group: hm

@@ -41,7 +41,7 @@ protected:
 
 
 public:
-
+  KDExecutor() { thread=0; }
   virtual ~KDExecutor() { delete thread; }
 
   virtual void registered(ExecutorDriver* driver,
@@ -56,11 +56,14 @@ public:
   }
 
   virtual void reregistered(ExecutorDriver* driver, const SlaveInfo& slaveInfo)   {
+    driver->sendFrameworkMessage("Executor Re-Registered at " + slaveInfo.hostname());
     cout << "Re-registered executor on " << slaveInfo.hostname() << endl;
 	host_name= slaveInfo.hostname();
   }
 
-  virtual void disconnected(ExecutorDriver* driver) {}
+  virtual void disconnected(ExecutorDriver* driver) {
+    driver->sendFrameworkMessage("Executor Disconnected at "  + host_name);
+  }
 
   virtual void launchTask(ExecutorDriver* driver, const TaskInfo& task)    {
 	localPeerCount++;
@@ -89,7 +92,7 @@ public:
 	
 	k3_cmd = "$MESOS_SANDBOX/" + hostParams["binary"].as<string>();
 	if (hostParams["logging"]) {
-		k3_cmd += " -l INFO";
+		k3_cmd += " -l INFO ";
 	}
 	
 	
@@ -224,6 +227,14 @@ public:
 	}
 	
 	cout << "FINAL COMMAND: " << k3_cmd << endl;
+        if (thread) {
+	  driver->sendFrameworkMessage("Debug: thread already existed!");
+          thread->interrupt();
+          thread->join();
+          delete thread;
+          thread = 0;
+        }
+         
         thread = new boost::thread(TaskThread(task, k3_cmd, driver));
   }
 
@@ -242,22 +253,33 @@ class TaskThread {
           TaskStatus status;
           status.mutable_task_id()->MergeFrom(task.task_id());
 	  // Currently, just call the K3 executable with the generated command line from task.data()
-	  int k3 = system(k3_cmd.c_str());
-	  //cout << "  K3 System call returned: " << stringify(k3) << endl;
-	  if (k3 == 0) {
-	  	status.set_state(TASK_FINISHED);
-	  	cout << "Task " << task.task_id().value() << " Completed!" << endl;
-	  }
-	  else {
-	  	status.set_state(TASK_FAILED);
-	  	cout << "K3 Task " << task.task_id().value() << " returned error code: " << k3 << endl;
-	  }
+          try {
+            int k3 = system(k3_cmd.c_str());
+	    //cout << "  K3 System call returned: " << stringify(k3) << endl;
+	    if (k3 == 0) {
+	    	status.set_state(TASK_FINISHED);
+	    	cout << "Task " << task.task_id().value() << " Completed!" << endl;
+	    }
+	    else {
+	    	status.set_state(TASK_FAILED);
+	    	cout << "K3 Task " << task.task_id().value() << " returned error code: " << k3 << endl;
+	    }
+          }
+          catch (...) {
+            status.set_state(TASK_FAILED);
+          }
 	  //-------------  END OF TASK  -------------------
           driver->sendStatusUpdate(status);
         }
 };
 
   virtual void killTask(ExecutorDriver* driver, const TaskID& taskId) {
+                  if (thread) {
+                    thread->interrupt();
+                    thread->join();
+                    delete thread;
+                    thread = 0;
+                  } 
 	  	  driver->sendFrameworkMessage("Executor " + host_name+ " KILLING TASK");
 }
 
