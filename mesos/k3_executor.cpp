@@ -36,9 +36,13 @@ using namespace std;
 
 class KDExecutor : public Executor
 {
+protected:
+  boost::thread *thread;
+
+
 public:
 
-  virtual ~KDExecutor() {}
+  virtual ~KDExecutor() { delete thread; }
 
   virtual void registered(ExecutorDriver* driver,
                           const ExecutorInfo& executorInfo,
@@ -220,8 +224,7 @@ public:
 	}
 	
 	cout << "FINAL COMMAND: " << k3_cmd << endl;
-        boost::thread t(TaskThread(task, k3_cmd, driver));
-
+        thread = new boost::thread(TaskThread(task, k3_cmd, driver));
   }
 
 
