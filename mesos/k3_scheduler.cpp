@@ -284,6 +284,12 @@ public:
 			peerNode["addr"] = peer.getAddr();
 			peerNodeList.push_back(peerNode);
 		}
+
+                for (auto pair : ip_addr) {
+                  if (pair.second == peerList[0].ip)
+                    cout << "masster:" << pair.first << endl;
+
+                } 
 		
 
 		for (auto &host : hostList)  {
@@ -294,7 +300,6 @@ public:
 			YAML::Node hostParams;
 			map<string, string> mountPoints;
 
-			
 			hostParams["logging"] = "-l INFO";
 			hostParams["binary"] = k3binary;
 			hostParams["totalPeers"] = peerList.size();
@@ -315,16 +320,9 @@ public:
 					hostParams[key] = peerList[0].getAddr();
 				} 
 				else if (key == "data") {
-					YAML::Node data = var->second;
-					string k, path;
-					k = data["var"].as<string>();
-					path = data["path"].as<string>();
-					hostParams["datavar"] = k;
-					hostParams["datapath"] = path;
-					if (data["policy"]) {
-						hostParams["datapolicy"] = data["policy"].as<string>();
-					}
-					mountPoints[path] = "/mnt/data";
+					YAML::Node data_files = var->second;
+                                        hostParams["dataFiles"] = data_files;
+					mountPoints["/local/data"] = "/local/data";
 				} 
 				else {
 					hostParams[key] = data;
@@ -431,7 +429,12 @@ public:
 						const SlaveID& slaveId) {}
 	virtual void executorLost(SchedulerDriver* driver,
 						const ExecutorID& executorId, 
-						const SlaveID& slaveId, int status) {}
+						const SlaveID& slaveId, int status) {
+
+
+          cout << "Executor lost. Aborting" << endl;
+          driver->stop();
+        }
 	virtual void error(SchedulerDriver* driver, const string& message) {}
 
 private:

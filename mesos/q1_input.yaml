@@ -2,5 +2,7 @@ role: rows
 x: 1000
 master: auto
 outputFile: /mnt/out/outfile
-data: {var: dataFiles, path: /local/data/amplab/1024/rankings, policy: global}
+data: 
+  - {var: dataFiles, path: /local/data/amplab/1024/rankings, policy: global}
+  #- {var: fooFiles , path: /local/data/amplab/1024/uservisits, policy: global}
 server_group: hm
