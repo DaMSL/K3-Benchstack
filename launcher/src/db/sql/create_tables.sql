@@ -107,3 +107,22 @@ group by workload, query, dataset;
 DROP VIEW IF EXISTS summary;
 create view summary as
 select experiment_id, workload,query,dataset,system, avg_time, error  from most_recent natural join experiment_stats;
+
+
+CREATE TABLE IF NOT EXISTS operator_names (
+  op_name   text,
+  op_list   text
+);
+
+
+DROP VIEW IF EXISTS operator_stats CASCADE;
+CREATE VIEW operator_stats AS
+SELECT 
+  trial_id, op_name, sum(time) as time, sum(percent_time) as percent_time, sum(memory) as memory 
+FROM 
+  operator_metrics as m, operator_names as n 
+WHERE 
+  m.operator_name = n.op_list 
+GROUP BY
+  trial_id, op_name;
+

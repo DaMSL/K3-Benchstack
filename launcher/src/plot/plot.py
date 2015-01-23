@@ -55,6 +55,88 @@ def plotMostRecentOps():
     plotOpBars(expId, False, "../web/%s.%s.%s.operators.percents.png" % (wkld, ds, qry))
 
 
+def plotExpOps(expId):
+  systems = ['Vertica', 'Oracle', 'Spark', 'Impala']
+  operations = ['PreExec','TableScan','ExprEval','Join','PipelinedJoin','GroupBy','PipelinedGroupBy','NetIO']
+  op_colors = ['gold', 'red', 'purple', 'greenyellow', 'darkgreen', 'cyan', 'blue', 'saddlebrown']
+  memory = [[0 for s in systems] for o in operations]
+  percent_time = [[0 for s in systems] for o in operations]
+  abs_time = [[0 for s in systems] for o in operations]
+  total_time = {}
+  inds = np.array(range(4))
+  width = 0.6
+  
+
+  conn = db.getConnection()
+  query = "SELECT workload, query, dataset from experiments where experiment_id=%s" % (expId)
+  cur = conn.cursor()
+  cur.execute(query)
+  (wkld, qry, ds) = cur.fetchone()
+
+  path = '../web/operator_metrics/experiment_%s' % (expId)
+  utils.runCommand("mkdir -p %s" % (path))
+
+  for sys in systems:
+    query = "select avg_time/1000 from experiment_stats where experiment_id =%s and system='%s';" % (expId, sys)
+    cur.execute(query) 
+    total_time[sys] = float(cur.fetchone()[0])
+    
+  query = "SELECT system, op_name, percent_time, memory from operator_stats where experiment_id=%s" % (expId)
+  cur.execute(query)
+  for row in cur.fetchall():
+    (sys, op, percent, mem) = row
+    i, j = (operations.index(op), systems.index(sys))
+    percent_time[i][j] = percent
+    memory[i][j] = mem
+    abs_time[i][j] = (percent / 100.0) * total_time[sys]
+  ax = plt.gca()
+
+  bars = [None] * len(operations)
+
+  # Plot Percent Graph
+  plt.figure(1)
+  bottom = [0]*len(systems)
+  for i, op in enumerate(operations): 
+    bars[i] = plt.bar(inds, percent_time[i], width, color=op_colors[i], bottom=bottom)
+    bottom = [sum(x) for x in zip(percent_time[i], bottom)]
+  plt.title('Percent Time by Operation') 
+  plt.ylabel('Percent Time')
+  plt.xticks(inds+width/2., systems)
+  ax.set_ylim(0,100)
+  lgd = plt.legend(bars[::-1], operations[::-1], loc='center left', bbox_to_anchor=(1, 0.5))
+  plt.show()
+  plt.savefig(path + '/percent.jpg', bbox_extra_artists=(lgd,), bbox_inches='tight')
+
+  # Plot Memory Graph
+  plt.figure(2)
+  bottom = [0]*len(systems)
+  for i, op in enumerate(operations): 
+    plt.bar(inds, memory[i], width, color=op_colors[i], bottom=bottom)
+    bottom = [sum(x) for x in zip(memory[i], bottom)]
+  plt.title('Memory Allotted by Operation') 
+  plt.ylabel('Mem (MB)')
+  plt.xticks(inds+width/2., systems)
+  lgd = plt.legend(bars[::-1], operations[::-1], loc='center left', bbox_to_anchor=(1, 0.5))
+  plt.show()
+  plt.savefig(path + '/memory.jpg', bbox_extra_artists=(lgd,), bbox_inches='tight')
+
+  # Plot Time Graph
+  plt.figure(3)
+  bottom = [0]*len(systems)
+  for i, op in enumerate(operations): 
+    plt.bar(inds, abs_time[i], width, color=op_colors[i], bottom=bottom)
+    bottom = [sum(x) for x in zip(abs_time[i], bottom)]
+  plt.title('Time by Operation') 
+  plt.ylabel('Time (s)')
+  #ax.set_xlim(0, width*5.5)
+  plt.xticks(inds+width/2., systems)
+  lgd = plt.legend(bars[::-1], operations[::-1], loc='center left', bbox_to_anchor=(1, 0.5))
+  plt.show()
+  plt.savefig(path + '/time.jpg', bbox_extra_artists=(lgd,), bbox_inches='tight')
+
+  plt.close()
+  buildIndex(path, ds.upper(), expId, qry)
+
 
 def plotOpBars(expId, absolutes, outfile):
   systems = ['Vertica', 'Oracle', 'Spark', 'Impala']
@@ -154,6 +236,23 @@ def plotAllTimes():
   plt.show()
   plt.savefig("../web/times.png")
 
+
+def buildIndex(path, wkld, exp_id, qry):
+  title = 'Workload: %s, Experiment: %s,  Query: %s</title>' % (wkld, exp_id, qry)
+  index =  '<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 3.2 Final//EN"><html>'
+  index += '<title>%s</title>' % title
+  index += '<body><h2>%s</h2>' % title
+  for img in sorted(os.listdir(path))[::-1]:
+    index += '<img src="%s" />' % img
+  index += '</body></html>'
+  indexfile = open(path + '/index.html', 'w')
+  indexfile.write(index)
+  indexfile.close()
+
+
+
 if __name__ == "__main__":
-  plotMostRecentOps()
-  plotAllTimes()
+  #plotMostRecentOps()
+  #plotAllTimes()
+  for x in [15, 16, 33, 34, 37, 38, 39]:
+    plotExpOps(x)
