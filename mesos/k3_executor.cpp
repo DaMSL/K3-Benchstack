@@ -23,6 +23,8 @@
 
 #include <mesos/executor.hpp>
 
+#include <boost/thread.hpp>
+
 #include <stout/duration.hpp>
 #include <stout/os.hpp>
 
@@ -218,22 +220,39 @@ public:
 	}
 	
 	cout << "FINAL COMMAND: " << k3_cmd << endl;
+        boost::thread t(TaskThread(task, k3_cmd, driver));
 
-	// Currently, just call the K3 executable with the generated command line from task.data()
-	int k3 = system(k3_cmd.c_str());
-	//cout << "  K3 System call returned: " << stringify(k3) << endl;
-	if (k3 == 0) {
-		status.set_state(TASK_FINISHED);
-		cout << "Task " << task.task_id().value() << " Completed!" << endl;
-	}
-	else {
-		status.set_state(TASK_FAILED);
-		cout << "K3 Task " << task.task_id().value() << " returned error code: " << k3 << endl;
-	}
-	//-------------  END OF TASK  -------------------
-
-    driver->sendStatusUpdate(status);
   }
+
+
+class TaskThread {
+  protected:
+    TaskInfo task;
+    string k3_cmd;
+    ExecutorDriver* driver;
+
+  public:
+        TaskThread(TaskInfo t, string cmd, ExecutorDriver* d) 
+          : task(t), k3_cmd(cmd), driver(d) {}
+
+        void operator()() {
+          TaskStatus status;
+          status.mutable_task_id()->MergeFrom(task.task_id());
+	  // Currently, just call the K3 executable with the generated command line from task.data()
+	  int k3 = system(k3_cmd.c_str());
+	  //cout << "  K3 System call returned: " << stringify(k3) << endl;
+	  if (k3 == 0) {
+	  	status.set_state(TASK_FINISHED);
+	  	cout << "Task " << task.task_id().value() << " Completed!" << endl;
+	  }
+	  else {
+	  	status.set_state(TASK_FAILED);
+	  	cout << "K3 Task " << task.task_id().value() << " returned error code: " << k3 << endl;
+	  }
+	  //-------------  END OF TASK  -------------------
+          driver->sendStatusUpdate(status);
+        }
+};
 
   virtual void killTask(ExecutorDriver* driver, const TaskID& taskId) {
 	  	  driver->sendFrameworkMessage("Executor " + host_name+ " KILLING TASK");

@@ -1,4 +1,4 @@
 role: go
 rendezvous: auto
 itr: 100
-server: hm 
+server: qp-hm1

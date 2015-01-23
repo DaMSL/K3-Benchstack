@@ -42,7 +42,7 @@
 #define TOTAL_PEERS 4
 #define MASTER "zk://192.168.0.10:2181,192.168.0.11:2181,192.168.0.18:2181/mesos"
 #define FILE_SERVER "http://192.168.0.10:8000"
-#define DOCKER_IMAGE "damsl/k3-debug"
+#define DOCKER_IMAGE "damsl/k3-mesos"
 #define CONDENSED true
 
 
@@ -279,7 +279,7 @@ public:
 			map<string, string> mountPoints;
 
 			
-//			hostParams["logging"] = "-l INFO";
+			hostParams["logging"] = "-l INFO";
 			hostParams["binary"] = k3binary;
 			hostParams["totalPeers"] = peerList.size();
 			hostParams["peerStart"] = profile.peers.front();
@@ -606,7 +606,7 @@ ExecutorInfo makeExecutor (string programBinary, YAML::Node hostParams,
 			Volume * volume = container.add_volumes();
 			volume->set_host_path(mnt.first);
 			volume->set_container_path(mnt.second);
-			volume->set_mode(Volume_Mode_RW);
+			volume->set_mode(Volume_Mode_RO);
 		}
 		// Mount local volume inside Container -- useful for extracting output files
 		Volume * volume = container.add_volumes();
