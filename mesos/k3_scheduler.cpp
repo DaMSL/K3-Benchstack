@@ -156,7 +156,7 @@ public:
 //	KDScheduler(const ExecutorInfo& _executor, string _k3binary,  
 //					int _totalPeers, YAML::Node _vars) :
 //			executor(_executor)  {
-	KDScheduler(string _k3binary, int _totalPeers, YAML::Node _vars, bool log, int maxP, int pph)
+	KDScheduler(string _k3binary, int _totalPeers, YAML::Node _vars, bool log, int maxP, int pph, string rv)
 	{
 		this->k3binary = _k3binary;
 		this->totalPeers = _totalPeers;
@@ -164,6 +164,7 @@ public:
 		this->logging = log;
 		this->maxPartitions = maxP;
 		this->peersPerHost = pph;
+		this->resultVar = rv;
 	}
 
 	virtual ~KDScheduler() {}
@@ -310,6 +311,8 @@ public:
                         if (this->logging) {
 			  hostParams["logging"] = "-l INFO";
                         }
+
+
 			hostParams["binary"] = k3binary;
 			hostParams["totalPeers"] = peerList.size();
 			hostParams["peerStart"] = profile.peers.front();
@@ -360,6 +363,9 @@ public:
 //			peerParams["me"] = peerList[p].getAddr();
 			
 			// Get an executor -- may move this
+			if (this->resultVar != "") {
+				hostParams["resultVar"] = resultVar;
+			}
 			ExecutorInfo executor = makeExecutor(k3binary, hostParams, mountPoints);
 			
 			
@@ -471,6 +477,7 @@ private:
 	int totalPeers;
 	int maxPartitions = 0;
 	int peersPerHost = 0;
+	string resultVar;
 	string k3binary;
 	YAML::Node k3vars;
 	string runpath;
@@ -489,6 +496,7 @@ int main(int argc, char** argv)
 	string k3binary = "countPeers";  					
 	string k3args_json;
 	string k3args_yaml;
+	string result_var="";
 	YAML::Node k3vars;
         int peers_per_host = 0;
         int max_partitions = 0;
@@ -509,7 +517,8 @@ int main(int argc, char** argv)
 		("json,j", po::value<string>(&k3args_json), "K3 Program Arguments in JSON format")
 		("yaml,y", po::value<string>(&k3args_yaml), "YAML encoded input file")
                 ("peers_per_host",po::value<int>(&peers_per_host), "Max Number of K3 Peers to launch on a single machine")
-                ("max_partitions", po::value<int>(&max_partitions), "Hard limit on the number of partitions to use on each dataset");
+                ("max_partitions", po::value<int>(&max_partitions), "Hard limit on the number of partitions to use on each dataset")
+		("result_var", po::value<string>(&result_var),  "Log the result of a query as json ");
                 
   
 	po::positional_options_description positionalOptions; 
@@ -562,7 +571,7 @@ int main(int argc, char** argv)
 
 //	KDScheduler scheduler(executor, k3binary, k3role, total_peers, k3vars);
 //	KDScheduler scheduler(executor, k3binary, total_peers, k3vars);
-	KDScheduler scheduler(k3binary, total_peers, k3vars, logging, max_partitions, peers_per_host);
+	KDScheduler scheduler(k3binary, total_peers, k3vars, logging, max_partitions, peers_per_host, result_var);
 
 	FrameworkInfo framework;
 	framework.set_user(""); // Have Mesos fill in the current user.

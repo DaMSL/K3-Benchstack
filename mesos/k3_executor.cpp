@@ -102,6 +102,9 @@ public:
 	if (hostParams["logging"]) {
 		k3_cmd += " -l INFO ";
 	}
+        if (hostParams["resultVar"]) {
+          k3_cmd += " --result_path $MESOS_SANDBOX --result_var " + hostParams["resultVar"].as<string>();
+        }
 	
 	
 	string datavar, datapath;
