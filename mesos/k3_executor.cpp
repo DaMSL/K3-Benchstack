@@ -34,14 +34,22 @@
 using namespace mesos;
 using namespace std;
 
+class DataFile {
+  public:
+    string path;
+    string varName;
+    string policy;
+};
+
 class KDExecutor : public Executor
 {
 protected:
   boost::thread *thread;
+  vector<DataFile> dataFiles;
 
 
 public:
-  KDExecutor() { thread=0; }
+  KDExecutor() : dataFiles() { thread=0; }
   virtual ~KDExecutor() { delete thread; }
 
   virtual void registered(ExecutorDriver* driver,
@@ -94,6 +102,9 @@ public:
 	if (hostParams["logging"]) {
 		k3_cmd += " -l INFO ";
 	}
+        if (hostParams["resultVar"]) {
+          k3_cmd += " --result_path $MESOS_SANDBOX --result_var " + hostParams["resultVar"].as<string>();
+        }
 	
 	
 	string datavar, datapath;
@@ -119,15 +130,28 @@ public:
 				peers.push_back(meList[i]);
 			}
 		}
-		else if (key == "datavar") {
-			datavar = param->second.as<string>();
+		else if (key == "dataFiles") {
+		        Node dataFilesNode = param->second;
+			for(YAML::const_iterator it=dataFilesNode.begin();it!=dataFilesNode.end();++it) {
+                          DataFile f;
+                          auto d = *it;
+			  f.path = d["path"].as<string>();
+			  f.varName = d["var"].as<string>(); 
+			  f.policy = d["policy"].as<string>();
+			  dataFiles.push_back(f);
+			}
+
 		}
-		else if (key == "datapath") {
-			datapath = "{path: " + param->second.as<string>() + "}";
-		}
-		else if (key == "datapolicy") {
-			datapolicy = param->second.as<string>();
-		}
+
+		//else if (key == "datavar") {
+		//	datavar = param->second.as<string>();
+		//}
+		//else if (key == "datapath") {
+		//	datapath = "{path: " + param->second.as<string>() + "}";
+		//}
+		//else if (key == "datapolicy") {
+		//	datapolicy = param->second.as<string>();
+		//}
 		else if (key == "totalPeers")  {
 			totalPeerCount = param->second.as<int>();
 		}
@@ -145,14 +169,23 @@ public:
 	
 	// DATA ALLOCATION *
 		// TODO: Convert to multiple input dirs
-	vector<string> dataFile;
-	vector<string> peerFiles[peers.size()];
+	map<string, vector<string> > peerFiles[peers.size()];
 
-	if (datavar != "") {
+        for (auto dataFile : dataFiles) {
+                cout << "Top of loop" << endl;
+	        vector<string> filePaths;
 
 		// 1. GET DIR LIST IN datavar
 		DIR *datadir = NULL;
-		datadir = opendir("/mnt/data");
+		datadir = opendir(dataFile.path.c_str());
+                if (!datadir) {
+                  cout << "Failed to open data dir: " << dataFile.path << endl;
+
+                }
+		else {
+			cout << "Opened data dir: " << dataFile.path << endl;
+
+		}
 		struct dirent *srcfile = NULL;
 		
 		while (true) {
@@ -163,34 +196,48 @@ public:
 			cout << "FILE  " << srcfile->d_name << ":  ";
 			if (srcfile->d_type == DT_REG) {
 				string filename = srcfile->d_name;
-				dataFile.push_back("/mnt/data/" + filename);
+			        filePaths.push_back(dataFile.path + "/" + filename);
 				cout << "Added -> " << filename;
 			}
 			cout << endl;
 		}
 		closedir(datadir);
+                cout << "read directory" << endl;
 
-		int numfiles = dataFile.size();
+		int numfiles = filePaths.size();
 
-		sort (dataFile.begin(), dataFile.end());
-		
+		sort (filePaths.begin(), filePaths.end());
+
+                if (hostParams["maxPartitions"].as<int>() != 0) {
+                        cout << "limited number of partitions!" << endl;
+			filePaths.resize(hostParams["maxPartitions"].as<int>());
+                        numfiles = hostParams["maxPartitions"].as<int>();
+		}
+
+
 		int p_start = 0;
 		int p_end = numfiles;
 
 		int p_total = peers.size();
 
-		if (datapolicy == "global") {
-			int taskNum = atoi(task.task_id().value().c_str());
+		if (dataFile.policy == "global") {
 			p_start = (numfiles / totalPeerCount) * peerStart;
 			p_end = (numfiles / totalPeerCount) * (peerEnd+1);
 			p_total = totalPeerCount;
 			cout << ("Global files s=" + stringify(p_start) + " e=" + stringify(p_end) + " t=" + stringify(p_total)) << endl;
+		        for (int filenum = p_start; filenum < p_end; filenum++) {
+		        	int peer = floor((((p_total)*1.0*filenum) / numfiles)) - peerStart;
+		        	cout << "  Peer # " << peer << " : [" << filenum << "] " << filePaths[filenum] << endl;
+		        	peerFiles[peer][dataFile.varName].push_back(filePaths[filenum]);
+		        }
 		}
-		for (int filenum = p_start; filenum < p_end; filenum++) {
-			int peer = floor((((p_total)*1.0*filenum) / numfiles)) - peerStart;
-			cout << "  Peer # " << peer << " : [" << filenum << "] " << dataFile[filenum] << endl;
-			peerFiles[peer].push_back(dataFile[filenum]);
-		}
+                else if (dataFile.policy == "pinned") {
+                  for(int filenum = 0; filenum < numfiles; filenum++) {
+	            peerFiles[0][dataFile.varName].push_back(filePaths[filenum]);
+		  }
+
+                }
+	}
 		
 
 
@@ -199,7 +246,7 @@ public:
 //		for (std::size_t i=0; i<peers.size(); i++)  {
 //			dataFile.push_back("/mnt/data/rankings0000");
 //		}
-	}
+	
 	
 //	cout << "   [K3 CMD:] " << task.data().c_str() << endl;
 	cout << "BUILDING PARAMS FOR PEERS" << endl;
@@ -208,11 +255,13 @@ public:
 		YAML::Node thispeer = peerParams;
 		YAML::Node me = peers[i]; 
 		thispeer["me"] = me;
-		if (thispeer[datavar]) {
-			thispeer.remove(datavar);
-		}
-		if (datavar != "")  {
-			for (auto &f : peerFiles[i]) {
+                
+		for (auto it : peerFiles[i])  {
+			auto datavar = it.first;
+                        if (thispeer[datavar]) {
+                          thispeer.remove(datavar);
+                        }
+			for (auto &f : it.second) {
 				Node src;
 				src["path"] = f;
 				thispeer[datavar].push_back(src);
@@ -224,6 +273,12 @@ public:
 		string param = emit.c_str();
 //		cout << "PARAM: " << param << endl;
 		k3_cmd += " -p '" + param + "'";
+		for (auto it : peerFiles[i])  {
+			auto datavar = it.first;
+                        if (thispeer[datavar]) {
+                          thispeer.remove(datavar);
+                        }
+                }
 	}
 	
 	cout << "FINAL COMMAND: " << k3_cmd << endl;
@@ -234,8 +289,16 @@ public:
           delete thread;
           thread = 0;
         }
-         
-        thread = new boost::thread(TaskThread(task, k3_cmd, driver));
+       
+        bool isMaster = false;
+        if (Dump(hostParams["me"][0]) == Dump(hostParams["master"])) {
+		isMaster = true;
+	}
+        else {
+          cout << "me: " << Dump(hostParams["me"][0]) << endl;
+          cout << "master: " << Dump(hostParams["master"]) << endl;
+        }
+        thread = new boost::thread(TaskThread(task, k3_cmd, driver, isMaster));
   }
 
 
@@ -244,32 +307,50 @@ class TaskThread {
     TaskInfo task;
     string k3_cmd;
     ExecutorDriver* driver;
+    bool isMaster;
 
   public:
-        TaskThread(TaskInfo t, string cmd, ExecutorDriver* d) 
-          : task(t), k3_cmd(cmd), driver(d) {}
+        TaskThread(TaskInfo t, string cmd, ExecutorDriver* d, bool m) 
+          : task(t), k3_cmd(cmd), driver(d), isMaster(m) {}
 
         void operator()() {
           TaskStatus status;
           status.mutable_task_id()->MergeFrom(task.task_id());
 	  // Currently, just call the K3 executable with the generated command line from task.data()
           try {
-            int k3 = system(k3_cmd.c_str());
-	    //cout << "  K3 System call returned: " << stringify(k3) << endl;
-	    if (k3 == 0) {
-	    	status.set_state(TASK_FINISHED);
-	    	cout << "Task " << task.task_id().value() << " Completed!" << endl;
-	    }
-	    else {
-	    	status.set_state(TASK_FAILED);
-	    	cout << "K3 Task " << task.task_id().value() << " returned error code: " << k3 << endl;
-	    }
+		  FILE* pipe = popen(k3_cmd.c_str(), "r");
+		  if (!pipe) {
+			  status.set_state(TASK_FAILED);
+			  driver->sendStatusUpdate(status);
+			  cout << "Failed to open subprocess" << endl;
+		  }
+		  char buffer[1024];
+		  while (!feof(pipe)) {
+			  if (fgets(buffer, 1024, pipe) != NULL) {
+				  std::string s = std::string(buffer);
+				  if (this->isMaster) {
+	  	                  	driver->sendFrameworkMessage(s);
+				  }
+			  }
+		  }
+		  int k3 = pclose(pipe);
+
+	          if (k3 == 0) {
+	          	status.set_state(TASK_FINISHED);
+	          	cout << "Task " << task.task_id().value() << " Completed!" << endl;
+                        driver->sendStatusUpdate(status);
+	          }
+	          else {
+	          	status.set_state(TASK_FAILED);
+	          	cout << "K3 Task " << task.task_id().value() << " returned error code: " << k3 << endl;
+                        driver->sendStatusUpdate(status);
+	          }
           }
           catch (...) {
             status.set_state(TASK_FAILED);
+            driver->sendStatusUpdate(status);
           }
 	  //-------------  END OF TASK  -------------------
-          driver->sendStatusUpdate(status);
         }
 };
 
@@ -308,5 +389,9 @@ int main(int argc, char** argv)
 {
 	KDExecutor executor;
 	MesosExecutorDriver driver(&executor);
-    return driver.run() == DRIVER_STOPPED ? 0 : 1;
+        TaskStatus status;
+        driver.run();
+	status.set_state(TASK_FAILED);
+        driver.sendStatusUpdate(status); 
+        
 }

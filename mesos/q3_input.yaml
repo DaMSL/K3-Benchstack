@@ -1,0 +1,6 @@
+role: rows
+master: auto
+data: 
+  - {var: rkFiles, path: /local/data/amplab/1024/rankings, policy: pinned}
+  - {var: uvFiles , path: /local/data/amplab/1024/uservisits, policy: global}
+server_group: hm
