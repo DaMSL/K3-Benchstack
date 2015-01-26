@@ -94,7 +94,7 @@ class Oracle:
     exec_time = 1000 * float(lines[1].strip())
 #    print("TOTAL ELAPSED TIME: %f " % elapsed)
 #    print("TOTAL EXEC TIME:    %f " % exec_time)
-    preexec_time = elapsed - exec_time
+    preexec_time = max((elapsed - exec_time), 0)
 #    print("PRE-EXEC TIME:      %f " % preexec_time)
     prexec_percent = 100.0
     ops = []

@@ -28,6 +28,7 @@ class Metric:
         self.axis = axis
         self.delta = delta
 
+all_systems = ['Vertica', 'Oracle', 'Spark', 'Impala']
 cpu_total = Metric("cpu_usage_total", conv_cpu, "CPU_Total", "Time (ms)", True)
 cpu_system = Metric("cpu_usage_system", conv_cpu, "CPU_System", "Time (ms)", True)
 mem_usage = Metric("memory_usage", conv_mem, "MEM_Usage", "Mem (MB)")
@@ -86,7 +87,7 @@ def get_cadvdata_dist(con, metric, id, delta=False, average=False, debug=False):
     cur.close()
     return (range(len(result)), result)
 
-def draw_graph(con, trial, metric, consolidate_graphs=False):
+def draw_graph(con, trial, metric):
     exp_id, run, tnum, sys, qry, dset, wkld = trial
     cur = con.cursor()
     fig= plt.figure(figsize=(5,4))
@@ -98,18 +99,18 @@ def draw_graph(con, trial, metric, consolidate_graphs=False):
       return 
 
     plt.plot(x, y, label=sys, color=sys_color[sys])
+    #plt.scatter(x, y, label=sys, color=sys_color[sys])
     plt.title(metric.title)
     plt.legend(loc='best')
     plt.xlabel("Time (sec)")
     plt.ylabel(metric.axis)
-    directory = "../web/cadvisor_graphs/experiment_%d" % exp_id if consolidate_graphs else "../web/%s/%s/%s/experiment_%s/%s/%s/" % (wkld, dset, qry, exp_id, sys, metric.label)
+    directory = "../web/cadvisor_graphs/experiment_%d" % exp_id
     utils.runCommand("mkdir -p %s" % (directory))
     f = os.path.join(directory, "%s_%s_%s.jpg" % (metric.title, sys, tnum))
     fig.savefig(f, dpi=100)
     plt.close(fig)
     db.registerMetricPlot(con,run)
-    if consolidate_graphs:
-      buildIndex(directory, dset.upper(), exp_id, qry)
+    buildIndex(directory, dset.upper(), exp_id, qry)
 
 def draw_all(conn):
   results = db.getMetricPlotData(conn)
@@ -141,9 +142,51 @@ def buildIndex(path, wkld, exp_id, qry):
   indexfile.write(index)
   indexfile.close()
 
+
+def draw_scatter_graph(con, expid, sys, metric):
+  conn = db.getConnection()
+  query = "SELECT trial_id, trial_num FROM trials as T, experiments AS E WHERE T.experiment_id = E.experiment_id and T.experiment_id = %d and T.system='%s' order by  trial_num;" % (expid, sys)
+  cur = conn.cursor()
+  cur.execute(query)
+  results = cur.fetchall()
+  cur = con.cursor()
+  fig= plt.figure(figsize=(5,4))
+  for row in results:
+    tid, tnum = row
+    x, y = (get_cadvdata_dist(con, metric, tid, metric.delta, average=True)
+      if sys in distro_sys
+      else get_cadvdata_single(con, metric, tid, metric.delta))
+    if x == 0:
+      return 
+    plt.scatter(x, y, label=sys, color=sys_color[sys])
+
+  plt.title(metric.title)
+  plt.legend(loc='best')
+  plt.xlabel("Time (sec)")
+  plt.ylabel(metric.axis)
+  directory = "../web/cadvisor_graphs/experiment_%d" % expid
+  utils.runCommand("mkdir -p %s" % (directory))
+  f = os.path.join(directory, "%s_%s.jpg" % (metric.title, sys))
+  fig.savefig(f, dpi=100)
+  plt.close(fig)
+
+  query = " select dataset, query from experiments where experiment_id=%s" % expid
+  cur = conn.cursor()
+  cur.execute(query)
+  dset, qry = cur.fetchone()
+  buildIndex(directory, dset.upper(), expid, qry)
+
+
+def plotMetrics(expId):
+  conn = db.getConnection()
+  results = getExperimentMetrics(conn, expId)
+  for row in results:
+    draw_graph(conn, row, cpu_total)
+    draw_graph(conn, row, mem_usage)
+
 if __name__ == "__main__":
   conn = db.getConnection()
-  for x in [2, 15, 16, 33, 37, 34, 38, 39, 40]:
+  for x in [46, 47, 48, 49, 50, 51, 52]:
     results = getExperimentMetrics(conn, x)
     for row in results:
       draw_graph(conn, row, cpu_total, True)

@@ -96,13 +96,12 @@ group by
   experiment_id, system, operator_name, obj, operator_num 
 order by experiment_id, system, operator_num;
 
--- 10g
+
 DROP VIEW IF EXISTS most_recent;
 create view most_recent as 
 select workload, query, dataset, max(experiment_id) as experiment_id 
 from experiments 
-where dataset='tpch10g'
-group by workload, query, dataset;
+group by workload, dataset, query, dataset;
 
 DROP VIEW IF EXISTS summary;
 create view summary as

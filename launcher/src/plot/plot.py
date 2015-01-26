@@ -1,6 +1,7 @@
 import sys
 import os
 import numpy as np
+import argparse
 
 import db.db as db
 import utils.utils as utils
@@ -76,12 +77,13 @@ def plotExpOps(expId):
   path = '../web/operator_metrics/experiment_%s' % (expId)
   utils.runCommand("mkdir -p %s" % (path))
 
-  for sys in systems:
+  for sys in ['Vertica', 'Oracle', 'Impala']:
     query = "select avg_time/1000 from experiment_stats where experiment_id =%s and system='%s';" % (expId, sys)
-    cur.execute(query) 
-    total_time[sys] = float(cur.fetchone()[0])
+    cur.execute(query)
+    result = cur.fetchone()
+    total_time[sys] = 0. if result == None else float(result[0])
     
-  query = "SELECT system, op_name, percent_time, memory from operator_stats where experiment_id=%s" % (expId)
+  query = "SELECT system, op_name, avg(percent_time) as percent_time, avg(memory) as memory from operator_stats natural join trials where experiment_id=%s group by system, op_name" % (expId)
   cur.execute(query)
   for row in cur.fetchall():
     (sys, op, percent, mem) = row
@@ -205,8 +207,9 @@ def plotOpBar(ind, system, width, absolutes, expId):
 
 
 
-def plotAllTimes():
+def plotAllTimes(ds):
   systems = ['Vertica', 'Oracle', 'Spark', 'Impala']
+  #systems = ['Vertica', 'Oracle', 'Impala']
   colors = ['r', 'g', 'b', 'c']
   wkld = 'tpch'
   queries = [1, 3, 5, 6, 11, 18, 22]
@@ -214,10 +217,13 @@ def plotAllTimes():
   
   for sys in range(len(systems)):
     conn = db.getConnection()
-    query = "SELECT avg_time, error from summary where system='%s' order by query::int" % systems[sys]
+    
+    query = "SELECT avg_time, error from summary where dataset='%s' and system='%s' order by query::int" % (ds, systems[sys])
     cur = conn.cursor()
     cur.execute(query)
     data = zip(*[ (tup[0]/1000.0, tup[1]/1000.0) for tup in cur.fetchall() ])
+    if len(data) != 2:
+      continue
     index = np.arange(len(data[0]))
     plt.bar(index + width*sys, data[0], width, color=colors[sys], yerr=data[1], label=systems[sys])
     for x, y in zip (index, data[0]):
@@ -234,7 +240,7 @@ def plotAllTimes():
   plt.legend()
   plt.tight_layout()
   plt.show()
-  plt.savefig("../web/times.png")
+  plt.savefig("../web/alltimes_%s.png" % ds)
 
 
 def buildIndex(path, wkld, exp_id, qry):
@@ -251,8 +257,72 @@ def buildIndex(path, wkld, exp_id, qry):
 
 
 
+def plotOperations(ds):
+  query = "select experiment_id from most_recent where dataset='%s';" % (ds)
+  conn = db.getConnection()
+  cur = conn.cursor()
+  cur.execute(query)
+  for row in cur.fetchall():
+    plotExpOps(row[0])
+  
+def plotExternalMetrics(ds):
+  query = "select experiment_id from most_recent where dataset='%s';" % (ds)
+  conn = db.getConnection()
+  cur = conn.cursor()
+  cur.execute(query)
+  for row in cur.fetchall():
+    mplots.plotMetrics(row[0])
+
+
+def parseArgs():
+  parser = argparse.ArgumentParser()
+  parser.add_argument('-d', '--dataset', nargs='+', help='Plot specific dataset', required=False)
+  parser.add_argument('-e', '--experiment', help='Plot specific experiment', required=False)
+  parser.add_argument('-a', '--alltime', help='Plot bar graph for all time for all queries', action='store_true')
+  parser.add_argument('-m', '--metrics', help='Plot line graphs of externally collected cadvisor metrics', action='store_true')
+  parser.add_argument('-o', '--operations', help='Plot bar graphs of per-operation metrics', action='store_true')
+  args = parser.parse_args()
+
+  
+  ds = ['tpch10g', 'tpch100g']
+  if args.dataset:
+    ds = []
+    for d in args.dataset:
+      ds.append(d)
+  for d in ds:
+    print d
+  
+  if args.alltime:
+    print 'Plotting All Times'
+    for d in ds:
+      plotAllTimes(d)
+  
+
+  if args.experiment:
+    print 'Plotting graphs for experiment #%s' % args.experiment
+    if args.metrics:
+      mplots.plotMetrics(args.experiment)
+   
+    if args.operations:
+      plotExpOps(args.experiment)
+
+  if args.metrics:
+    print "Plot cadvisor metrics"
+    for d in ds:
+      plotExternalMetrics(d)
+
+  if args.operations:
+    print "Plot Operator metrics"
+    for d in ds:
+      plotOperations(d)
+
+
+
+
 if __name__ == "__main__":
+  parseArgs()
+
   #plotMostRecentOps()
-  #plotAllTimes()
-  for x in [15, 16, 33, 34, 37, 38, 39]:
-    plotExpOps(x)
+#  plotAllTimes()
+#  for x in [46, 47, 48, 49, 50, 51, 52]:
+#    plotExpOps(x)
