@@ -204,7 +204,14 @@ public:
 		int numfiles = filePaths.size();
 
 		sort (filePaths.begin(), filePaths.end());
-		
+
+                if (hostParams["maxPartitions"].as<int>() != 0) {
+                        cout << "limited number of partitions!" << endl;
+			filePaths.resize(hostParams["maxPartitions"].as<int>());
+                        numfiles = hostParams["maxPartitions"].as<int>();
+		}
+
+
 		int p_start = 0;
 		int p_end = numfiles;
 
@@ -279,8 +286,16 @@ public:
           delete thread;
           thread = 0;
         }
-         
-        thread = new boost::thread(TaskThread(task, k3_cmd, driver));
+       
+        bool isMaster = false;
+        if (Dump(hostParams["me"][0]) == Dump(hostParams["master"])) {
+		isMaster = true;
+	}
+        else {
+          cout << "me: " << Dump(hostParams["me"][0]) << endl;
+          cout << "master: " << Dump(hostParams["master"]) << endl;
+        }
+        thread = new boost::thread(TaskThread(task, k3_cmd, driver, isMaster));
   }
 
 
@@ -289,28 +304,44 @@ class TaskThread {
     TaskInfo task;
     string k3_cmd;
     ExecutorDriver* driver;
+    bool isMaster;
 
   public:
-        TaskThread(TaskInfo t, string cmd, ExecutorDriver* d) 
-          : task(t), k3_cmd(cmd), driver(d) {}
+        TaskThread(TaskInfo t, string cmd, ExecutorDriver* d, bool m) 
+          : task(t), k3_cmd(cmd), driver(d), isMaster(m) {}
 
         void operator()() {
           TaskStatus status;
           status.mutable_task_id()->MergeFrom(task.task_id());
 	  // Currently, just call the K3 executable with the generated command line from task.data()
           try {
-            int k3 = system(k3_cmd.c_str());
-	    //cout << "  K3 System call returned: " << stringify(k3) << endl;
-	    if (k3 == 0) {
-	    	status.set_state(TASK_FINISHED);
-	    	cout << "Task " << task.task_id().value() << " Completed!" << endl;
-                driver->sendStatusUpdate(status);
-	    }
-	    else {
-	    	status.set_state(TASK_FAILED);
-	    	cout << "K3 Task " << task.task_id().value() << " returned error code: " << k3 << endl;
-                driver->sendStatusUpdate(status);
-	    }
+		  FILE* pipe = popen(k3_cmd.c_str(), "r");
+		  if (!pipe) {
+			  status.set_state(TASK_FAILED);
+			  driver->sendStatusUpdate(status);
+			  cout << "Failed to open subprocess" << endl;
+		  }
+		  char buffer[1024];
+		  while (!feof(pipe)) {
+			  if (fgets(buffer, 1024, pipe) != NULL) {
+				  std::string s = std::string(buffer);
+				  if (this->isMaster) {
+	  	                  	driver->sendFrameworkMessage(s);
+				  }
+			  }
+		  }
+		  int k3 = pclose(pipe);
+
+	          if (k3 == 0) {
+	          	status.set_state(TASK_FINISHED);
+	          	cout << "Task " << task.task_id().value() << " Completed!" << endl;
+                        driver->sendStatusUpdate(status);
+	          }
+	          else {
+	          	status.set_state(TASK_FAILED);
+	          	cout << "K3 Task " << task.task_id().value() << " returned error code: " << k3 << endl;
+                        driver->sendStatusUpdate(status);
+	          }
           }
           catch (...) {
             status.set_state(TASK_FAILED);

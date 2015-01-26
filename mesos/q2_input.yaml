@@ -1,8 +1,6 @@
 role: rows
-x: 1
+x: 8
 master: auto
-outputFile: /mnt/out/outfile
 data: 
-  - {var: rankingsFiles, path: /local/data/amplab/1024/rankings, policy: global}
-  - {var: uservisitsFiles , path: /local/data/amplab/1024/uservisits, policy: global}
+  - {var: dataFiles , path: /local/data/amplab/1024/uservisits, policy: global}
 server_group: hm

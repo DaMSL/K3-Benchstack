@@ -156,12 +156,14 @@ public:
 //	KDScheduler(const ExecutorInfo& _executor, string _k3binary,  
 //					int _totalPeers, YAML::Node _vars) :
 //			executor(_executor)  {
-	KDScheduler(string _k3binary, int _totalPeers, YAML::Node _vars)
+	KDScheduler(string _k3binary, int _totalPeers, YAML::Node _vars, bool log, int maxP, int pph)
 	{
 		this->k3binary = _k3binary;
 		this->totalPeers = _totalPeers;
 		this->k3vars = _vars;
-		this->logging = true;
+		this->logging = log;
+		this->maxPartitions = maxP;
+		this->peersPerHost = pph;
 	}
 
 	virtual ~KDScheduler() {}
@@ -248,8 +250,13 @@ public:
 				cout << " Accepted offer on " << offer.hostname() << endl;
 				acceptedOffers++;
 				hostProfile profile;
-				int localPeers = (unallocatedPeers > cpus) ? 
-					cpus : unallocatedPeers;
+				int localPeers = unallocatedPeers;
+				if (localPeers > cpus) {
+					localPeers = cpus;
+				}
+				if (peersPerHost != 0 && localPeers > peersPerHost) {
+				  localPeers = peersPerHost;
+		                }
 				
 				// Create profile for Resource allocation & other info
 				profile.cpu = localPeers;		//assume: 1 cpu per peer
@@ -287,7 +294,7 @@ public:
 
                 for (auto pair : ip_addr) {
                   if (pair.second == peerList[0].ip)
-                    cout << "masster:" << pair.first << endl;
+                    cout << "master:" << pair.first << endl;
 
                 } 
 		
@@ -300,11 +307,14 @@ public:
 			YAML::Node hostParams;
 			map<string, string> mountPoints;
 
-			hostParams["logging"] = "-l INFO";
+                        if (this->logging) {
+			  hostParams["logging"] = "-l INFO";
+                        }
 			hostParams["binary"] = k3binary;
 			hostParams["totalPeers"] = peerList.size();
 			hostParams["peerStart"] = profile.peers.front();
 			hostParams["peerEnd"] = profile.peers.back();
+			hostParams["maxPartitions"] = this->maxPartitions;
 			
 			for (auto &p : profile.peers) {
 				hostParams["me"].push_back(peerList[p].getAddr());
@@ -404,16 +414,21 @@ public:
 			cout << "Task " << taskId << " -> " << taskState[status.state()] << endl;
 		}
 		
-                if (status.state() == TASK_RUNNING)  {
+                else if (status.state() == TASK_RUNNING)  {
 			cout << "Task " << taskId << " -> " << taskState[status.state()] << endl;
 		}
 
-		if (status.state() == TASK_LOST)  {
+		else if (status.state() == TASK_LOST)  {
                         executorsFinished++;
 			cout << "Task " << taskId << " -> " << taskState[status.state()] << endl;
                         cout << "Aborting!" << endl;
                         driver->stop();
 		}
+                else {
+                  cout << "RECEIVED UNKNOWN STATUS! ABORTING!" << endl;
+                  driver->stop();
+                }
+               
 
 		if (executorsFinished == executorsAssigned)
 			driver->stop();
@@ -426,7 +441,13 @@ public:
 	}
 
 	virtual void slaveLost(SchedulerDriver* driver, 
-						const SlaveID& slaveId) {}
+						const SlaveID& slaveId) 
+
+
+        {
+		cout << "slave lost" << endl;
+
+        }
 	virtual void executorLost(SchedulerDriver* driver,
 						const ExecutorID& executorId, 
 						const SlaveID& slaveId, int status) {
@@ -435,7 +456,10 @@ public:
           cout << "Executor lost. Aborting" << endl;
           driver->stop();
         }
-	virtual void error(SchedulerDriver* driver, const string& message) {}
+	virtual void error(SchedulerDriver* driver, const string& message) {
+		cout << "error!" << endl;
+
+	}
 
 private:
 //	const ExecutorInfo executor;
@@ -445,6 +469,8 @@ private:
 	int executorsFinished = 0;
 	int executorsAssigned = 0;
 	int totalPeers;
+	int maxPartitions = 0;
+	int peersPerHost = 0;
 	string k3binary;
 	YAML::Node k3vars;
 	string runpath;
@@ -464,6 +490,9 @@ int main(int argc, char** argv)
 	string k3args_json;
 	string k3args_yaml;
 	YAML::Node k3vars;
+        int peers_per_host = 0;
+        int max_partitions = 0;
+        int max_files = 0;
 	int total_peers = (argc == 2) ? atoi(argv[1]) : 4;  
 	
 
@@ -476,14 +505,19 @@ int main(int argc, char** argv)
         ("program", po::value<string>(&k3binary)->required(), "K3 executable program filename") 
 		("numpeers", po::value<int>(&total_peers)->required(), "# of K3 Peers to launch")
 		("help,h", "Print help message")
-//		("logging,l", po::value<>, "Turn logging on")
+		("logging,l", "Turn logging on")
 		("json,j", po::value<string>(&k3args_json), "K3 Program Arguments in JSON format")
-		("yaml,y", po::value<string>(&k3args_yaml), "YAML encoded input file");
+		("yaml,y", po::value<string>(&k3args_yaml), "YAML encoded input file")
+                ("peers_per_host",po::value<int>(&peers_per_host), "Max Number of K3 Peers to launch on a single machine")
+                ("max_partitions", po::value<int>(&max_partitions), "Hard limit on the number of partitions to use on each dataset");
+                
+  
 	po::positional_options_description positionalOptions; 
     positionalOptions.add("program", 1); 
     positionalOptions.add("numpeers", 1);
 
 	po::variables_map vm;
+        bool logging = false;
 
 	try {
 		po::store(po::command_line_parser(argc, argv).options(desc) 
@@ -509,6 +543,9 @@ int main(int argc, char** argv)
 		if (vm.count("yaml")) {
 			k3vars = YAML::LoadFile (k3args_yaml);
 		}
+                if (vm.count("logging")) {
+			logging = true;
+		}
 	}
 	catch (boost::program_options::required_option& e)  {
 		cerr << " ERROR: " << e.what() << endl << endl;
@@ -525,7 +562,7 @@ int main(int argc, char** argv)
 
 //	KDScheduler scheduler(executor, k3binary, k3role, total_peers, k3vars);
 //	KDScheduler scheduler(executor, k3binary, total_peers, k3vars);
-	KDScheduler scheduler(k3binary, total_peers, k3vars);
+	KDScheduler scheduler(k3binary, total_peers, k3vars, logging, max_partitions, peers_per_host);
 
 	FrameworkInfo framework;
 	framework.set_user(""); // Have Mesos fill in the current user.
