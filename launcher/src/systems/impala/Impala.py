@@ -17,9 +17,11 @@ class Impala:
   def name(self):
     return "Impala"
 
-  queryMap = {'tpch': 'systems/impala/sql/tpch/queries/'}
-  schemaMap = {'tpch': 'systems/impala/sql/tpch/schema/'}
-  scaleFactorMap  = {'tpch10g': '10g', 'tpch100g': '100g'} 
+  queryMap = {'tpch': 'systems/impala/sql/tpch/queries/',
+              'amplab': 'systems/impala/sql/amplab/queries/'}
+  schemaMap = {'tpch': 'systems/impala/sql/tpch/schema/',
+               'amplab': 'systems/impala/sql/amplab/schema/'}
+  scaleFactorMap  = {'tpch10g': '10g', 'tpch100g': '100g', 'amplab': 'amplab'} 
 
   # Verify that Impala can run the experiment 
   # Assume the sql file is (e.query).sql
@@ -78,6 +80,9 @@ class Impala:
     # strip summary header and footer
     summary = summary[:-2]
     summary = summary[3:]
+    print("Summary----:")
+    for l in summary:
+      print(l)
    
     # split at pipes and strip whitespace 
     clean = []
@@ -89,12 +94,17 @@ class Impala:
       else:
         offsets.append(1)
       clean.append([s.strip(" -") for s in x])
+
+    print("Clean-----:")
+    for line in clean:
+      print(line)
    
     # break apart columns
     operators = []
     p = re.compile('(\d+\.\d+)(.+)')
     p2 = re.compile('(\d+\.*\d*) (.+)')
     totalTime = 0
+    lastOperator = None
     for line,off in zip(clean, offsets):
       opNum = int(line[1+off].split(":")[0])
       opName = line[1+off].split(":")[1]
@@ -135,8 +145,18 @@ class Impala:
 
       # approx. memory usage
       maxMem = maxMem * numHosts
-      operators.append(Operator(trial_id, opNum, opName, time, 0, maxMem, obj))
-      totalTime = totalTime + time
+
+      # dont double count times or memory for sub-operators. 
+      # simply concatenate the names
+      o = Operator(trial_id, opNum, opName, time, 0, maxMem, obj)
+      if off == 1:
+        lastOperator.operator_name += ", " + opName
+        time = 0
+        # maxMem = 0
+      else:
+        operators.append(o)
+        lastOperator = o
+        totalTime = totalTime + time
 
     for operator in operators:
       operator.percent_time = 100 * operator.time / totalTime

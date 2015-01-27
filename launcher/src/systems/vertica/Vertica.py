@@ -13,7 +13,9 @@ class Vertica:
   def name(self):
     return "Vertica"
 
-  workloadMap = {'tpch': './systems/vertica/sql/tpch'}
+  workloadMap = {'tpch': './systems/vertica/sql/tpch',
+                 'amplab': './systems/vertica/sql/amplab'
+                }
 
   # Verify that vertica can run the experiment.
   # Assume the sql file is (e.query).sql
@@ -46,9 +48,13 @@ class Vertica:
   def runVertica(self, schema, queryFile, trial_id):
     command = "./systems/vertica/run_vertica.sh %s %s" % (schema, queryFile)
     output = utils.runCommand(command)
+    print(command)
+    print(output)
     # First line of output is a HINT for profiling
     lines = output.split("\n")
     hint = lines[0]
+    print("----hint:----")
+    print(hint)
     try:
       m = re.search("[.]*transaction_id=(\d+) and statement_id=(\d+)[.]*", hint)
       transaction = m.group(1)

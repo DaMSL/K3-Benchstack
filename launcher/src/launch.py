@@ -132,6 +132,12 @@ def parseTPCHExperiments(lst, dataset):
   for query in lst:
     result.append(Experiment("tpch",query,dataset))
   return result
+
+def parseAmplabExperiments(lst):
+  result = []
+  for query in lst:
+    result.append(Experiment("amplab", query, "amplab"))
+  return result
  
 def parseArgs():
   parser = argparse.ArgumentParser() 
@@ -139,6 +145,7 @@ def parseArgs():
   parser.add_argument('--trials', type=int, default=10, help='Number of trials to run each experiment. Default is 10.')
   parser.add_argument('--tpch10g', nargs='*', help='Run the TPCH workload on the 10G dataset. Provide a space seperated list of queries to run.')
   parser.add_argument('--tpch100g', nargs='*',  help='Run the TPCH workload on the 100G dataset. Provide a space seperated list of queries to run.')
+  parser.add_argument('--amplab', nargs='*',  help='Run the Amplab BDB workload. Provide a space seperated list of queries to run.')
   args = parser.parse_args()
 
   log.logHeader("Parsing Arguments: ")
@@ -154,6 +161,8 @@ def parseArgs():
     experiments.extend(parseTPCHExperiments(args.tpch10g, "tpch10g"))
   if args.tpch100g:
     experiments.extend(parseTPCHExperiments(args.tpch100g, "tpch100g"))
+  if args.amplab:
+    experiments.extend(parseAmplabExperiments(args.amplab))
   
   if len(experiments) == 0:
     log.logEvent(1, "No Experiments Specified: Exiting.")
@@ -185,5 +194,5 @@ if __name__ == "__main__":
   checkExperiments(experiments, systems)
   runExperiments(experiments, systems, numTrials, debug)
 
-  plotNew(conn)
+#  plotNew(conn)
   conn.close()

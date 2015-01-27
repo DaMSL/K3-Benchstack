@@ -14,7 +14,7 @@ now=$(date)
 echo "SET FEEDBACK OFF;" > /tmp/oracleq.sql
 echo "SET TERM OFF;" >> /tmp/oracleq.sql
 cat $FILE >> /tmp/oracleq.sql
-echo '/*+ MONITOR */ ' >> /tmp/oracleq.sql
+echo '/*+ MONITOR PARALLEL */ ' >> /tmp/oracleq.sql
 echo "/* $now */;">> /tmp/oracleq.sql
 sed "s/@@QUERYFLAG@@/$now/g" systems/oracle/sql/getlast.sql >> /tmp/oracleq.sql
 

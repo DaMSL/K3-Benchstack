@@ -43,7 +43,7 @@ def checkJob (jl, d):
 
 
 class Spark:
-  scaleFactorMap  = {'tpch10g': '10g', 'tpch100g': '100g'}
+  scaleFactorMap  = {'tpch10g': '10g', 'tpch100g': '100g', 'amplab': 'amplab'}
   buildDir = 'systems/spark/'
   jarFile  = os.path.join(buildDir, 'target/scala-2.10/spark-benchmarks_2.10-1.0.jar')
   
@@ -71,6 +71,7 @@ class Spark:
 
     if e.dataset not in self.scaleFactorMap:
       print("Unknown dataset for Spark: %s" % (e.dataset) )
+      return False
 
     # Check if we need to build the jar file for spark programs
     if not os.path.isfile(self.jarFile):
@@ -95,6 +96,7 @@ class Spark:
     command = "systems/spark/run_spark.sh %s %s %s" % (self.jarFile, sf, className) 
 
     output = utils.runCommand_stderr(command)
+    print(output)
 
     #  Extract Query Plan from output, parse & convert to set of operation tuples
     q_start = output.find('---->>') + 6
