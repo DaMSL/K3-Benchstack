@@ -30,7 +30,8 @@ CREATE TABLE IF NOT EXISTS cadvisor (
   cpu_usage_total bigint, 
   cpu_usage_user bigint, 
   network_rx_bytes bigint, 
-  network_tx_bytes bigint
+  network_tx_bytes bigint,
+  interval int
 );
 
 CREATE TABLE IF NOT EXISTS operator_metrics (

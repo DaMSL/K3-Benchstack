@@ -36,6 +36,128 @@ sys_color = {'Vertica':'r', 'Oracle':'g', 'Spark':'b', 'Impala':'c'}
 
 distro_sys = ['Impala', 'Spark']
 
+def buildIndex(path, wkld, exp_id, qry):
+  title = 'Workload: %s, Experiment: %s,  Query: %s</title>' % (wkld, exp_id, qry)
+  index =  '<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 3.2 Final//EN"><html>'
+  index += '<title>%s</title>' % title
+  index += '<body><h2>%s</h2>' % title
+  for img in sorted(os.listdir(path)):
+    index += '<img src="%s" />' % img  
+  index += '</body></html>'
+  indexfile = open(path + '/index.html', 'w')
+  indexfile.write(index)
+  indexfile.close()
+
+def get_cadvdata (con, metric, run_id, system='', consolidate_trials=False):
+    view = "cadvisor_summary" if consolidate_trials else "cadvisor_collected"
+    query = ("SELECT %s FROM cadvisor_summary WHERE experiment_id=%d and system='%s' ORDER BY interval;" % (metric.label, run_id, system)
+      if consolidate_trials
+      else "SELECT %s FROM cadvisor_collected WHERE trial_id=%d ORDER BY interval;" % (metric.label, run_id))
+    cur = con.cursor()
+    cur.execute(query)
+    # Get data 
+    raw = [metric.convert(row[0]) for row in cur.fetchall()]
+    if not metric.delta:
+        return (range(len(raw)), raw)
+    incr = [(raw[i] - raw[i-1]) for i in xrange(1, len(raw))]
+    cur.close()
+    return (range(len(incr)), incr)
+      
+
+
+def draw_experiment_graph(con, dset, qry, expid, sys, metric):
+#    fig= plt.figure(figsize=(5,4))
+    x, y = get_cadvdata(con, metric, expid, sys, True)
+
+    fig = plt.figure()
+    plt.plot(x, y, label=sys, color=sys_color[sys])
+    plt.title(metric.title)
+    plt.legend(loc='best')
+    plt.xlabel("Time (sec)")
+    plt.ylabel(metric.axis)
+    directory = "../web/cadvisor_graphs/%s_%s" % (dset, metric.title)
+    utils.runCommand("mkdir -p %s" % (directory))
+    f = os.path.join(directory, "%s_%s_%s_%s.jpg" % (metric.title, sys, dset, qry))
+    fig.savefig(f, dpi=100)
+    plt.close(fig)
+#    db.registerMetricPlot(con,run)
+    buildIndex(directory, dset.upper(), expid, qry)
+
+def plot_dset_metrics(dset):
+    conn = db.getConnection()
+    cur = conn.cursor()
+    cur.execute("SELECT experiment_id, query, system FROM summary WHERE dataset='%s';" % dset)
+    for row in cur.fetchall():
+      expid, qry, sys = row
+      print "Plotting graphs for %s on %s - query %s" % (sys, dset, qry)
+      draw_experiment_graph(conn, dset, qry, expid, sys, cpu_total)
+      draw_experiment_graph(conn, dset, qry, expid, sys, mem_usage)
+
+
+def draw_trial_graph(con, trial, metric):
+    exp_id, run, tnum, sys, qry, dset, wkld = trial
+    x, y = get_cadvdata(con, metric, run, sys, False)
+    cur = con.cursor()
+    fig= plt.figure(figsize=(5,4))
+    x, y = (get_cadvdata_dist(con, metric, run, metric.delta, average=True)
+        if sys in distro_sys
+        else get_cadvdata_single(con, metric, run, metric.delta))
+    if x == 0:
+      return 
+    plt.plot(x, y, label=sys, color=sys_color[sys])
+    plt.title(metric.title)
+    plt.legend(loc='best')
+    plt.xlabel("Time (sec)")
+    plt.ylabel(metric.axis)
+    directory = "../web/cadvisor_graphs/experiment_%d" % exp_id
+    utils.runCommand("mkdir -p %s" % (directory))
+    f = os.path.join(directory, "%s_%s_%s.jpg" % (metric.title, sys, tnum))
+    fig.savefig(f, dpi=100)
+    plt.close(fig)
+    db.registerMetricPlot(con,run)
+    buildIndex(directory, dset.upper(), exp_id, qry)
+
+
+
+def getExperimentMetrics(conn, expid):
+  try:
+    query = "SELECT T.experiment_id,trial_id, trial_num, system, query, dataset, workload FROM trials as T, experiments AS E WHERE T.experiment_id = E.experiment_id and T.experiment_id = %s order by system, trial_num;" % expid
+    cur = conn.cursor()
+    cur.execute(query)
+    results = cur.fetchall()
+    return results
+  except Exception as inst:
+      print("Failed to get metric plot data for experiment %d: " % expid)
+      print(inst)
+      sys.exit(1)
+
+def plot_experiment_metrics(expId):
+  conn = db.getConnection()
+  results = getExperimentMetrics(conn, expId)
+  for row in results:
+    draw_trial_graph(conn, row, cpu_total)
+    draw_trial_graph(conn, row, mem_usage)
+
+if __name__ == "__main__":
+  conn = db.getConnection()
+  for x in [46, 47, 48, 49, 50, 51, 52]:
+    results = getExperimentMetrics(conn, x)
+    for row in results:
+      draw_graph(conn, row, cpu_total, True)
+
+
+
+
+
+
+
+def draw_all(conn):
+  results = db.getMetricPlotData(conn)
+  for row in results:
+    draw_graph(conn, row, cpu_total)
+    draw_graph(conn, row, mem_usage)
+
+
 
 def get_cadvdata_single (con, metric, id, delta=False):
     cur = con.cursor()
@@ -87,107 +209,6 @@ def get_cadvdata_dist(con, metric, id, delta=False, average=False, debug=False):
     cur.close()
     return (range(len(result)), result)
 
-def draw_graph(con, trial, metric):
-    exp_id, run, tnum, sys, qry, dset, wkld = trial
-    cur = con.cursor()
-    fig= plt.figure(figsize=(5,4))
-    x, y = (get_cadvdata_dist(con, metric, run, metric.delta, average=True)
-        if sys in distro_sys
-        else get_cadvdata_single(con, metric, run, metric.delta))
-
-    if x == 0:
-      return 
-
-    plt.plot(x, y, label=sys, color=sys_color[sys])
-    #plt.scatter(x, y, label=sys, color=sys_color[sys])
-    plt.title(metric.title)
-    plt.legend(loc='best')
-    plt.xlabel("Time (sec)")
-    plt.ylabel(metric.axis)
-    directory = "../web/cadvisor_graphs/experiment_%d" % exp_id
-    utils.runCommand("mkdir -p %s" % (directory))
-    f = os.path.join(directory, "%s_%s_%s.jpg" % (metric.title, sys, tnum))
-    fig.savefig(f, dpi=100)
-    plt.close(fig)
-    db.registerMetricPlot(con,run)
-    buildIndex(directory, dset.upper(), exp_id, qry)
-
-def draw_all(conn):
-  results = db.getMetricPlotData(conn)
-  for row in results:
-    draw_graph(conn, row, cpu_total)
-    draw_graph(conn, row, mem_usage)
-
-def getExperimentMetrics(conn, expid):
-  try:
-    query = "SELECT T.experiment_id,trial_id, trial_num, system, query, dataset, workload FROM trials as T, experiments AS E WHERE T.experiment_id = E.experiment_id and T.experiment_id = %d order by system, trial_num;" % expid
-    cur = conn.cursor()
-    cur.execute(query)
-    results = cur.fetchall()
-    return results
-  except Exception as inst:
-      print("Failed to get metric plot data for experiment %d: " % expid)
-      print(inst)
-      sys.exit(1)
-
-def buildIndex(path, wkld, exp_id, qry):
-  title = 'Workload: %s, Experiment: %s,  Query: %s</title>' % (wkld, exp_id, qry)
-  index =  '<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 3.2 Final//EN"><html>'
-  index += '<title>%s</title>' % title
-  index += '<body><h2>%s</h2>' % title
-  for img in sorted(os.listdir(path)):
-    index += '<img src="%s" />' % img  
-  index += '</body></html>'
-  indexfile = open(path + '/index.html', 'w')
-  indexfile.write(index)
-  indexfile.close()
 
 
-def draw_scatter_graph(con, expid, sys, metric):
-  conn = db.getConnection()
-  query = "SELECT trial_id, trial_num FROM trials as T, experiments AS E WHERE T.experiment_id = E.experiment_id and T.experiment_id = %d and T.system='%s' order by  trial_num;" % (expid, sys)
-  cur = conn.cursor()
-  cur.execute(query)
-  results = cur.fetchall()
-  cur = con.cursor()
-  fig= plt.figure(figsize=(5,4))
-  for row in results:
-    tid, tnum = row
-    x, y = (get_cadvdata_dist(con, metric, tid, metric.delta, average=True)
-      if sys in distro_sys
-      else get_cadvdata_single(con, metric, tid, metric.delta))
-    if x == 0:
-      return 
-    plt.scatter(x, y, label=sys, color=sys_color[sys])
 
-  plt.title(metric.title)
-  plt.legend(loc='best')
-  plt.xlabel("Time (sec)")
-  plt.ylabel(metric.axis)
-  directory = "../web/cadvisor_graphs/experiment_%d" % expid
-  utils.runCommand("mkdir -p %s" % (directory))
-  f = os.path.join(directory, "%s_%s.jpg" % (metric.title, sys))
-  fig.savefig(f, dpi=100)
-  plt.close(fig)
-
-  query = " select dataset, query from experiments where experiment_id=%s" % expid
-  cur = conn.cursor()
-  cur.execute(query)
-  dset, qry = cur.fetchone()
-  buildIndex(directory, dset.upper(), expid, qry)
-
-
-def plotMetrics(expId):
-  conn = db.getConnection()
-  results = getExperimentMetrics(conn, expId)
-  for row in results:
-    draw_graph(conn, row, cpu_total)
-    draw_graph(conn, row, mem_usage)
-
-if __name__ == "__main__":
-  conn = db.getConnection()
-  for x in [46, 47, 48, 49, 50, 51, 52]:
-    results = getExperimentMetrics(conn, x)
-    for row in results:
-      draw_graph(conn, row, cpu_total, True)
-      draw_graph(conn, row, mem_usage, True) 

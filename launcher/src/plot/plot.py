@@ -236,7 +236,7 @@ def plotExternalMetrics(ds):
   cur = conn.cursor()
   cur.execute(query)
   for row in cur.fetchall():
-    mplots.plotMetrics(row[0])
+    mplots.draw_all_metrics(row[0])
 
 
 def parseArgs():
@@ -272,15 +272,16 @@ def parseArgs():
   if args.experiment:
     print 'Plotting graphs for experiment #%s' % args.experiment
     if args.metrics:
-      mplots.plotMetrics(args.experiment)
+      mplots.plot_experiment_metrics(args.experiment)
    
     if args.operations:
       plotExpOps(args.experiment)
 
   if args.metrics:
-    print "Plot cadvisor metrics"
     for d in ds:
-      plotExternalMetrics(d)
+      print "Plot cadvisor metrics for %s"  % d
+      mplots.plot_dset_metrics(d)
+      #plotExternalMetrics(d)
 
   if args.operations:
     print "Plot Operator metrics"

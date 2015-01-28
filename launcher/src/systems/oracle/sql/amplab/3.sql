@@ -1,4 +1,4 @@
-SELECT /* MONITOR PARALLEL */sourceIP, totalRevenue, avgPageRank
+SELECT /*+ MONITOR PARALLEL */ sourceIP, totalRevenue, avgPageRank
 FROM
   (SELECT sourceIP,
           AVG(pageRank) as avgPageRank,
@@ -11,4 +11,3 @@ FROM
 WHERE
   rownum = 1
 ORDER BY totalRevenue DESC
-

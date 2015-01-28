@@ -1,1 +1,1 @@
-SELECT /* MONITOR PARALLEL */ pageURL, pageRank FROM rankings WHERE pageRank > 1000
+SELECT /*+ MONITOR PARALLEL */ pageURL, pageRank FROM rankings WHERE pageRank > 1000

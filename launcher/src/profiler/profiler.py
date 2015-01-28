@@ -14,6 +14,9 @@ class Profiler(threading.Thread):
       self.engine = engine
       self.finished = False
       self.trial_id = trial_id
+      self.counter = {}
+      for m in self.machines:
+        self.counter[m] = 0
     
     # Flatten JSON system data for easier processing
     def flatten(self, dd, separator='_', prefix=''):
@@ -36,6 +39,7 @@ class Profiler(threading.Thread):
     	cur.execute("SELECT COUNT(timestamp) FROM cadvisor WHERE timestamp = '" + tick['timestamp'] + "';")
     	# print "Insert:  " + tick['timestamp']
     	if cur.fetchone()[0] == 0:
+                self.counter[machine] += 1
     		cur.execute("INSERT INTO cadvisor VALUES ('" + \
     					str(id) + "', '" + \
                                         machine + "', '" + \
@@ -46,7 +50,8 @@ class Profiler(threading.Thread):
     					str(tick['cpu_usage_total']) + "', '" + \
     					str(tick['cpu_usage_user']) + "', '" + \
     					str(tick['network_rx_bytes']) + "', '" + \
-    					str(tick['network_tx_bytes']) + "')")
+    					str(tick['network_tx_bytes']) + "', '" + \
+                                        str(self.counter[machine]) + "')")
     	con.commit()
 
     def run(self):
