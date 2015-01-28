@@ -45,8 +45,10 @@ class Oracle:
   def name(self):
     return "Oracle"
 
-  workloadMap = {'tpch': './systems/oracle/sql/tpch'}
-  datasetMap = {'tpch10g': 'mddb2', 'tpch100g': 'mddb'}
+  workloadMap = {'tpch': './systems/oracle/sql/tpch', 'amplab': './systems/oracle/sql/amplab'}
+  portMap = {'tpch': '11521', 'amplab':'12521'}
+  datasetMap = {'tpch10g': 'mddb2', 'tpch100g': 'mddb', 'amplab':'mddb'}
+
   
   # Verify that Oracle can run the experiment.
   # Assume the sql file is (e.query).sql
@@ -77,30 +79,28 @@ class Oracle:
     # TODO different database for each dataset 
     # instead of "orcl". Removing the need to set ORACLE_HOST on the fly 
     host = self.datasetMap[e.dataset]
-    return self.runOracle(host, "orcl", queryFile, trial_id) 
+    port = self.portMap[e.workload]
+    return self.runOracle(host, 'orcl', port, queryFile, trial_id) 
 
-  def runOracle(self, host, database, queryFile, trial_id):
-    command = "ORACLE_HOST=%s ./systems/oracle/run_oracle.sh %s %s" % (host, database, queryFile)
+  def runOracle(self, host, database, port, queryFile, trial_id):
+    command = "ORACLE_HOST=%s ORACLE_PORT=%s ./systems/oracle/run_oracle.sh %s %s" % (host, port, database, queryFile)
     output = utils.runCommand(command)
- #   print(output)
-    #operators = []
     lines = output.split('\n')
     if lines[0].strip() == '' or lines[1].strip() == '':
       elapsed = 100
       result =  Result(trial_id, "Success", elapsed, "")
       return result
-   
+  
     elapsed = 1000 * float(lines[0].strip())
     exec_time = 1000 * float(lines[1].strip())
-#    print("TOTAL ELAPSED TIME: %f " % elapsed)
-#    print("TOTAL EXEC TIME:    %f " % exec_time)
-    preexec_time = elapsed - exec_time
-#    print("PRE-EXEC TIME:      %f " % preexec_time)
+    preexec_time = max((elapsed - exec_time), 0)
     prexec_percent = 100.0
     ops = []
 
     #  Split Query plan into jobs based on exchange operations
     cur_op = oracleJob(0)
+    px_op = oracleJob(-1)
+    px_op.addOp('EXCHANGE', '')
     joblist = [cur_op]
     total_time = preexec_time
     for line in lines[2:]:
@@ -110,19 +110,23 @@ class Oracle:
       depth, op, obj, mem, time, percent = (int(vals[1]), vals[2], vals[3], long(vals[5]), int(vals[6]), float(vals[7]))
       total_time += time
 
-#      print (depth, op, obj, mem, time, percent)
-#      prexec_percent -= float(percent)
+      if op.startswith('PX'):
+        px_op.update(mem, time, 0)
+      
+
       if op.startswith('PX REC'):
         exists = checkJob(joblist, depth)
         cur_op = joblist[exists] if exists > 0 else oracleJob(depth)
-        cur_op.update(mem, time, 0)
+#        cur_op.update(mem, time, 0)
         if exists < 0:
           joblist.append(cur_op)
-      elif op.startswith('PX'):
-        cur_op.update(mem, time, 0)
+#      elif op.startswith('PX'):
+#        cur_op.update(mem, time, 0)
       else:
         cur_op.addOp(op, obj)
         cur_op.update(mem, time, 0)
+
+    joblist.append(px_op)
     
     for j in joblist:
       j.percent = 100.0 * j.time / float(total_time)

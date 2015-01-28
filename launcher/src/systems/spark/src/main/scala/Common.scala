@@ -13,6 +13,10 @@ object Common {
              .setAppName("Queries")
              .setSparkHome("/software/spark-1.1.0-bin-hadoop2.4")
              .set("spark.executor.memory", "65g")
+             .set("spark.rdd.compress", "true")
+             .set("spark.storage.memoryFraction", ".7")
+             .set("spark.core.connection.ack.wait.timeout", "600")
+             .set("spark.akka.frameSize", "50")
 
     val sc = new SparkContext(conf)
 
