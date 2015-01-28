@@ -291,13 +291,16 @@ public:
         }
        
         bool isMaster = false;
+        cout << "Checking master" << endl;
         if (Dump(hostParams["me"][0]) == Dump(hostParams["master"])) {
 		isMaster = true;
+                cout << "I am master" << endl;
 	}
         else {
           cout << "me: " << Dump(hostParams["me"][0]) << endl;
           cout << "master: " << Dump(hostParams["master"]) << endl;
         }
+        cout << "Launching K3: " << endl;
         thread = new boost::thread(TaskThread(task, k3_cmd, driver, isMaster));
   }
 
