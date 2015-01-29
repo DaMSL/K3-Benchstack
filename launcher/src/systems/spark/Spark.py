@@ -112,8 +112,8 @@ class Spark:
     #  Split Query plan into jobs based on exchange operationVs
     joblist = []
     
-    #  Exception for Query 11: manually add in sub-query:
-    if e.query == '11':
+    #  Exception for TPCH Query 11: manually add in sub-query:
+    if e.workload == 'tpch' and e.query == '11':
       cur_op = sparkJob(-2)
       cur_op.addOp('Aggregate')
       joblist.append(cur_op)
@@ -123,19 +123,20 @@ class Spark:
       joblist.append(cur_op)
       cur_op = sparkJob(0)
 
-    #  Exception for Query 22: manually add in nested queries:
-    elif e.query == '22':
+    #  Exception for TPCH Query 22: manually add in nested queries:
+    elif e.workload == 'tpch' and e.query == '22':
       depth = 0
       for op in ['Filter, ExistingRdd', 'Aggregate', 'Aggregate, Project, Filter, ExistingRdd', 'Project, ExistingRdd', 'ExistingRdd']:
         cur_op = sparkJob(depth)
         cur_op.addOp(op)
         joblist.append(cur_op)
         depth += 1
+
+    # Exception for Amplab Query 1: consolidate metrics into 1 job
     else:
       cur_op = sparkJob(0)
       joblist.append(cur_op)  
 
-    
     for depth, op in ops:
       if op.startswith('Exchange'):
         exists = checkJob(joblist, depth)
@@ -159,12 +160,12 @@ class Spark:
 
     print "LOGFILE: %s" % logfile
     source_data = open(logfile, 'r').read()
-    eventlist = [json.loads(e) for e in source_data.split('\n') if len(e) > 0]
+    eventlist = [json.loads(ev) for ev in source_data.split('\n') if len(ev) > 0]
     
     # Load start time, job list and stage list from JSON
-    app_start_time = [e['Timestamp'] for e in eventlist if e['Event'] == 'SparkListenerApplicationStart'][0]
-    jobmap = [e['Stage IDs'] for e in eventlist if e['Event'] == 'SparkListenerJobStart']
-    stages = [e['Stage Info'] for e in eventlist if e['Event'] == 'SparkListenerStageCompleted']
+    app_start_time = [ev['Timestamp'] for ev in eventlist if ev['Event'] == 'SparkListenerApplicationStart'][0]
+    jobmap = [ev['Stage IDs'] for ev in eventlist if ev['Event'] == 'SparkListenerJobStart']
+    stages = [ev['Stage Info'] for ev in eventlist if ev['Event'] == 'SparkListenerStageCompleted']
     stagelist = [None] * len(stages)
 
     # Sort stage list
@@ -173,6 +174,16 @@ class Spark:
 
     if len(joblist) > len(jobmap):
       joblist = joblist[:len(jobmap)]
+
+    # Consolidate amplab job for Q1 & Q3
+    if e.workload == "amplab" and e.query == '1':
+      jobmap = [jobmap[0] + jobmap[1]]
+    if e.workload == "amplab" and e.query == '3':
+      jobmap = [jobmap[0], jobmap[1], jobmap[2] + jobmap[3]]
+
+
+    for j in jobmap:
+      print j
 
     # Collect metrics from all stages grouped by job ID
     for j in range(len(jobmap)):
@@ -204,15 +215,14 @@ class Spark:
       exec_time += joblist[j].time()
       joblist[j].percent = 100.0 * float(joblist[j].time()) / float(run_time)
     com_job = sparkJob(0)
-    com_job.set(-1, "COMM / OTHER", 0, run_time - exec_time)
+    com_job.set(-1, "EXCHANGE", 0, run_time - exec_time)
     com_job.percent = 100.0 * float(com_job.time()) / float(run_time)
 
-    '''
     for j in joblist:
       print (j.job_id, j.name(), j.time(), j.percent, j.mem)
     print (pre_job.job_id, pre_job.name(), pre_job.time(), pre_job.percent, pre_job.mem)
     print (com_job.job_id, com_job.name(), com_job.time(), com_job.percent, com_job.mem)
-    '''
+
     operations = [Operator(trial_id, -1, pre_job.name(), pre_job.time(), pre_job.percent, 0, '')]
     operations.append(Operator(trial_id, -1, com_job.name(), com_job.time(), com_job.percent, 0, ''))
     for j in joblist:

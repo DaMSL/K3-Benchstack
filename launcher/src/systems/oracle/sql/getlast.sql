@@ -31,6 +31,8 @@ SELECT plan_line_id
   ,max(object) as object
   ,count(ash.sql_plan_line_id) AS numsamples
   ,max(mem)
+  ,coalesce(max(PGA_ALLOCATED), 0)
+  ,coalesce(avg(PGA_ALLOCATED), 0)
 FROM (
 select sql_id, plan_line_id, plan_depth, plan_operation, plan_options, max(plan_object_name) as object, sid, COALESCE(max(workarea_max_mem), 0) as mem from v$sql_plan_monitor where sql_id=:lastsql group by sql_id, plan_line_id, plan_depth, plan_operation, plan_options, sid  order by plan_line_id) pm
   ,v$active_session_history ash

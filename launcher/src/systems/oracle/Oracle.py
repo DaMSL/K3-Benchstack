@@ -86,6 +86,9 @@ class Oracle:
     command = "ORACLE_HOST=%s ORACLE_PORT=%s ./systems/oracle/run_oracle.sh %s %s" % (host, port, database, queryFile)
     output = utils.runCommand(command)
     lines = output.split('\n')
+    for l in lines:
+      print l
+
     if lines[0].strip() == '' or lines[1].strip() == '':
       elapsed = 100
       result =  Result(trial_id, "Success", elapsed, "")
@@ -105,26 +108,25 @@ class Oracle:
     total_time = preexec_time
     for line in lines[2:]:
       vals = [ val.strip() for val in line.split(',') ]
-      if len(vals) != 8:
+      if len(vals) != 10:
         continue
-      depth, op, obj, mem, time, percent = (int(vals[1]), vals[2], vals[3], long(vals[5]), int(vals[6]), float(vals[7]))
+      depth, op, obj, mem, pga_max, pga_sum, time, percent = (int(vals[1]), vals[2], vals[3], long(vals[5]), long(vals[6]), long(vals[7]), int(vals[8]), float(vals[9]))
       total_time += time
 
-      if op.startswith('PX'):
-        px_op.update(mem, time, 0)
       
 
       if op.startswith('PX REC'):
         exists = checkJob(joblist, depth)
         cur_op = joblist[exists] if exists > 0 else oracleJob(depth)
+        px_op.update(pga_max, time, 0)
 #        cur_op.update(mem, time, 0)
         if exists < 0:
           joblist.append(cur_op)
-#      elif op.startswith('PX'):
-#        cur_op.update(mem, time, 0)
+      elif op.startswith('PX'):
+        px_op.update(pga_max, time, 0)
       else:
         cur_op.addOp(op, obj)
-        cur_op.update(mem, time, 0)
+        cur_op.update(pga_max, time, 0)
 
     joblist.append(px_op)
     

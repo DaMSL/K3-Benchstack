@@ -39,7 +39,8 @@ class Impala:
       print("Unknown dataset for Impala: %s" % e.dataset)
       return False
    
-    if e.dataset == 'tpch10g' and e.query == '11':
+   # if e.dataset == 'tpch10g' and e.query == '11':
+    if e.workload == 'tpch' and e.query == '11':
       return self.checkTPCH11()
 
     scaleFactor = self.scaleFactorMap[e.dataset]
