@@ -1,6 +1,5 @@
 role: rows
 master: auto
-outputFile: /mnt/out/outfile
 data: 
   - {var: rankingsFiles, path: /local/data/amplab/1024/rankings, policy: global}
 server_group: hm
