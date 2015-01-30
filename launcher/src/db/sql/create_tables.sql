@@ -115,6 +115,33 @@ CREATE TABLE IF NOT EXISTS operator_names (
 );
 
 
+
+
+DROP VIEW IF EXISTS most_recent_by_system;
+CREATE VIEW most_recent_by_system AS
+(SELECT workload, dataset, query, system, max(experiment_id) as experiment_id, max(trial_id) as trial_id
+ FROM experiments NATURAL JOIN trials
+ GROUP BY workload, dataset, query, system);
+
+
+DROP VIEW IF EXISTS summary_by_system;
+CREATE VIEW summary_by_system AS
+ (SELECT m.experiment_id,
+    m.workload,
+    m.query,
+    m.dataset,
+    e.system,
+    e.avg_time,
+    e.error
+  FROM most_recent_by_system M
+    JOIN experiment_stats E 
+    USING (workload, query, dataset, experiment_id, system) );
+
+
+
+
+
+
 DROP VIEW IF EXISTS operator_stats CASCADE;
 CREATE VIEW operator_stats AS
 SELECT 

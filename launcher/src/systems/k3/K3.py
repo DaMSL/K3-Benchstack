@@ -7,7 +7,7 @@ from entities.result import *
 class K3:
   def __init__(self, machines):
     self.machines = machines
-    self.container = "k3"
+    self.container = "K3"
 
   def name(self):
     return "K3"
@@ -84,7 +84,7 @@ class K3:
 
     return True
 
-  def runExperiment(self, e, trial_id, retries=3, pause=30):
+  def runExperiment(self, e, trial_id, retries=3):
     sched = self.schedulerPath
     binary = self.getBinaryName(e)
     yaml = self.getYamlPath(e)
@@ -103,14 +103,12 @@ class K3:
         r = Result(trial_id, "Success", elapsedTime, "")
       if "RECEIVED UNKNOWN STATUS" in line and retries > 0:
 
-        print("RECEIVED UNKNOWN STATUS... retrying query in %s seconds" % pause)
-        time.sleep(pause)
-
-        return self.runExperiment(e, trial_id, retries-1, pause*2)
+        print("RECEIVED UNKNOWN STATUS... Aborting")
+        return Result(trial_id, "Failure", 0, "Executors failed with unknown status!")
     
     if elapsedTime == 0:
       r = Result(trial_id, "Failure", 0, "Failed to find elapsedTime in output. error.")
 
-    print("sleeping to avoid addr_in_use errors")
-    time.sleep(30)
+    print("sleeping for 60 seconds to avoid address in use errors");
+    time.sleep(60)
     return r

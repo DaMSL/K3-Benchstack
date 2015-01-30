@@ -126,7 +126,7 @@ class Oracle:
         if exists < 0:
           joblist.append(cur_op)
       elif op.startswith('PX'):
-        px_op.update(pga_max, time, 0)
+        px_op.update(0, time, 0)
       else:
         cur_op.addOp(op, obj)
         cur_op.update(pga_max, time, 0)

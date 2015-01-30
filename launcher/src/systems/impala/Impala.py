@@ -81,9 +81,6 @@ class Impala:
     # strip summary header and footer
     summary = summary[:-2]
     summary = summary[3:]
-    print("Summary----:")
-    for l in summary:
-      print(l)
    
     # split at pipes and strip whitespace 
     clean = []
@@ -96,9 +93,6 @@ class Impala:
         offsets.append(1)
       clean.append([s.strip(" -") for s in x])
 
-    print("Clean-----:")
-    for line in clean:
-      print(line)
    
     # break apart columns
     operators = []

@@ -24,7 +24,7 @@ from systems.k3.K3 import K3
 # On all the machines specified in system.machines
 from profiler.profiler import Profiler
 
-import plot.plot as plot
+#import plot.plot as plot
 import db.db as db 
 
 import utils.log as log
@@ -56,7 +56,7 @@ def checkExperiments(experiments, systems):
   log.logEvent(1, "SUCCESS")
   log.endSection()
 
-def runExperiments(experiments, systems, numTrials, debug=False, profiling=True):
+def runExperiments(experiments, systems, numTrials, debug=False, profiling=False):
   log.logHeader("Running Experiments") 
   for experiment in experiments:
     log.logEvent(1, "Running experiment: %s" % experiment.name() )
@@ -65,7 +65,6 @@ def runExperiments(experiments, systems, numTrials, debug=False, profiling=True)
 
     for system in systems:
       log.logEvent(2, "Running System: %s" % (system.name()) )
-      
       for trialNum in range(1, numTrials + 1):
         log.logEvent(3, "Running Trial: %d" % (trialNum) )
       
@@ -75,7 +74,7 @@ def runExperiments(experiments, systems, numTrials, debug=False, profiling=True)
    
         # Run the experiment with profiling. 
         p = Profiler(system.machines, system.container, trial_id)
-        if profiling and system.name() != "K3":
+        if profiling:
           p.start()
   
         result = None
@@ -92,7 +91,7 @@ def runExperiments(experiments, systems, numTrials, debug=False, profiling=True)
           print(traceback.format_exc())
           result = Result(trial_id, "Failure", 0, "Unhandled exception: " + str(inst))
 
-        if profiling and system.name() == "K3":
+        if profiling:
           p.finished = True
           p.join()
 
@@ -120,10 +119,10 @@ def runExperiments(experiments, systems, numTrials, debug=False, profiling=True)
     log.endSection()
 
 hms = [ "qp-hm" + str(i) for i in range(1,9) ]
-allSystems = [Spark(hms), Impala(hms), Vertica("mddb"), Oracle("mddb")]
+allSystems = [Spark(hms), Impala(hms), Vertica("mddb"), Oracle("mddb2")]
 allTPCH = [1, 3, 5, 6, 11, 18, 22]
 
-systemMap = {'Spark': Spark(hms), 'Impala': Impala(hms), 'Vertica': Vertica("mddb"), 'Oracle': Oracle("mddb"), 'K3': K3(hms)}
+systemMap = {'Spark': Spark(hms), 'Impala': Impala(hms), 'Vertica': Vertica("mddb"), 'Oracle': Oracle("mddb2"), 'K3': K3(hms)}
 
 def parseSystems(lst):
   result = []

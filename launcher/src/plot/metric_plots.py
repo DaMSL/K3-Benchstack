@@ -34,8 +34,13 @@ cpu_total = Metric("cpu_usage_total", conv_cpu, "CPU_Total", "Time (ms)", True)
 cpu_system = Metric("cpu_usage_system", conv_cpu, "CPU_System", "Time (ms)", True)
 mem_usage = Metric("memory_usage", conv_mem, "MEM_Usage", "Mem (GB)")
 sys_color = {'Vertica':'r', 'Oracle':'g', 'Spark':'b', 'Impala':'c'}
-
 distro_sys = ['Impala', 'Spark']
+
+def getQueryList(ds):
+    if ds == 'amplab': 
+        return [1,2,3]
+    else:
+        return [1,3,5,6,11,18,22]
 
 def buildIndex(path, title):
   index =  '<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 3.2 Final//EN"><html>'
@@ -87,32 +92,49 @@ def normalizeData(data, norm_from=0, norm_to=100):
     dn = np.interp(tn, to, data)
     return dn
 
-def draw_experiment_graph(con, dset, qry, expid, metric):
-#    x, y = get_cadvdata(con, metric, expid, sys, consolidate_trials=True)
 
-    raw_data = {}
+def get_cadvisor_metrics(con, dset, qry):
+    cpu_data = {}
+    mem_data = {}
     for s in all_systems:
-      raw_data[s] = []
+      cpu_data[s] = []
+      mem_data[s] = []
 
-    query = "SELECT system, %s FROM cadvisor_experiment_stats WHERE experiment_id=%d ORDER BY interval" % (metric.label, expid)
+#    query = "SELECT system, %s FROM cadvisor_experiment_stats WHERE experiment_id=%d ORDER BY interval" % (metric.label, expid)
+    query = "SELECT C.system, C.cpu_usage_total, C.memory_usage FROM cadvisor_experiment_stats C, (SELECT system, experiment_id from summary_by_system where dataset='%s' and query='%s') as E WHERE C.system = E.system AND C.experiment_id = E.experiment_id ORDER BY interval;" % (dset, qry)
     cur = con.cursor()
     cur.execute(query)
     for row in cur.fetchall():
-        sys, val = row
-        raw_data[sys].append(metric.convert(val))
+        print row
+        sys, cpu, mem = row
+        cpu_data[sys].append(conv_cpu(cpu))
+        mem_data[sys].append(conv_mem(mem))
+    return cpu_data, mem_data
+
+
+
+def draw_experiment_graph(con, dset, qry, data, metric):
+#    x, y = get_cadvdata(con, metric, expid, sys, consolidate_trials=True)
+    print metric.label
+    print data
     fig  = plt.figure()
  #   plt.plot(x, y, label=sys, color=sys_color[sys])
 
     x_range = np.arange(100)
-
-    for sys, vals in raw_data.items():
+    for sys, vals in data.items():
         if len(vals) == 0:
             continue
         rel_data = [(vals[i] - vals[i-1]) for i in range(1, len(vals))] if metric.delta else vals
         normdata = normalizeData(rel_data)
-        print sys
+        bar_label = sys
+        if metric.label == 'cpu_usage_total':
+            bar_label ="%s, %d sec" %(sys, len(data[sys]))
+        if metric.label == 'memory_usage':
+            bar_label ="%s, %d GB (max)" % (sys, max(data[sys]))
+        print bar_label
         print normdata
-        plt.plot(x_range, normdata, label="%s, %d sec" %(sys, len(raw_data[sys])), color=sys_color[sys])
+
+        plt.plot(x_range, normdata, label=bar_label, color=sys_color[sys])
 
     plt.title("%s - Query # %s: %s" % (dset.upper(), qry, metric.title))
     plt.legend(loc='best')
@@ -122,10 +144,22 @@ def draw_experiment_graph(con, dset, qry, expid, metric):
 #    utils.runCommand("mkdir -p %s" % (directory))
 #    f = os.path.join(directory, "%s_%s_%s_%s.jpg" % (metric.title, dset, qry, sys))
     
-    fig.savefig(path + '/%s_%s_%s' %(metric.title, dset, qry))
+    filename = path + '/%s_%s_%s' %(metric.title, dset, qry)
+    print "Saving file to %s" % filename
+    fig.savefig(filename)
     plt.close(fig)
     buildIndex(path, "CADVISOR Metrics for %s - %s" % (metric.title, dset.upper()))
 
+
+def plot_dset_metrics(dset, query=0):
+    conn = db.getConnection()    
+    qlist = [query] if query != 0 else getQueryList(dset)
+    
+    for qry in qlist:
+      print "Plotting graphs for %s - query %s" % (dset, qry)
+      cpu, mem = get_cadvisor_metrics(conn, dset, qry)
+      draw_experiment_graph(conn, dset, qry, cpu, cpu_total)
+      draw_experiment_graph(conn, dset, qry, mem, mem_usage)
 
 '''
 def draw_trial_graph(con, trial, metric):
@@ -152,16 +186,6 @@ def draw_trial_graph(con, trial, metric):
     buildIndex(directory, title)
 '''
 
-
-def plot_dset_metrics(dset):
-    conn = db.getConnection()
-    cur = conn.cursor()
-    cur.execute("SELECT DISTINCT experiment_id, query FROM summary WHERE dataset='%s';" % dset)
-    for row in cur.fetchall():
-      expid, qry = row
-      print "Plotting graphs for %s - query %s" % (dset, qry)
-      draw_experiment_graph(conn, dset, qry, expid, cpu_total)
-      draw_experiment_graph(conn, dset, qry, expid, mem_usage)
 
 '''
 def plot_experiment_metrics(expId):

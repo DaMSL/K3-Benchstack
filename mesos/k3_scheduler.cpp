@@ -630,6 +630,7 @@ ExecutorInfo makeExecutor (string programBinary, YAML::Node hostParams,
 		ExecutorInfo executor;
 		executor.mutable_executor_id()->set_value("k3-executor");
 
+
 	// Sets executor name to program name to pass along to slaves for execution
 		executor.set_name(programBinary);
 		executor.set_data(YAML::Dump(hostParams));
@@ -690,7 +691,7 @@ ExecutorInfo makeExecutor (string programBinary, YAML::Node hostParams,
 		volume->set_mode(Volume_Mode_RW);
  
 
-		executor.mutable_container()->MergeFrom(container);		
+		executor.mutable_container()->MergeFrom(container);
 		
 		return executor;
 }

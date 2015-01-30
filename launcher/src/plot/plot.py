@@ -33,35 +33,43 @@ class Bar:
     self.err = err
 
 
-def getExpInfo(expId):
+def getExpInfo(expId_list):
   conn = db.getConnection()
-  query = "SELECT workload, query, dataset from experiments where experiment_id=%s" % (expId)
   cur = conn.cursor()
-  cur.execute(query)
-  return cur.fetchone()
+  last = None
+  for expId in expId_list:
+    query = "SELECT workload, query, dataset from experiments where experiment_id=%s" % (expId)
+    cur.execute(query)
+    result = cur.fetchone()
+    if last != None and result != last:
+        print "ERROR! Cannot plot systems ran on different datasets/queries: %s vs %s" % (last, result)
+        sys.exit(1)
+    last = result
+  return last
 
 
 def plotSmallOpGraph(metric, vals, filename, percent=False):
+  print "Drawing %s to %s" %(metric['title'], filename)
   inds = np.array(range(4))
   width = 0.6
   bottom = [0]*len(systems)
   bars = [None] * len(operations)
 
   for i, op in enumerate(operations):
+#    print "plotting:  %d - " % i + str(op) + ": " + str(vals[i])
     bars[i] = plt.bar(inds, vals[i], width, color=op_colors[i], bottom=bottom)
     bottom = [sum(x) for x in zip(vals[i], bottom)]
-  plt.title(metric['title'])
+  plt.title(filename)
   plt.ylabel(metric['label'])
   plt.xticks(inds+width/2., systems)
   if percent:
     ax = plt.gca()
     ax.set_ylim(0,100)
   lgd = plt.legend(bars[::-1], operations[::-1], loc='center left', bbox_to_anchor=(1, 0.5))
-  plt.show()
-  plt.savefig(filename, bbox_extra_artists=(lgd,), bbox_inches='tight')
+  plt.savefig(filename + ".jpg", bbox_extra_artists=(lgd,), bbox_inches='tight')
   plt.close()
 
-def getOperationStats(expId):
+def getOperationStats(ds, qry):  #expId_list):
   memory = [[0. for s in systems] for o in operations]
   percent_time = [[0. for s in systems] for o in operations]
   abs_time = [[0. for s in systems] for o in operations]
@@ -70,44 +78,63 @@ def getOperationStats(expId):
   conn = db.getConnection()
   cur = conn.cursor()
   for sys in systems:
-    query = "select avg_time/1000 from experiment_stats where experiment_id =%s and system='%s';" % (expId, sys)
+#      query = "select avg_time/1000 from experiment_stats where experiment_id =%s and system='%s';" % (expId, sys)
+    query = "SELECT avg_time/1000 from summary_by_system WHERE dataset='%s' and query='%s' and system='%s';" % (ds, qry, sys)
     cur.execute(query)
     result = cur.fetchone()
-    total_time[sys] = 0. if result == None else float(result[0])
+    if result != None:
+        total_time[sys] = float(result[0])
+#  print "\nSTATS for: %s, %s" % (ds, qry)
+#  print total_time;
 
-  query = "SELECT system, op_name, avg(percent_time) as percent_time, avg(memory) as memory from operator_stats natural join trials where experiment_id=%s group by system, op_name" % (expId)
+
+#  query = "SELECT system, op_name, avg(percent_time) as percent_time, avg(memory) as memory from operator_stats natural join trials where experiment_id=%s group by system, op_name" % (expId)
+  query = "SELECT S.system, op_name, avg(percent_time) as percent_time, avg(memory) as memory FROM operator_stats O, trials T, summary_by_system S WHERE S.experiment_id = T.experiment_id AND S.system = T.system AND O.trial_id = T.trial_id  AND S.dataset='%s' and S.query='%s' GROUP BY S.system, op_name;" % (ds, qry)
+
   cur.execute(query)
   for row in cur.fetchall():
+#    print row
     sys, op, percent, mem = row
-    i, j = (operations.index(op), systems.index(sys))
-    memory[i][j] = float(mem) /(1024*1024)
+    i, j = (operations.index(op.strip()), systems.index(sys))
+    memory[i][j] = float(mem)
+    if sys == 'Oracle':
+        memory[i][j] = float(mem) / 1024 / 1024
     percent_time[i][j] = float(percent)
     abs_time[i][j] = (float(percent) / 100.0) * total_time[sys]
+
+#  for i in range(5):
+#      for j in range(4):
+#          print operations[i] + ", " + systems[j] + " - " + str(memory[i][j])
 
   return memory, percent_time, abs_time
 
 
-def plotExpOps(expId):
+#def plotExpOps(expId):
+def plotQueryOperationsGraph(ds, qry):
   p_metric= {'title':'Percent Time by Operation', 'label':'Percent Time'}
   t_metric= {'title':'Time by Operation', 'label':'Time (sec)'}
   m_metric= {'title':'Memory Allotted by Operation', 'label':'Mem (MB)'}
 
-  wkld, qry, ds = getExpInfo(expId)
-  memory, percent_time, abs_time = getOperationStats(expId)
+#  wkld, qry, ds = getExpInfo(expId)
+  memory, percent_time, abs_time = getOperationStats(ds, qry)  #expId)
 
   # Plot Percent Graph
-  path = utils.checkDir('../web/operations/percent_time_%s' % ds)
-  plotSmallOpGraph(p_metric, percent_time, path + '/percent_q%s.jpg' % qry, percent=True)
+  plt.figure(1)
+  path = utils.checkDir('../web/operations/percent_time_%s/' % ds)
+#  print memory
+  plotSmallOpGraph(p_metric, percent_time, path + 'percent_q%s' % qry, percent=True)
   mplots.buildIndex(path, "Percent Time per Operation - %s" % (ds.upper()))
 
   # Plot Memory Graph
-  path = utils.checkDir('../web/operations/memory_%s' % ds)
-  plotSmallOpGraph(m_metric, memory, path + '/memory_q%s.jpg' % qry)
+  plt.figure(2)
+  path = utils.checkDir('../web/operations/memory_%s/' % ds)
+  plotSmallOpGraph(m_metric, memory, path + 'memory_q%s' % qry)
   mplots.buildIndex(path, "Memory per Operation - %s" % (ds.upper()))
 
   # Plot Time Graph
-  path = utils.checkDir('../web/operations/absolute_time_%s' % ds)
-  plotSmallOpGraph(t_metric, abs_time, path + '/time_q%s.jpg' % qry)
+  plt.figure(3)
+  path = utils.checkDir('../web/operations/absolute_time_%s/' % ds)
+  plotSmallOpGraph(t_metric, abs_time, path + 'time_q%s' % qry)
   mplots.buildIndex(path, "Absolute Time Per Operation - %s" % (ds.upper()))
 
   # path = '../web/%s_time_per_operation' % ds
@@ -119,6 +146,10 @@ def plotExpOps(expId):
 
 
 def plotAllOperationMetrics(ds):
+  
+  
+  # TODO:  UPDATE ALL OPS GRAPH
+
   conn = db.getConnection()
   cur = conn.cursor()
   query = "SELECT experiment_id, query FROM summary WHERE dataset='%s' ORDER BY query::int" % ds
@@ -184,7 +215,7 @@ def plotAllTimes(ds):
 
   for sys in range(len(systems)):
     conn = db.getConnection()
-    query = "SELECT avg_time, error from summary where dataset='%s' and system='%s' order by query::int" % (ds, systems[sys])
+    query = "SELECT avg_time, error from summary_by_system where dataset='%s' and system='%s' order by query::int;" % (ds, systems[sys])
     cur = conn.cursor()
     cur.execute(query)
     data = zip(*[ (tup[0]/1000.0, tup[1]/1000.0) for tup in cur.fetchall() ])
@@ -204,9 +235,8 @@ def plotAllTimes(ds):
   plt.legend()
   plt.tight_layout()
   plt.show()
-  path = utils.checkDir("../web/graphs")
+  path = utils.checkDir("../web/graphs/")
   plt.savefig(path + "timegraph_%s.png" % ds)
-
 
 
 
@@ -215,8 +245,13 @@ def plotOperations(ds):
   conn = db.getConnection()
   cur = conn.cursor()
   cur.execute(query)
-  for row in cur.fetchall():
-    plotExpOps(row[0])
+
+  qlist = Amplab_qlist if ds == 'amplab' else TPCH_qlist
+  for qry in qlist:
+    plotQueryOperationsGraph(ds, qry)
+
+#      row in cur.fetchall():
+#    plotExpOps(row[0])
 
 def plotExternalMetrics(ds):
   query = "select experiment_id from most_recent where dataset='%s';" % (ds)
@@ -251,7 +286,7 @@ def parseArgs():
     print 'Plotting Consolidated Uber Graphs'
     for d in ds:
       plotAllTimes(d)
-      plotAllOperationMetrics(d)
+#      plotAllOperationMetrics(d)
       #plotAllMemory(d)
 
   if args.experiment:
