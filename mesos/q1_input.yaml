@@ -1,5 +1,6 @@
 role: rows
 master: auto
+x: 1000
 data: 
-  - {var: rankingsFiles, path: /local/data/amplab/1024/rankings, policy: global}
+  - {var: dataFiles, path: /local/data/amplab/1024/rankings, policy: global}
 server_group: hm

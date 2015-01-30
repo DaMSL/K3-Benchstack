@@ -1,0 +1,7 @@
+role: rows
+master: auto
+data: 
+  - {var: supplierFiles, path: /local/data/tpch10g/supplier, policy: global}
+  - {var: partsuppFiles , path: /local/data/tpch10g/partsupp, policy: global}
+  - {var: nationFiles , path: /local/data/tpch10g/nation, policy: global}
+server_group: hm

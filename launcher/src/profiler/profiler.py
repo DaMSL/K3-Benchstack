@@ -56,7 +56,7 @@ class Profiler(threading.Thread):
 
     def run(self):
         #print("\tCollecting '" + self.engine + "' container on '" + str(self.machines) + "'")
-        con = psycopg2.connect(host="mddb", database="postgres", user="postgres", password="password")
+        con = psycopg2.connect(host="qp1", database="postgres", user="postgres", password="password")
         cur = con.cursor()
        
         while not self.finished:		

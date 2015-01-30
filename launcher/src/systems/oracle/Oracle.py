@@ -26,6 +26,7 @@ class oracleJob(object):
   def time(self):
     return self.end - self.start
   def update(self, mem, time, percent):
+    self.mem += mem
     self.time += time
     self.percent += percent
 
@@ -110,7 +111,9 @@ class Oracle:
       vals = [ val.strip() for val in line.split(',') ]
       if len(vals) != 10:
         continue
-      depth, op, obj, mem, pga_max, pga_sum, time, percent = (int(vals[1]), vals[2], vals[3], long(vals[5]), long(vals[6]), long(vals[7]), int(vals[8]), float(vals[9]))
+      print vals
+      depth, op, obj, mem, pga_max, pga_avg, time, percent = (int(vals[1]), vals[2], vals[3], long(vals[5]), long(vals[6]), float(vals[7]), int(vals[8]), float(vals[9]))
+      print "PGA MEM = %d " % pga_max
       total_time += time
 
       
@@ -137,7 +140,7 @@ class Oracle:
 #    for j in joblist:
 #      print (j.name(), j.time, j.percent, j.mem) 
 
-    operators = [Operator(trial_id, i, joblist[i].name(), joblist[i].time, joblist[i].percent, joblist[i].mem, joblist[i].objects()) for i in range(len(joblist))]
+    operators = [Operator(trial_id, i, job.name(), job.time, job.percent, job.mem, job.objects()) for i, job in enumerate(joblist)]
     operators.append(Operator(trial_id, -1, 'Pre-Execution', preexec_time, prexec_percent, 0, ""))
 #    operators.append(Operator(trial_id, operator_num, operator_name, time, percent_time, memory))
     result =  Result(trial_id, "Success", elapsed, "")

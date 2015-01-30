@@ -126,6 +126,62 @@ WHERE
 GROUP BY
   trial_id, op_name;
 
+
+DROP VIEW IF EXISTS cadvisor_baseline_stats CASCADE;
+CREATE VIEW cadvisor_baseline_stats AS (
+	 SELECT c.trial_id,
+	    c.machine,
+	    c.interval,
+	    c.cpu_usage_total - b.cpu_usage_total AS cpu_usage_total,
+	    c.cpu_usage_system - b.cpu_usage_system AS cpu_usage_system,
+	    c.cpu_usage_user - b.cpu_usage_user AS cpu_usage_user,
+	    c.network_rx_bytes - b.network_rx_bytes AS network_rx_bytes,
+	    c.network_tx_bytes - b.network_tx_bytes AS network_tx_bytes,
+	    c.memory_usage,
+	    c.memory_working_set
+	   FROM ( SELECT trial_id,
+	            machine,
+	            interval,
+	            cpu_usage_total,
+	            cpu_usage_system,
+       			cpu_usage_user,
+	            network_rx_bytes,
+           	 	network_tx_bytes
+	           FROM cadvisor
+		          WHERE cadvisor.interval = 1) B,
+		    cadvisor c
+		  WHERE c.trial_id = b.trial_id AND c.machine = b.machine);
+
+DROP VIEW IF EXISTS cadvisor_trial_stats CASCADE;
+CREATE VIEW cadvisor_trial_stats AS (
+	 SELECT trial_id,
+	    interval,
+	    sum(memory_usage) AS memory_usage,
+	    sum(memory_working_set) AS memory_working_set,
+	    avg(cpu_usage_total) AS cpu_usage_total,
+	    avg(cpu_usage_system) AS cpu_usage_system,
+	    avg(cpu_usage_user) AS cpu_usage_user,
+	    sum(network_rx_bytes) AS network_rx_bytes,
+	    sum(network_tx_bytes) AS network_tx_bytes
+	   FROM cadvisor_baseline_stats
+	  GROUP BY trial_id, interval); 
+  
+  
+DROP VIEW IF EXISTS cadvisor_experiment_stats CASCADE;
+CREATE VIEW cadvisor_experiment_stats AS (
+	 SELECT experiment_id,
+	    system,
+	    interval,
+	    count(trial_id) AS num_samples,
+	    avg(cpu_usage_total) AS cpu_usage_total,
+	    avg(memory_usage) AS memory_usage
+	   FROM cadvisor_trial_stats
+	     JOIN trials USING (trial_id)
+	  WHERE trials.trial_num > 5
+			  GROUP BY experiment_id, system, interval);
+
+
+
 DROP VIEW IF EXISTS cadvisor_collected CASCADE;
 CREATE VIEW cadvisor_collected AS (  
 SELECT 
@@ -165,30 +221,37 @@ GROUP BY
   , system
   , interval);
 
+
 DROP VIEW IF EXISTS cadvisor_aggregated CASCADE;
 CREATE VIEW cadvisor_aggregated AS (
- SELECT trials.experiment_id,
-    trials.system,
-    cadvisor_collected."interval",
-    count(cadvisor_collected.trial_id) AS trials,
-    avg(cadvisor_collected.cpu_usage_total) AS cpu_usage_total,
-    avg(cadvisor_collected.memory_usage) AS memory_usage
-   FROM cadvisor_collected
-     JOIN trials USING (trial_id)
-  WHERE trials.trial_num > 5
-  GROUP BY trials.experiment_id, trials.system, cadvisor_collected."interval");
+	SELECT 
+	  experiment_id
+	  , system
+	  , interval
+	  , count(trial_id) trials
+	  , avg(cpu_usage_total) as cpu_usage_total
+	  , avg(memory_usage) as memory_usage
+	FROM 
+	  cadvisor_collected natural join trials 
+	WHERE 
+	  trial_num > 5 
+	GROUP BY
+	  experiment_id, system, interval);
+
+
 
 DROP VIEW IF EXISTS cadvisor_baselined CASCADE;
-CREATE VIEW cadvisor_baselined AS (
- SELECT cadvisor.trial_id,
-    cadvisor."interval",
-    sum(cadvisor.memory_usage) AS memory_usage,
-    sum(cadvisor.memory_working_set) AS memory_working_set,
-    avg(cadvisor.cpu_usage_total) AS cpu_usage_total,
-    avg(cadvisor.cpu_usage_system) AS cpu_usage_system,
-    avg(cadvisor.cpu_usage_user) AS cpu_usage_user,
-    sum(cadvisor.network_rx_bytes) AS network_rx_bytes,
-    sum(cadvisor.network_tx_bytes) AS network_tx_bytes
-  FROM cadvisor
-  GROUP BY cadvisor.trial_id, cadvisor."interval");
-
+CREATE VIEW cadvisor_baselined AS
+(SELECT  
+	  C.experiment_id
+	  , C.system
+	  , interval
+	  , trials
+	  , (C.cpu_usage_total - B.base) as cpu_usage_total
+	  , C.memory_usage
+	FROM 
+	  (select system, experiment_id, cpu_usage_total as base from cadvisor_aggregated where interval = 1) as B
+	  , cadvisor_aggregated AS C
+	WHERE 
+	  C.experiment_id = B.experiment_id 
+	  AND C.system = B.system);

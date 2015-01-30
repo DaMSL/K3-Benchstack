@@ -1,5 +1,5 @@
 # Postgres (For statistics collection)
-export PGHOST=mddb
+export PGHOST=qp1
 export PGUSER=postgres
 export PGPASSWORD=password
 

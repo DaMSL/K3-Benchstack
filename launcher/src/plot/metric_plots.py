@@ -2,6 +2,7 @@ import psycopg2
 import sys
 import os
 import datetime as dt
+import numpy as np
 import matplotlib as mpl
 mpl.use('Agg')
 import matplotlib.pyplot as plt
@@ -59,18 +60,18 @@ def getExperimentMetrics(conn, expid):
       print(inst)
       sys.exit(1)
 
-def get_cadvdata (con, metric, run_id, system='', consolidate_trials=False):
+def get_cadvdata (con, metric, run_id, system='', consolidate_trials=True):
     cur = con.cursor()
 
     if consolidate_trials:
-      cur.execute("select %s from cadvisor_aggregated where experiment_id=%d AND system='%s';" % (metric.label, run_id, system))
+      cur.execute("select %s from cadvisor_baselined where experiment_id=%d AND system='%s';" % (metric.label, run_id, system))
     else:
       cur.execute("SELECT %s FROM cadvisor_collected WHERE trial_id=%d ORDER BY interval;" % (metric.label, run_id))
  
     # Get data, throw out 1st interval
     raw = [metric.convert(row[0]) for row in cur.fetchall()]
 #    return (range(len(raw)-1), raw[1:])
-    return (range(len(raw)), raw)
+#    return (range(len(raw)), raw)
 
     if not metric.delta:
         return (range(len(raw)), raw)
@@ -80,23 +81,53 @@ def get_cadvdata (con, metric, run_id, system='', consolidate_trials=False):
       
 
 
-def draw_experiment_graph(con, dset, qry, expid, sys, metric):
-    x, y = get_cadvdata(con, metric, expid, sys, consolidate_trials=True)
+def normalizeData(data, norm_from=0, norm_to=100):
+    to = np.linspace(norm_from, norm_to, len(data))
+    tn = np.linspace(norm_from, norm_to, norm_to)
+    dn = np.interp(tn, to, data)
+    return dn
 
-    fig = plt.figure()
-    plt.plot(x, y, label=sys, color=sys_color[sys])
+def draw_experiment_graph(con, dset, qry, expid, metric):
+#    x, y = get_cadvdata(con, metric, expid, sys, consolidate_trials=True)
+
+    raw_data = {}
+    for s in all_systems:
+      raw_data[s] = []
+
+    query = "SELECT system, %s FROM cadvisor_experiment_stats WHERE experiment_id=%d ORDER BY interval" % (metric.label, expid)
+    cur = con.cursor()
+    cur.execute(query)
+    for row in cur.fetchall():
+        sys, val = row
+        raw_data[sys].append(metric.convert(val))
+    fig  = plt.figure()
+ #   plt.plot(x, y, label=sys, color=sys_color[sys])
+
+    x_range = np.arange(100)
+
+    for sys, vals in raw_data.items():
+        if len(vals) == 0:
+            continue
+        rel_data = [(vals[i] - vals[i-1]) for i in range(1, len(vals))] if metric.delta else vals
+        normdata = normalizeData(rel_data)
+        print sys
+        print normdata
+        plt.plot(x_range, normdata, label="%s, %d sec" %(sys, len(raw_data[sys])), color=sys_color[sys])
+
     plt.title("%s - Query # %s: %s" % (dset.upper(), qry, metric.title))
     plt.legend(loc='best')
-    plt.xlabel("Time (sec)")
+    plt.xlabel("Execution")
     plt.ylabel(metric.axis)
-    directory = "../web/cadvisor_graphs/%s_%s" % (dset, metric.title)
-    utils.runCommand("mkdir -p %s" % (directory))
-    f = os.path.join(directory, "%s_%s_%s_%s.jpg" % (metric.title, dset, qry, sys))
-    fig.savefig(f, dpi=100)
+    path = utils.checkDir("../web/cadvisor/%s_%s" % (metric.title, dset))
+#    utils.runCommand("mkdir -p %s" % (directory))
+#    f = os.path.join(directory, "%s_%s_%s_%s.jpg" % (metric.title, dset, qry, sys))
+    
+    fig.savefig(path + '/%s_%s_%s' %(metric.title, dset, qry))
     plt.close(fig)
-    buildIndex(directory, "CADVISOR Metrics for %s" % dset.upper())
+    buildIndex(path, "CADVISOR Metrics for %s - %s" % (metric.title, dset.upper()))
 
 
+'''
 def draw_trial_graph(con, trial, metric):
     exp_id, run, tnum, sys, qry, dset, wkld = trial
     x, y = get_cadvdata(con, metric, run, sys, False)
@@ -119,19 +150,20 @@ def draw_trial_graph(con, trial, metric):
     plt.close(fig)
     title = 'Workload: %s, Experiment: %s,  Query: %s, Metric: %s' % (dset.upper(), exp_id, qry, metric.title)
     buildIndex(directory, title)
-
+'''
 
 
 def plot_dset_metrics(dset):
     conn = db.getConnection()
     cur = conn.cursor()
-    cur.execute("SELECT experiment_id, query, system FROM summary WHERE dataset='%s';" % dset)
+    cur.execute("SELECT DISTINCT experiment_id, query FROM summary WHERE dataset='%s';" % dset)
     for row in cur.fetchall():
-      expid, qry, sys = row
-      print "Plotting graphs for %s on %s - query %s" % (sys, dset, qry)
-      draw_experiment_graph(conn, dset, qry, expid, sys, cpu_total)
-      draw_experiment_graph(conn, dset, qry, expid, sys, mem_usage)
+      expid, qry = row
+      print "Plotting graphs for %s - query %s" % (dset, qry)
+      draw_experiment_graph(conn, dset, qry, expid, cpu_total)
+      draw_experiment_graph(conn, dset, qry, expid, mem_usage)
 
+'''
 def plot_experiment_metrics(expId):
   conn = db.getConnection()
   results = getExperimentMetrics(conn, expId)
@@ -139,19 +171,20 @@ def plot_experiment_metrics(expId):
     draw_experiment_graph(conn, row, cpu_total)
     draw_experiment_graph(conn, row, mem_usage)
 
+
 def plot_trial_metrics(expId):
   conn = db.getConnection()
   results = getExperimentMetrics(conn, expId)
   for row in results:
     draw_trial_graph(conn, row, cpu_total)
     draw_trial_graph(conn, row, mem_usage)
-
+'''
 if __name__ == "__main__":
   conn = db.getConnection()
-  for x in [46, 47, 48, 49, 50, 51, 52]:
-    results = getExperimentMetrics(conn, x)
-    for row in results:
-      draw_graph(conn, row, cpu_total, True)
+  draw_experiment_graph(conn, 'tpch10g', '1', 144, mem_usage)
+  print 'Run from plot.py using -c flag for cadvisor plots.'
+  
+
 
 
 

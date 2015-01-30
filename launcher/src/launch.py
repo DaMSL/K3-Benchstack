@@ -17,6 +17,8 @@ from systems.impala.Impala import Impala
 from systems.vertica.Vertica import Vertica
 from systems.oracle.Oracle import Oracle
 from systems.spark.Spark import Spark
+from systems.k3.K3 import K3
+
 
 # Profiler's are python Threads that poll a web-service for Docker OS-level metrics
 # On all the machines specified in system.machines
@@ -54,7 +56,7 @@ def checkExperiments(experiments, systems):
   log.logEvent(1, "SUCCESS")
   log.endSection()
 
-def runExperiments(experiments, systems, numTrials, debug=False):
+def runExperiments(experiments, systems, numTrials, debug=False, profiling=True):
   log.logHeader("Running Experiments") 
   for experiment in experiments:
     log.logEvent(1, "Running experiment: %s" % experiment.name() )
@@ -63,6 +65,7 @@ def runExperiments(experiments, systems, numTrials, debug=False):
 
     for system in systems:
       log.logEvent(2, "Running System: %s" % (system.name()) )
+      
       for trialNum in range(1, numTrials + 1):
         log.logEvent(3, "Running Trial: %d" % (trialNum) )
       
@@ -72,7 +75,8 @@ def runExperiments(experiments, systems, numTrials, debug=False):
    
         # Run the experiment with profiling. 
         p = Profiler(system.machines, system.container, trial_id)
-        p.start()
+        if profiling and system.name() != "K3":
+          p.start()
   
         result = None
         try:
@@ -87,9 +91,14 @@ def runExperiments(experiments, systems, numTrials, debug=False):
         except Exception as inst:
           print(traceback.format_exc())
           result = Result(trial_id, "Failure", 0, "Unhandled exception: " + str(inst))
- 
-        p.finished = True
-        p.join()
+
+        if profiling and system.name() == "K3":
+          p.finished = True
+          p.join()
+
+        if result == None:
+          print("Experiment returned None... aborting")
+          return
 
         if result.status == "Failure":
           log.logEvent(4, "Trial Failed: %s" % (result.notes) )
@@ -114,7 +123,7 @@ hms = [ "qp-hm" + str(i) for i in range(1,9) ]
 allSystems = [Spark(hms), Impala(hms), Vertica("mddb"), Oracle("mddb")]
 allTPCH = [1, 3, 5, 6, 11, 18, 22]
 
-systemMap = {'Spark': Spark(hms), 'Impala': Impala(hms), 'Vertica': Vertica("mddb"), 'Oracle': Oracle("mddb")}
+systemMap = {'Spark': Spark(hms), 'Impala': Impala(hms), 'Vertica': Vertica("mddb"), 'Oracle': Oracle("mddb"), 'K3': K3(hms)}
 
 def parseSystems(lst):
   result = []
@@ -192,7 +201,7 @@ if __name__ == "__main__":
   debug = True
   
   checkExperiments(experiments, systems)
-  runExperiments(experiments, systems, numTrials, debug)
+  runExperiments(experiments, systems, numTrials, debug, profiling=True)
 
 #  plotNew(conn)
   conn.close()

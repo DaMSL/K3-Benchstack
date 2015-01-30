@@ -41,8 +41,8 @@
 
 #define TOTAL_PEERS 4
 #define MASTER "zk://192.168.0.10:2181,192.168.0.11:2181,192.168.0.18:2181/mesos"
-#define FILE_SERVER "http://192.168.0.10:8000"
-#define DOCKER_IMAGE "damsl/k3-mesos"
+#define FILE_SERVER "http://192.168.0.10:8002"
+#define DOCKER_IMAGE "damsl/k3-mesos2"
 #define CONDENSED true
 #define MEM_REQUESTED 80000
 
@@ -268,7 +268,7 @@ public:
 					int peerId = peersAssigned++;
 
 					// TODO: PORT management
-					string port = stringify(44440 + peerId);
+					string port = stringify(40000 + peerId);
 					profile.addPeer(peerId);
 
 					peerProfile peer (ip_addr[offer.hostname()], port);
@@ -431,7 +431,7 @@ public:
                         driver->stop();
 		}
                 else {
-                  cout << "RECEIVED UNKNOWN STATUS! ABORTING!" << endl;
+                  cout << "RECEIVED UNKNOWN STATUS! ABORTING! " << status.message() << endl;
                   driver->stop();
                 }
                

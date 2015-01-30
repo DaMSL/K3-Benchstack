@@ -46,6 +46,7 @@ def plotSmallOpGraph(metric, vals, filename, percent=False):
   width = 0.6
   bottom = [0]*len(systems)
   bars = [None] * len(operations)
+
   for i, op in enumerate(operations):
     bars[i] = plt.bar(inds, vals[i], width, color=op_colors[i], bottom=bottom)
     bottom = [sum(x) for x in zip(vals[i], bottom)]
@@ -58,12 +59,12 @@ def plotSmallOpGraph(metric, vals, filename, percent=False):
   lgd = plt.legend(bars[::-1], operations[::-1], loc='center left', bbox_to_anchor=(1, 0.5))
   plt.show()
   plt.savefig(filename, bbox_extra_artists=(lgd,), bbox_inches='tight')
-  return lgd
+  plt.close()
 
 def getOperationStats(expId):
-  memory = [[0 for s in systems] for o in operations]
-  percent_time = [[0 for s in systems] for o in operations]
-  abs_time = [[0 for s in systems] for o in operations]
+  memory = [[0. for s in systems] for o in operations]
+  percent_time = [[0. for s in systems] for o in operations]
+  abs_time = [[0. for s in systems] for o in operations]
   total_time = {}
 
   conn = db.getConnection()
@@ -77,46 +78,37 @@ def getOperationStats(expId):
   query = "SELECT system, op_name, avg(percent_time) as percent_time, avg(memory) as memory from operator_stats natural join trials where experiment_id=%s group by system, op_name" % (expId)
   cur.execute(query)
   for row in cur.fetchall():
-    (sys, op, percent, mem) = row
+    sys, op, percent, mem = row
     i, j = (operations.index(op), systems.index(sys))
-    percent_time[i][j] = percent
-    memory[i][j] = mem
-    abs_time[i][j] = (percent / 100.0) * total_time[sys]
+    memory[i][j] = float(mem) /(1024*1024)
+    percent_time[i][j] = float(percent)
+    abs_time[i][j] = (float(percent) / 100.0) * total_time[sys]
 
   return memory, percent_time, abs_time
 
 
 def plotExpOps(expId):
   p_metric= {'title':'Percent Time by Operation', 'label':'Percent Time'}
-  t_metric= {'title':'Time by Operation', 'label':'Time (ms)'}
+  t_metric= {'title':'Time by Operation', 'label':'Time (sec)'}
   m_metric= {'title':'Memory Allotted by Operation', 'label':'Mem (MB)'}
 
-  (wkld, qry, ds) = getExpInfo(expId)
-  path = '../web/experiments/experiment_%s' % (expId)
-  utils.runCommand("mkdir -p %s" % (path))
-
+  wkld, qry, ds = getExpInfo(expId)
   memory, percent_time, abs_time = getOperationStats(expId)
 
   # Plot Percent Graph
-  plt.figure(1)
-  path = '../web/%s_OPNS_percent_time/' % ds
-  utils.runCommand("mkdir -p %s" % (path) )
-  plotSmallOpGraph(p_metric, percent_time, '/percent_q%s.jpg' % qry, percent=True)
+  path = utils.checkDir('../web/operations/percent_time_%s' % ds)
+  plotSmallOpGraph(p_metric, percent_time, path + '/percent_q%s.jpg' % qry, percent=True)
   mplots.buildIndex(path, "Percent Time per Operation - %s" % (ds.upper()))
 
   # Plot Memory Graph
-  plt.figure(2)
-  path = '../web/%s_OPNS_memory/' % ds
-  utils.runCommand("mkdir -p %s" % (path) )
+  path = utils.checkDir('../web/operations/memory_%s' % ds)
   plotSmallOpGraph(m_metric, memory, path + '/memory_q%s.jpg' % qry)
-  mplots.buildIndex(path, "Absolute Time per Operation - %s" % (ds.upper()))
+  mplots.buildIndex(path, "Memory per Operation - %s" % (ds.upper()))
 
   # Plot Time Graph
-  plt.figure(3)
-  path = '../web/%s_OPNS_abs_time/' % ds
-  utils.runCommand("mkdir -p %s" % (path) )
-  lgd = plotSmallOpGraph(t_metric, abs_time, path + '/time_q%s.jpg' % qry)
-  mplots.buildIndex(path, "Experiment #%d: %s" % (expId, ds.upper()))
+  path = utils.checkDir('../web/operations/absolute_time_%s' % ds)
+  plotSmallOpGraph(t_metric, abs_time, path + '/time_q%s.jpg' % qry)
+  mplots.buildIndex(path, "Absolute Time Per Operation - %s" % (ds.upper()))
 
   # path = '../web/%s_time_per_operation' % ds
   # utils.runCommand("mkdir -p %s" % (path) )
@@ -124,11 +116,9 @@ def plotExpOps(expId):
   # plt.savefig(path + '/query_%s.jpg' % qry, bbox_extra_artists=(lgd,), bbox_inches='tight')
 
   plt.close()
-  title = "Time per Operation - %s" % (ds.upper())
-  mplots.buildIndex(path, title)
 
 
-def plotAllQueries(ds):
+def plotAllOperationMetrics(ds):
   conn = db.getConnection()
   cur = conn.cursor()
   query = "SELECT experiment_id, query FROM summary WHERE dataset='%s' ORDER BY query::int" % ds
@@ -152,15 +142,14 @@ def plotAllQueries(ds):
     sys.exit(0)
 
   inds = np.array(range(4))
-  print "INDLIST: " + str(inds)
   width = 1
   spacing = 3
-
   fig = plt.figure(figsize=(12, 4))
   offset = 0
   bars = [None] * len(operations)
   for qry in qlist:
-    print time[str(qry)]
+    if qry not in time:
+        continue
     bottom = [0]*len(systems)
 #    bars = [None] * len(operations)
     for i, op in enumerate(operations):
@@ -170,7 +159,6 @@ def plotAllQueries(ds):
 
   plt.title("Operation Metrics for all Queries, %s" % ds.upper())
   plt.ylabel("Time (sec)")
-
   inds = np.array(range(len(qlabel)))
   xlabels = [qlabel[q] for q in sorted(qlabel.keys())]
   for x, q in enumerate(xlabels):
@@ -179,13 +167,12 @@ def plotAllQueries(ds):
   syslabels = ['V', 'O', 'S', 'I', '', '', ''] * len(qlist)
   inds = np.array(range((4+spacing)*len(qlabel)))
   plt.xticks(inds+0.5, syslabels)
-
   plt.tick_params(axis='x', which='both', bottom='off', top='off')
-
   lgd = plt.legend(bars[::-1], operations[::-1], loc='center left', bbox_to_anchor=(1, 0.5))
   plt.show()
   plt.tight_layout()
-  fig.savefig('../web/%s_opgraph.jpg' % ds, bbox_extra_artists=(lgd,), bbox_inches='tight')
+  path = utils.checkDir('../web/graphs')
+  fig.savefig(path + '/time_per_operation_%s.jpg' % ds, bbox_extra_artists=(lgd,), bbox_inches='tight')
 
 def plotAllTimes(ds):
   systems = ['Vertica', 'Oracle', 'Spark', 'Impala']
@@ -197,7 +184,6 @@ def plotAllTimes(ds):
 
   for sys in range(len(systems)):
     conn = db.getConnection()
-
     query = "SELECT avg_time, error from summary where dataset='%s' and system='%s' order by query::int" % (ds, systems[sys])
     cur = conn.cursor()
     cur.execute(query)
@@ -218,7 +204,8 @@ def plotAllTimes(ds):
   plt.legend()
   plt.tight_layout()
   plt.show()
-  plt.savefig("../web/%s_timegraph.png" % ds)
+  path = utils.checkDir("../web/graphs")
+  plt.savefig(path + "timegraph_%s.png" % ds)
 
 
 
@@ -242,12 +229,11 @@ def plotExternalMetrics(ds):
 
 def parseArgs():
   parser = argparse.ArgumentParser()
-  parser.add_argument('-d', '--dataset', nargs='+', help='Plot specific dataset', required=False)
+  parser.add_argument('-d', '--dataset', nargs='+', help='Plot specific dataset (amplab, tpch10g, tpch100g)', required=False)
   parser.add_argument('-e', '--experiment', help='Plot specific experiment', required=False)
-  parser.add_argument('-t', '--timegraph', help='Plot bar graph for all times for all queries', action='store_true')
-  parser.add_argument('-c', '--consolidated', help='Plot bar graph of time per operation consolidated for all queries', action='store_true')
-  parser.add_argument('-m', '--metrics', help='Plot individual line graphs of externally collected cadvisor metrics', action='store_true')
-  parser.add_argument('-o', '--operations', help='Plot bar graphs of per-operation metrics for each query ', action='store_true')
+  parser.add_argument('-g', '--graphs', help='Plot consolidate bar graph of all system\'s results for given dataset', action='store_true')
+  parser.add_argument('-c', '--cadvisor', help='Plot individual line graphs of externally collected cadvisor metrics', action='store_true')
+  parser.add_argument('-o', '--operations', help='Plot bar graphs of per-operation metrics ', action='store_true')
   args = parser.parse_args()
 
   if args.dataset and args.experiment:
@@ -261,28 +247,21 @@ def parseArgs():
   for d in ds:
     print d
 
-  if args.timegraph:
-    print 'Plotting All Times'
+  if args.graphs:
+    print 'Plotting Consolidated Uber Graphs'
     for d in ds:
       plotAllTimes(d)
-
-  if args.consolidated:
-    print 'Plotting Consolidated operation metrics graphs for all Queries'
-    for d in ds:
-      plotAllQueries(d)
-
+      plotAllOperationMetrics(d)
+      #plotAllMemory(d)
 
   if args.experiment:
     print 'Plotting graphs for experiment #%s' % args.experiment
-    if args.metrics:
-      mplots.plot_experiment_metrics(args.experiment)
-
-    if args.operations:
-      plotExpOps(args.experiment)
+    mplots.plot_experiment_metrics(args.experiment)
+    plotExpOps(args.experiment)
 
     return
 
-  if args.metrics:
+  if args.cadvisor:
     for d in ds:
       print "Plot cadvisor metrics for %s"  % d
       mplots.plot_dset_metrics(d)

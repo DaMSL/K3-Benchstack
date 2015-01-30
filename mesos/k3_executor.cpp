@@ -71,6 +71,7 @@ public:
 
   virtual void disconnected(ExecutorDriver* driver) {
     driver->sendFrameworkMessage("Executor Disconnected at "  + host_name);
+    driver->stop();
   }
 
   virtual void launchTask(ExecutorDriver* driver, const TaskInfo& task)    {
@@ -365,6 +366,7 @@ class TaskThread {
                     thread = 0;
                   } 
 	  	  driver->sendFrameworkMessage("Executor " + host_name+ " KILLING TASK");
+		  driver->stop();
 }
 
   virtual void frameworkMessage(ExecutorDriver* driver, const string& data) {
@@ -373,10 +375,12 @@ class TaskThread {
 
   virtual void shutdown(ExecutorDriver* driver) {
   	driver->sendFrameworkMessage("Executor " + host_name+ "SHUTTING DOWN");
+	driver->stop();
   }
 
   virtual void error(ExecutorDriver* driver, const string& message) {
 	  driver->sendFrameworkMessage("Executor " + host_name+ " ERROR");
+	  driver->stop();
 }
   
 private:
@@ -394,7 +398,4 @@ int main(int argc, char** argv)
 	MesosExecutorDriver driver(&executor);
         TaskStatus status;
         driver.run();
-	status.set_state(TASK_FAILED);
-        driver.sendStatusUpdate(status); 
-        
 }
