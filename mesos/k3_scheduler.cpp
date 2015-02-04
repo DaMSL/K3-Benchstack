@@ -156,7 +156,7 @@ public:
 //	KDScheduler(const ExecutorInfo& _executor, string _k3binary,  
 //					int _totalPeers, YAML::Node _vars) :
 //			executor(_executor)  {
-	KDScheduler(string _k3binary, int _totalPeers, YAML::Node _vars, bool log, int maxP, int pph, string rv)
+	KDScheduler(string _k3binary, int _totalPeers, YAML::Node _vars, bool log, int maxP, int pph, string rv, int start_port)
 	{
 		this->k3binary = _k3binary;
 		this->totalPeers = _totalPeers;
@@ -165,6 +165,7 @@ public:
 		this->maxPartitions = maxP;
 		this->peersPerHost = pph;
 		this->resultVar = rv;
+		this->startPort = start_port;
 	}
 
 	virtual ~KDScheduler() {}
@@ -268,7 +269,7 @@ public:
 					int peerId = peersAssigned++;
 
 					// TODO: PORT management
-					string port = stringify(40000 + peerId);
+					string port = stringify(startPort + peerId);
 					profile.addPeer(peerId);
 
 					peerProfile peer (ip_addr[offer.hostname()], port);
@@ -485,6 +486,7 @@ private:
 	map<string, hostProfile> hostList;
 	vector<peerProfile> peerList;
 	bool logging;
+	int startPort = 40000;
 };
 
 
@@ -501,7 +503,8 @@ int main(int argc, char** argv)
         int peers_per_host = 0;
         int max_partitions = 0;
         int max_files = 0;
-	int total_peers = (argc == 2) ? atoi(argv[1]) : 4;  
+	int total_peers = (argc == 2) ? atoi(argv[1]) : 4;
+	int start_port = 40000;
 	
 
 	//  Parse Command Line options
@@ -518,7 +521,8 @@ int main(int argc, char** argv)
 		("yaml,y", po::value<string>(&k3args_yaml), "YAML encoded input file")
                 ("peers_per_host",po::value<int>(&peers_per_host), "Max Number of K3 Peers to launch on a single machine")
                 ("max_partitions", po::value<int>(&max_partitions), "Hard limit on the number of partitions to use on each dataset")
-		("result_var", po::value<string>(&result_var),  "Log the result of a query as json ");
+		("result_var", po::value<string>(&result_var),  "Log the result of a query as json ")
+		("start_port", po::value<int>(&start_port),  "Pick a starting port for k3 peers. Default: 40000 ");
                 
   
 	po::positional_options_description positionalOptions; 
@@ -571,7 +575,7 @@ int main(int argc, char** argv)
 
 //	KDScheduler scheduler(executor, k3binary, k3role, total_peers, k3vars);
 //	KDScheduler scheduler(executor, k3binary, total_peers, k3vars);
-	KDScheduler scheduler(k3binary, total_peers, k3vars, logging, max_partitions, peers_per_host, result_var);
+	KDScheduler scheduler(k3binary, total_peers, k3vars, logging, max_partitions, peers_per_host, result_var, start_port);
 
 	FrameworkInfo framework;
 	framework.set_user(""); // Have Mesos fill in the current user.

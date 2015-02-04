@@ -220,6 +220,19 @@ public:
 		int p_end = numfiles;
 
 		int p_total = peers.size();
+		int myfiles = 0;
+		//if (dataFile.policy == "global") {
+		//  for (int i = 0; i < numfiles; i++) {
+	        //    int peer = i % totalPeerCount;
+
+		//    if (peer >= peerStart && peer <= peerEnd) {
+		//      myfiles++;
+		//      peerFiles[peer-peerStart][dataFile.varName].push_back(filePaths[i]);
+		//    }
+
+		//  }
+
+		//}
 
 		if (dataFile.policy == "global") {
 			p_start = (numfiles / totalPeerCount) * peerStart;
@@ -230,6 +243,7 @@ public:
 		        	int peer = floor((((p_total)*1.0*filenum) / numfiles)) - peerStart;
 		        	cout << "  Peer # " << peer << " : [" << filenum << "] " << filePaths[filenum] << endl;
 		        	peerFiles[peer][dataFile.varName].push_back(filePaths[filenum]);
+				myfiles++;
 		        }
 		}
                 else if (dataFile.policy == "pinned") {
@@ -238,6 +252,10 @@ public:
 		  }
 
                 }
+
+                cout << "my files: " << myfiles << endl;
+
+	        driver->sendFrameworkMessage(host_name + ":" + std::to_string(myfiles));
 	}
 		
 
@@ -328,12 +346,15 @@ class TaskThread {
 			  driver->sendStatusUpdate(status);
 			  cout << "Failed to open subprocess" << endl;
 		  }
-		  char buffer[1024];
+		  char buffer[256];
 		  while (!feof(pipe)) {
-			  if (fgets(buffer, 1024, pipe) != NULL) {
+			  if (fgets(buffer, 256, pipe) != NULL) {
 				  std::string s = std::string(buffer);
 				  if (this->isMaster) {
 	  	                  	driver->sendFrameworkMessage(s);
+				  }
+				  else {
+			               cout << s << endl;
 				  }
 			  }
 		  }
