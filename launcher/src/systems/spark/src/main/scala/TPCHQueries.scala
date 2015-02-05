@@ -38,7 +38,7 @@ object TPCHQuery1 {
       |        l_returnflag,
       |        l_linestatus
       """.stripMargin
-    Common.timeSqlQuery(query, s"tpch/q1$sf", true)
+   Common.timeSqlQuery(query, s"tpch/q1$sf")
   }
 }
 
@@ -75,7 +75,7 @@ object TPCHQuery5 {
       | group by
       |   n.n_name  
      """.stripMargin
-    Common.timeHiveQuery(query, "tpch/q5", true)
+    Common.timeHiveQuery(query, "tpch/q5")
   }
 }
 
@@ -101,7 +101,7 @@ object TPCHQuery6 {
      |   and l_discount <= 0.07
      |   and l_quantity < 24 
      """.stripMargin
-    Common.timeSqlQuery(query, s"tpch/q6$sf", true)
+    Common.timeSqlQuery(query, s"tpch/q6$sf")
   }
 }
 
@@ -135,7 +135,7 @@ object TPCHQuery3 {
       |         o.o_shippriority,
       |         o.o_orderdate
     """.stripMargin
-    Common.timeHiveQuery(query, s"tpch/q3$sf", true)
+    Common.timeHiveQuery(query, s"tpch/q3$sf")
   }
 }
 
@@ -217,9 +217,12 @@ object TPCHQuery18 {
     // Force evaluation
     val num_results = result.count()
     val end = System.currentTimeMillis
-    //println("Num Results: " + num_results )
-    //println("Elapsed: " + (end - start).toString)
-    Common.printOutput(result, (end - start))
+
+    println("====== START PLAN ---->>")
+    println(result.queryExecution.executedPlan.toString())
+    println("<<---- END PLAN   ======")
+    println("Num Results: " + num_results )
+    println("Elapsed: " + (end - start).toString())
 
     // TODO save result to HDFS
   }
@@ -260,13 +263,6 @@ object TPCHQuery22 {
     val num_results = res2.count()
     val end = System.currentTimeMillis
     println("====== START PLAN ---->>")
-//    println(r.queryExecution.executedPlan.toString())
-//    println("  Exchange Manual")
-//    println("   " + r2.queryExecution.executedPlan.toString())
-//    println("           Exchange Manual")
-//    println("            " + res.queryExecution.executedPlan.toString())
-//    println("               Exchange Manual")
-//    println("                " + res2.queryExecution.executedPlan.toString())
     println("<<---- END PLAN   ======")
     println("Num Results: " + num_results.toString)
     println("Elapsed: " + (end - start).toString) 

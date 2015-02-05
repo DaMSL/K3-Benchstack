@@ -119,10 +119,10 @@ def runExperiments(experiments, systems, numTrials, debug=False, profiling=False
     log.endSection()
 
 hms = [ "qp-hm" + str(i) for i in range(1,9) ]
-allSystems = [Spark(hms), Impala(hms), Vertica("mddb"), Oracle("mddb2")]
+allSystems = [Spark(hms), Impala(hms), Vertica("mddb"), Oracle("mddb")]
 allTPCH = [1, 3, 5, 6, 11, 18, 22]
 
-systemMap = {'Spark': Spark(hms), 'Impala': Impala(hms), 'Vertica': Vertica("mddb"), 'Oracle': Oracle("mddb2"), 'K3': K3(hms)}
+systemMap = {'Spark': Spark(hms), 'Impala': Impala(hms), 'Vertica': Vertica("mddb"), 'Oracle': Oracle("mddb"), 'K3': K3(hms)}
 
 def parseSystems(lst):
   result = []

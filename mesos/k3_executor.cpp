@@ -221,31 +221,31 @@ public:
 
 		int p_total = peers.size();
 		int myfiles = 0;
-		//if (dataFile.policy == "global") {
-		//  for (int i = 0; i < numfiles; i++) {
-	        //    int peer = i % totalPeerCount;
-
-		//    if (peer >= peerStart && peer <= peerEnd) {
-		//      myfiles++;
-		//      peerFiles[peer-peerStart][dataFile.varName].push_back(filePaths[i]);
-		//    }
-
-		//  }
-
-		//}
-
 		if (dataFile.policy == "global") {
-			p_start = (numfiles / totalPeerCount) * peerStart;
-			p_end = (numfiles / totalPeerCount) * (peerEnd+1);
-			p_total = totalPeerCount;
-			cout << ("Global files s=" + stringify(p_start) + " e=" + stringify(p_end) + " t=" + stringify(p_total)) << endl;
-		        for (int filenum = p_start; filenum < p_end; filenum++) {
-		        	int peer = floor((((p_total)*1.0*filenum) / numfiles)) - peerStart;
-		        	cout << "  Peer # " << peer << " : [" << filenum << "] " << filePaths[filenum] << endl;
-		        	peerFiles[peer][dataFile.varName].push_back(filePaths[filenum]);
-				myfiles++;
-		        }
+		  for (int i = 0; i < numfiles; i++) {
+	            int peer = i % totalPeerCount;
+
+		    if (peer >= peerStart && peer <= peerEnd) {
+		      myfiles++;
+		      peerFiles[peer-peerStart][dataFile.varName].push_back(filePaths[i]);
+		    }
+
+		  }
+
 		}
+
+		//if (dataFile.policy == "global") {
+		//	p_start = (numfiles / totalPeerCount) * peerStart;
+		//	p_end = (numfiles / totalPeerCount) * (peerEnd+1);
+		//	p_total = totalPeerCount;
+		//	cout << ("Global files s=" + stringify(p_start) + " e=" + stringify(p_end) + " t=" + stringify(p_total)) << endl;
+		//        for (int filenum = p_start; filenum < p_end; filenum++) {
+		//        	int peer = floor((((p_total)*1.0*filenum) / numfiles)) - peerStart;
+		//        	cout << "  Peer # " << peer << " : [" << filenum << "] " << filePaths[filenum] << endl;
+		//        	peerFiles[peer][dataFile.varName].push_back(filePaths[filenum]);
+		//		myfiles++;
+		//        }
+		//}
                 else if (dataFile.policy == "pinned") {
                   for(int filenum = 0; filenum < numfiles; filenum++) {
 	            peerFiles[0][dataFile.varName].push_back(filePaths[filenum]);

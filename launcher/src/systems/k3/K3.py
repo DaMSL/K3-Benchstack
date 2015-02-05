@@ -89,7 +89,7 @@ class K3:
     binary = self.getBinaryName(e)
     yaml = self.getYamlPath(e)
 
-    cmd = "%s %s 128 -y %s"  % (sched, binary, yaml)
+    cmd = "%s %s 16 -y %s"  % (sched, binary, yaml)
 
     output = utils.runCommand(cmd)
     print(output)

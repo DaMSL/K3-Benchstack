@@ -20,26 +20,25 @@ object Common {
     val hiveContext = new org.apache.spark.sql.hive.HiveContext(sc)
 
 
-    def printOutput(result: SchemaRDD, time: Long)  = {
-        println("====== START PLAN ---->>")
-        println(result.queryExecution.executedPlan.toString())
-        println("<<---- END PLAN   ======")
-        println("Num Results: " + result.count )
-        println("Elapsed: " + time.toString)
-    }
-
-    def timeSqlQuery(query: String, outfile: String, printPlan: Boolean = false) = {
-      // Start timer
-      var start = System.currentTimeMillis
-
+    def timeSqlQuery(query: String, outfile: String) = {
       // Run Query
       val result =  sqlContext.sql(query)
 
+      // Display results
+      println("====== START PLAN ---->>")
+      println(result.queryExecution.executedPlan.toString())
+      println("<<---- END PLAN   ======")
+
+      // Start timer
+      var start = System.currentTimeMillis
+
+      println("Num Results: " + result.count )
+
       // Stop timer
       var end = System.currentTimeMillis
+      val time = end - start
 
-      // Display results
-      printOutput(result, (end - start))
+      println("Elapsed: " + time.toString)
 
       // TODO: Force overwrite or change filename (this throws an error) Save results to HDFS
 //      val path = "hdfs://qp-hm1.damsl.cs.jhu.edu:54310/results/spark/" + outfile
@@ -47,19 +46,25 @@ object Common {
     }
     
 
-    def timeHiveQuery(query: String, outfile: String, printPlan: Boolean = false) = {
-      // Start timer
-      var start = System.currentTimeMillis
-
+    def timeHiveQuery(query: String, outfile: String) = {
       // Run Query
       val result =  hiveContext.sql(query)
 
+      // Display results
+      println("====== START PLAN ---->>")
+      println(result.queryExecution.executedPlan.toString())
+      println("<<---- END PLAN   ======")
+
+      // Start timer
+      var start = System.currentTimeMillis
+
+      println("Num Results: " + result.count )
+
       // Stop timer
       var end = System.currentTimeMillis
+      val time = end - start
+      println("Elapsed: " + time.toString)
 
-
-      // Display results
-      printOutput(result, (end - start))
 
       // TODO: Force overwrite or change filename (this throws an error) Save results to HDFS
 //      val path = "hdfs://qp-hm1.damsl.cs.jhu.edu:54310/results/spark/" + outfile

@@ -88,17 +88,25 @@ class Spark:
 
   
   def runExperiment(self, e, trial_id):
-    if e.dataset == "tpch100g" and e.workload == "tpch" and (e.query == "18" or e.query == "22"):
-      return Result(trial_id, "Skipped", 0, "TPCH 100G Query %s fails to finish on Spark" % (e.query))
+#    if e.dataset == "tpch100g" and e.workload == "tpch" and (e.query == "18" or e.query == "22"):
+#      return Result(trial_id, "Skipped", 0, "TPCH 100G Query %s fails to finish on Spark" % (e.query))
 
     className = self.getClassName(e)
     sf = self.scaleFactorMap[e.dataset]
     command = "systems/spark/run_spark.sh %s %s %s" % (self.jarFile, sf, className) 
+    print command
 
     output = utils.runCommand_stderr(command)
+    print "OUTPUT FOLLOWS"
     print(output)
+    print "OUTPUT COMPLETE"
 
     #  Extract Query Plan from output, parse & convert to set of operation tuples
+    elapsed = 0
+    for l in output.split('\n'):
+      if l.startswith('Elapsed:'):
+        elapsed =  int(l[8:].strip())
+        break
     q_start = output.find('---->>') + 6
     q_end = output.find('<<----', q_start)
     ops = []
@@ -172,18 +180,18 @@ class Spark:
     for s in stages:
       stagelist[s['Stage ID']] = s
 
+    for j in joblist:
+        print j.name()
+
     if len(joblist) > len(jobmap):
       joblist = joblist[:len(jobmap)]
 
     # Consolidate amplab job for Q1 & Q3
+    print jobmap
     if e.workload == "amplab" and e.query == '1':
       jobmap = [jobmap[0] + jobmap[1]]
     if e.workload == "amplab" and e.query == '3':
       jobmap = [jobmap[0], jobmap[1], jobmap[2] + jobmap[3]]
-
-
-    for j in jobmap:
-      print j
 
     # Collect metrics from all stages grouped by job ID
     for j in range(len(jobmap)):
@@ -204,30 +212,38 @@ class Spark:
 
     exec_end = max([j.end for j in joblist])
     exec_start = min([j.start for j in joblist])
+    run_time = exec_end - exec_start
 
     #  Calculate pre-execution and inter-job execution time
-    run_time = exec_end - app_start_time
-    pre_job = sparkJob(0)
-    pre_job.set(-1, "PRE-EXECUTION", app_start_time, exec_start)
-    pre_job.percent = 100.0 * float(pre_job.time()) / float(run_time)
-    exec_time = pre_job.time()
-    for j in range(len(joblist)):
-      exec_time += joblist[j].time()
-      joblist[j].percent = 100.0 * float(joblist[j].time()) / float(run_time)
+#    run_time = exec_end - app_start_time
+#    pre_exec_time = run_time - elapsed
+#    pre_job = sparkJob(0)
+#    pre_job.set(-1, "PRE-EXECUTION", app_start_time, app_start_time + pre_exec_time)
+#    pre_job.percent = 100.0 * float(pre_job.time()) / float(run_time)
+
+    exec_time = sum([job.time() for job in joblist])
+    for i, job in enumerate(joblist):
+      job.percent = 100.0 * float(job.time()) / float(run_time)
     com_job = sparkJob(0)
     com_job.set(-1, "EXCHANGE", 0, run_time - exec_time)
     com_job.percent = 100.0 * float(com_job.time()) / float(run_time)
 
-    for j in joblist:
-      print (j.job_id, j.name(), j.time(), j.percent, j.mem)
-    print (pre_job.job_id, pre_job.name(), pre_job.time(), pre_job.percent, pre_job.mem)
-    print (com_job.job_id, com_job.name(), com_job.time(), com_job.percent, com_job.mem)
+    
+    print "Printed ELAPSED Time from Scala  = %d" % elapsed
+    print "Logged RUN time (for Spark Jobs) = %d" % run_time
+    print "EXEC TIME (sum of job times)     = %d" % exec_time
+#    for j in joblist:
+#      print (j.job_id, j.name(), j.time(), j.percent, j.mem)
+#    print (pre_job.job_id, pre_job.name(), pre_job.time(), pre_job.percent, pre_job.mem)
+#    print (com_job.job_id, com_job.name(), com_job.time(), com_job.percent, com_job.mem)
 
-    operations = [Operator(trial_id, -1, pre_job.name(), pre_job.time(), pre_job.percent, 0, '')]
-    operations.append(Operator(trial_id, -1, com_job.name(), com_job.time(), com_job.percent, 0, ''))
+#    operations = [Operator(trial_id, -1, pre_job.name(), pre_job.time(), pre_job.percent, 0, '')]
+#    operations.append(Operator(trial_id, -1, com_job.name(), com_job.time(), com_job.percent, 0, ''))
+
+    operations = [Operator(trial_id, -1, com_job.name(), com_job.time(), com_job.percent, 0, '')]
     for j in joblist:
       operations.append(Operator(trial_id, j.job_id, j.name(), j.time(), j.percent, j.mem, j.objects()))
 
-    result = Result(trial_id, "Success", run_time, "")
+    result = Result(trial_id, "Success", elapsed, "")
     result.setOperators(operations)
     return result

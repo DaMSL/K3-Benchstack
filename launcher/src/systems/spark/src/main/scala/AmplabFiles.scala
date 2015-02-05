@@ -23,14 +23,14 @@ package amplab.files {
   )
 
   object AmplabFiles {
-    val rankingsPath = "hdfs://qp-hm1.damsl.cs.jhu.edu:54310/amplab/rankings/rankings"
+    val rankingsPath = "hdfs://qp-hm1.damsl.cs.jhu.edu:54310/amplab/rankings/"
 
     def getRankings(sc: SparkContext) = {
       val csv  = sc.textFile(rankingsPath).map(_.split(","))
       csv.map(r => Ranking(r(0),r(1).toInt,r(2).toInt))
     }
 
-    val uservisitsPath = "hdfs://qp-hm1.damsl.cs.jhu.edu:54310/amplab/uservisits/uservisits"
+    val uservisitsPath = "hdfs://qp-hm1.damsl.cs.jhu.edu:54310/amplab/uservisits/"
     
     def getUservisits(sc: SparkContext) = {
       val csv = sc.textFile(uservisitsPath).map(_.split(","))
