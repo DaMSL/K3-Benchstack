@@ -12,7 +12,8 @@ object Common {
              .setMaster("spark://qp-hm1.damsl.cs.jhu.edu:7077")
              .setAppName("Queries")
              .setSparkHome("/software/spark-1.1.0-bin-hadoop2.4")
-             .set("spark.executor.memory", "65g")
+             .set("spark.executor.memory", "60g")
+             .set("spark.core.connection.ack.wait.timeout","6000")
 
     val sc = new SparkContext(conf)
 

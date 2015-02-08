@@ -226,8 +226,7 @@ def plotAllMemory(ds):
     for row in cur.fetchall():
       qry, mem, err = row
       if sys == 'Oracle':
-        mem = mem/1024/1024 + oracle_memory[int(qry)] * 1024
-        err = err/1024/1024
+        mem +=  + oracle_memory[int(qry)] * 1024
       results[int(qry)] = (mem, err)
 
     # Unzip data, convert to GB, & draw bars
@@ -241,7 +240,6 @@ def plotAllMemory(ds):
         plt.text(x * (width*5) + width*i + width/2., 15, 'X', size='large', ha='center', va='top', color='darkred')
       elif y < 7:
         plt.text(x * (width*5) + width*i + width/2., y, '%.0fGB' % y, size='xx-small', ha='center', va='bottom')
-
   
   plt.title("%s Memory" % ds.upper())
   plt.xlabel("Query")

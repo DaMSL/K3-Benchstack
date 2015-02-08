@@ -14,7 +14,7 @@ include(CheckLibraryExists)
 include(CheckCSourceCompiles)
 include(CMakeDetermineCCompiler)
 
-set(CMAKE_CXX_FLAGS "-std=c++11")
+set(CMAKE_CXX_FLAGS "-g -std=c++11")
 
 FIND_PACKAGE(Boost 1.54.0 COMPONENTS program_options system thread REQUIRED )
 
@@ -39,6 +39,8 @@ target_link_libraries(k3executor mesos ${Boost_LIBRARIES} ${YAMLCPP_STATIC})
 add_executable(k3scheduler  k3_scheduler.cpp)
 target_link_libraries(k3scheduler ${MESOS_LIBRARIES} ${Boost_LIBRARIES} ${YAMLCPP_STATIC})
 
+add_executable(scheduler2  scheduler2.cpp)
+target_link_libraries(scheduler2 ${MESOS_LIBRARIES} ${Boost_LIBRARIES} ${YAMLCPP_STATIC})
 #add_executable(k3run  k3run.cpp)
 #target_link_libraries(k3run ${MESOS_LIBRARIES} ${BOOST_LIBRARIES} ${YAMLCPP_STATIC})
 

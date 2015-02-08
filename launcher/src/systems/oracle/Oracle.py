@@ -30,6 +30,16 @@ class oracleJob(object):
     self.time += time
     self.percent += percent
 
+class oracleOp(object):
+  def __init__ (self, oid, name, time, percent, mem, obj):
+
+    self.oid = oid
+    self.name = name
+    self.time = time
+    self.percent = percent
+    self.mem = mem
+    self.obj = obj
+
   #  Helper function to check if a Spark job exists in a given list
 def checkJob (jl, d):
   for job in jl:
@@ -87,63 +97,35 @@ class Oracle:
     command = "ORACLE_HOST=%s ORACLE_PORT=%s ./systems/oracle/run_oracle.sh %s %s" % (host, port, database, queryFile)
     output = utils.runCommand(command)
     lines = output.split('\n')
-    for l in lines:
-      print l
 
+    for l in lines:
+        print l
+
+    # TODO: Try to capture metrics for querried run under 100 ms
     if lines[0].strip() == '' or lines[1].strip() == '':
       elapsed = 100
       result =  Result(trial_id, "Success", elapsed, "")
       return result
   
-    elapsed = 1000 * float(lines[0].strip())
+    run_time = 1000 * float(lines[0].strip())
     exec_time = 1000 * float(lines[1].strip())
-    preexec_time = max((elapsed - exec_time), 0)
-    prexec_percent = 100.0
+    index = 1
+    pre_percent = 100.
     ops = []
-
-    #  Split Query plan into jobs based on exchange operations
-    cur_op = oracleJob(0)
-    px_op = oracleJob(-1)
-    px_op.addOp('EXCHANGE', '')
-    joblist = [cur_op]
-    total_time = preexec_time
     for line in lines[2:]:
       vals = [ val.strip() for val in line.split(',') ]
       if len(vals) != 10:
         continue
-      print vals
-      depth, op, obj, mem, pga_max, pga_avg, time, percent = (int(vals[1]), vals[2], vals[3], long(vals[5]), long(vals[6]), float(vals[7]), int(vals[8]), float(vals[9]))
-      print "PGA MEM = %d " % pga_max
-      total_time += time
+      depth, op, obj, mem, pga_max, pga_avg, time, percent = (int(vals[1]), vals[2], vals[3], float(vals[5]), float(vals[6]), float(vals[7]), int(vals[8]), float(vals[9]))
+      ops.append(oracleOp(index, op, time, percent, pga_max, obj))
+      pre_percent -= percent
+      index += 1
 
-      
+    operators = [Operator(trial_id, 0, 'Pre-Execution', run_time - exec_time, pre_percent, 0, '')]
+    for op in ops:
+      print '%s, %f, %f' % (op.name, op.time, op.percent)
+      operators.append(Operator(trial_id, op.oid, op.name, op.time, op.percent, op.mem, op.obj))
 
-      if op.startswith('PX REC'):
-        exists = checkJob(joblist, depth)
-        cur_op = joblist[exists] if exists > 0 else oracleJob(depth)
-        px_op.update(pga_max, time, 0)
-#        cur_op.update(mem, time, 0)
-        if exists < 0:
-          joblist.append(cur_op)
-      elif op.startswith('PX'):
-        px_op.update(0, time, 0)
-      else:
-        cur_op.addOp(op, obj)
-        cur_op.update(pga_max, time, 0)
-
-    joblist.append(px_op)
-    
-    for j in joblist:
-      j.percent = 100.0 * j.time / float(total_time)
-    prexec_percent = 100.0 * preexec_time / float(total_time)
-
-#    for j in joblist:
-#      print (j.name(), j.time, j.percent, j.mem) 
-
-    operators = [Operator(trial_id, i, job.name(), job.time, job.percent, job.mem, job.objects()) for i, job in enumerate(joblist)]
-    operators.append(Operator(trial_id, -1, 'Pre-Execution', preexec_time, prexec_percent, 0, ""))
-#    operators.append(Operator(trial_id, operator_num, operator_name, time, percent_time, memory))
-    result =  Result(trial_id, "Success", elapsed, "")
+    result =  Result(trial_id, "Success", exec_time, "")
     result.setOperators(operators)
-
     return result 

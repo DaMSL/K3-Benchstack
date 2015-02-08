@@ -1,5 +1,5 @@
 SELECT  path_id as operator_num, ops, clock_time, mb_reserved, description
-FROM materializationStats 
+FROM importantStats 
 WHERE
       transaction_id = %(t_id)s
   and statement_id = %(s_id)s

@@ -120,6 +120,10 @@ public:
 			key == "server" || key == "server_group") {
 			continue;
 		}
+		if (key == "roles") {
+		  continue;
+		}
+              
 		else if (key == "peers") {
 			peerParams["peers"] = hostParams["peers"];
 		}
@@ -131,8 +135,11 @@ public:
 				peers.push_back(meList[i]);
 			}
 		}
-		else if (key == "dataFiles") {
-		        Node dataFilesNode = param->second;
+		else if (key == "data") {
+		        // TODO: Datafiles per group. This is a hack
+		        // that only includes the data files from the first peer group
+		        // and assigns them to any peer
+		        Node dataFilesNode = param->second[0];
 			for(YAML::const_iterator it=dataFilesNode.begin();it!=dataFilesNode.end();++it) {
                           DataFile f;
                           auto d = *it;
@@ -162,9 +169,13 @@ public:
 		else if (key == "peerEnd") {
 			peerEnd = param->second.as<int>();
 		}
+		else if (key == "globals") {
+		  // handled per peer
+
+		}
 		else {
 //			string value = i->second.as<string>();
-			peerParams[key] = param->second;
+			//peerParams[key] = param->second;
 		}
 	}
 	
@@ -181,6 +192,11 @@ public:
 		datadir = opendir(dataFile.path.c_str());
                 if (!datadir) {
                   cout << "Failed to open data dir: " << dataFile.path << endl;
+                  TaskStatus status;
+                  status.mutable_task_id()->MergeFrom(task.task_id());
+                  status.set_state(TASK_FAILED);
+                  driver->sendStatusUpdate(status);
+                  return;
 
                 }
 		else {
@@ -272,6 +288,10 @@ public:
 	
 	for (std::size_t i=0; i<peers.size(); i++)  {
 		YAML::Node thispeer = peerParams;
+		YAML::Node globals = hostParams["globals"][i];
+	        for (const_iterator p=globals.begin(); p!=globals.end(); p++)  {
+	          thispeer[p->first.as<string>()] = p->second;
+	        }
 		YAML::Node me = peers[i]; 
 		thispeer["me"] = me;
                 
@@ -285,6 +305,7 @@ public:
 				src["path"] = f;
 				thispeer[datavar].push_back(src);
 			}
+			cout << "num files:" << thispeer[datavar].size() << endl;
 		}
 		// ADD DATA SOURCE DIR HERE
 		YAML::Emitter emit;

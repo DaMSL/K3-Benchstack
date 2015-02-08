@@ -30,9 +30,9 @@ FROM (
 	  ,plan_operation || ' ' || plan_options
 	  ,max(object) as object
 	  ,count(ash.sql_plan_line_id) AS numsamples
-	  ,max(mem)
-	  ,max(pga.pga_allocated) as max_pga
-	  ,coalesce(avg(ash.PGA_ALLOCATED), 0) as avg_pga
+	  ,max(mem)/1024/1204
+	  ,max(pga.pga_allocated)/1024/1024 as max_pga
+	  ,coalesce(avg(ash.PGA_ALLOCATED)/1024/1024, 0) as avg_pga
 	FROM (
 		select sql_id, plan_line_id, plan_depth, plan_operation, plan_options, max(plan_object_name) as object, sid, COALESCE(max(workarea_max_mem), 0) as mem from v$sql_plan_monitor where sql_id=:lastsql group by sql_id, plan_line_id, plan_depth, plan_operation, plan_options, sid  order by plan_line_id) pm
 	  ,(SELECT SQL_plan_line_id
