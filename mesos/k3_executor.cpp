@@ -57,14 +57,12 @@ public:
                           const FrameworkInfo& frameworkInfo,
                           const SlaveInfo& slaveInfo)
   {
-	driver->sendFrameworkMessage("Executor Registered at " + slaveInfo.hostname());
 	host_name= slaveInfo.hostname();
 	localPeerCount = 0;
 	totalPeerCount = 0;
   }
 
   virtual void reregistered(ExecutorDriver* driver, const SlaveInfo& slaveInfo)   {
-    driver->sendFrameworkMessage("Executor Re-Registered at " + slaveInfo.hostname());
     cout << "Re-registered executor on " << slaveInfo.hostname() << endl;
 	host_name= slaveInfo.hostname();
   }
@@ -77,8 +75,6 @@ public:
   virtual void launchTask(ExecutorDriver* driver, const TaskInfo& task)    {
 	localPeerCount++;
 	
-	
-	driver->sendFrameworkMessage("Executor launching task on " + host_name);
     TaskStatus status;
     status.mutable_task_id()->MergeFrom(task.task_id());
     status.set_state(TASK_RUNNING);
@@ -271,7 +267,6 @@ public:
 
                 cout << "my files: " << myfiles << endl;
 
-	        driver->sendFrameworkMessage(host_name + ":" + std::to_string(myfiles));
 	}
 		
 
