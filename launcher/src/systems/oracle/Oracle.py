@@ -26,8 +26,19 @@ class oracleJob(object):
   def time(self):
     return self.end - self.start
   def update(self, mem, time, percent):
+    self.mem += mem
     self.time += time
     self.percent += percent
+
+class oracleOp(object):
+  def __init__ (self, oid, name, time, percent, mem, obj):
+
+    self.oid = oid
+    self.name = name
+    self.time = time
+    self.percent = percent
+    self.mem = mem
+    self.obj = obj
 
   #  Helper function to check if a Spark job exists in a given list
 def checkJob (jl, d):
@@ -45,8 +56,10 @@ class Oracle:
   def name(self):
     return "Oracle"
 
-  workloadMap = {'tpch': './systems/oracle/sql/tpch'}
-  datasetMap = {'tpch10g': 'mddb2', 'tpch100g': 'mddb'}
+  workloadMap = {'tpch': './systems/oracle/sql/tpch', 'amplab': './systems/oracle/sql/amplab'}
+  portMap = {'tpch': '11521', 'amplab':'12521'}
+  datasetMap = {'tpch10g': 'mddb2', 'tpch100g': 'mddb', 'amplab':'mddb'}
+
   
   # Verify that Oracle can run the experiment.
   # Assume the sql file is (e.query).sql
@@ -77,64 +90,38 @@ class Oracle:
     # TODO different database for each dataset 
     # instead of "orcl". Removing the need to set ORACLE_HOST on the fly 
     host = self.datasetMap[e.dataset]
-    return self.runOracle(host, "orcl", queryFile, trial_id) 
+    port = self.portMap[e.workload]
+    return self.runOracle(host, 'orcl', port, queryFile, trial_id) 
 
-  def runOracle(self, host, database, queryFile, trial_id):
-    command = "ORACLE_HOST=%s ./systems/oracle/run_oracle.sh %s %s" % (host, database, queryFile)
+  def runOracle(self, host, database, port, queryFile, trial_id):
+    command = "ORACLE_HOST=%s ORACLE_PORT=%s ./systems/oracle/run_oracle.sh %s %s" % (host, port, database, queryFile)
     output = utils.runCommand(command)
- #   print(output)
-    #operators = []
     lines = output.split('\n')
+
+    # TODO: Try to capture metrics for querried run under 100 ms
     if lines[0].strip() == '' or lines[1].strip() == '':
       elapsed = 100
       result =  Result(trial_id, "Success", elapsed, "")
       return result
-   
-    elapsed = 1000 * float(lines[0].strip())
+  
+    run_time = 1000 * float(lines[0].strip())
     exec_time = 1000 * float(lines[1].strip())
-#    print("TOTAL ELAPSED TIME: %f " % elapsed)
-#    print("TOTAL EXEC TIME:    %f " % exec_time)
-    preexec_time = elapsed - exec_time
-#    print("PRE-EXEC TIME:      %f " % preexec_time)
-    prexec_percent = 100.0
+    index = 1
+    pre_percent = 100.
     ops = []
-
-    #  Split Query plan into jobs based on exchange operations
-    cur_op = oracleJob(0)
-    joblist = [cur_op]
-    total_time = preexec_time
     for line in lines[2:]:
       vals = [ val.strip() for val in line.split(',') ]
-      if len(vals) != 8:
+      if len(vals) != 10:
         continue
-      depth, op, obj, mem, time, percent = (int(vals[1]), vals[2], vals[3], long(vals[5]), int(vals[6]), float(vals[7]))
-      total_time += time
+      depth, op, obj, mem, pga_max, pga_avg, time, percent = (int(vals[1]), vals[2], vals[3], float(vals[5]), float(vals[6]), float(vals[7]), int(vals[8]), float(vals[9]))
+      ops.append(oracleOp(index, op, time, percent, pga_max, obj))
+      pre_percent -= percent
+      index += 1
 
-#      print (depth, op, obj, mem, time, percent)
-#      prexec_percent -= float(percent)
-      if op.startswith('PX REC'):
-        exists = checkJob(joblist, depth)
-        cur_op = joblist[exists] if exists > 0 else oracleJob(depth)
-        cur_op.update(mem, time, 0)
-        if exists < 0:
-          joblist.append(cur_op)
-      elif op.startswith('PX'):
-        cur_op.update(mem, time, 0)
-      else:
-        cur_op.addOp(op, obj)
-        cur_op.update(mem, time, 0)
-    
-    for j in joblist:
-      j.percent = 100.0 * j.time / float(total_time)
-    prexec_percent = 100.0 * preexec_time / float(total_time)
+    operators = [Operator(trial_id, 0, 'Pre-Execution', run_time - exec_time, pre_percent, 0, '')]
+    for op in ops:
+      operators.append(Operator(trial_id, op.oid, op.name, op.time, op.percent, op.mem, op.obj))
 
-#    for j in joblist:
-#      print (j.name(), j.time, j.percent, j.mem) 
-
-    operators = [Operator(trial_id, i, joblist[i].name(), joblist[i].time, joblist[i].percent, joblist[i].mem, joblist[i].objects()) for i in range(len(joblist))]
-    operators.append(Operator(trial_id, -1, 'Pre-Execution', preexec_time, prexec_percent, 0, ""))
-#    operators.append(Operator(trial_id, operator_num, operator_name, time, percent_time, memory))
-    result =  Result(trial_id, "Success", elapsed, "")
+    result =  Result(trial_id, "Success", exec_time, "")
     result.setOperators(operators)
-
     return result 

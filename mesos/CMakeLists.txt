@@ -14,9 +14,9 @@ include(CheckLibraryExists)
 include(CheckCSourceCompiles)
 include(CMakeDetermineCCompiler)
 
-set(CMAKE_CXX_FLAGS "-std=c++11")
+set(CMAKE_CXX_FLAGS "-g -std=c++11")
 
-FIND_PACKAGE(Boost 1.54.0 COMPONENTS program_options thread REQUIRED )
+FIND_PACKAGE(Boost 1.54.0 COMPONENTS program_options system thread REQUIRED )
 
 set(MESOS_INCLUDE_DIR /usr/local/include CACHE PATH "Mesos include dir")
 set(MESOS_LIBRARY_DIR /usr/local/lib CACHE PATH "Mesos library dir")
@@ -28,19 +28,19 @@ link_directories(${MESOS_LIBRARY_DIR})
 include_directories(${MESOS_INCLUDE_DIR})
 include_directories(${MESOS_INCLUDE_DIR}/mesos)
 
-link_directories(${BOOST_LIBRARY_DIRS})
+link_directories(${Boost_LIBRARY_DIRS})
 
 add_definitions(-Wall -Wno-variadic-macros)
 
 
 add_executable(k3executor  k3_executor.cpp)
-target_link_libraries(k3executor mesos ${BOOST_LIBRARIES} ${YAMLCPP_STATIC})
+target_link_libraries(k3executor mesos ${Boost_LIBRARIES} ${YAMLCPP_STATIC})
 
 add_executable(k3scheduler  k3_scheduler.cpp)
-target_link_libraries(k3scheduler ${MESOS_LIBRARIES} ${BOOST_LIBRARIES} ${YAMLCPP_STATIC})
+target_link_libraries(k3scheduler ${MESOS_LIBRARIES} ${Boost_LIBRARIES} ${YAMLCPP_STATIC})
 
-add_executable(k3run  k3run.cpp)
-target_link_libraries(k3run ${MESOS_LIBRARIES} ${BOOST_LIBRARIES} ${YAMLCPP_STATIC})
+#add_executable(k3run  k3run.cpp)
+#target_link_libraries(k3run ${MESOS_LIBRARIES} ${BOOST_LIBRARIES} ${YAMLCPP_STATIC})
 
 #add_executable(ycpp ycpp.cpp)
 #target_link_libraries(ycpp ${YAMLCPP_STATIC})

@@ -13,7 +13,9 @@ class Vertica:
   def name(self):
     return "Vertica"
 
-  workloadMap = {'tpch': './systems/vertica/sql/tpch'}
+  workloadMap = {'tpch': './systems/vertica/sql/tpch',
+                 'amplab': './systems/vertica/sql/amplab'
+                }
 
   # Verify that vertica can run the experiment.
   # Assume the sql file is (e.query).sql
@@ -37,8 +39,8 @@ class Vertica:
     queryFolder = self.workloadMap[e.workload]
     queryFile = os.path.join(queryFolder, e.query + ".sql")      
    
-    if e.workload == 'tpch' and e.query == '5':
-     return Result(trial_id, "Skipped", 0, "TPCH Query 5 is too slow on Vertica")
+#    if e.workload == 'tpch' and e.query == '5':
+#     return Result(trial_id, "Skipped", 0, "TPCH Query 5 is too slow on Vertica")
 
     return self.runVertica(e.dataset, queryFile, trial_id)
 
@@ -46,9 +48,13 @@ class Vertica:
   def runVertica(self, schema, queryFile, trial_id):
     command = "./systems/vertica/run_vertica.sh %s %s" % (schema, queryFile)
     output = utils.runCommand(command)
+    print(command)
+    print(output)
     # First line of output is a HINT for profiling
     lines = output.split("\n")
     hint = lines[0]
+    print("----hint:----")
+    print(hint)
     try:
       m = re.search("[.]*transaction_id=(\d+) and statement_id=(\d+)[.]*", hint)
       transaction = m.group(1)
@@ -77,16 +83,17 @@ class Vertica:
       f.write(query)
 
     output = utils.runCommand("systems/vertica/sql/profiling/run_sql.sh %s" % tempfile)
-    
+    print "OP PROFILING ----------:"
+    print output
     utils.runCommand("rm %s" % (tempfile) )
     operators = []
     lines = output.split('\n')
     totalTime = 0
     for line in lines:
       vals = [ val.strip() for val in line.split('~')]
-      if len(vals) == 5:
-        operators.append(Operator(trial_id, vals[0], vals[1], float(vals[2]), 0, vals[3], str(vals[4])))
-        desc = vals[4] 
+      if len(vals) == 4:
+        operators.append(Operator(trial_id, vals[0], vals[1], float(vals[2]), 0, vals[3], ''))
+      #  desc = vals[4] 
         totalTime += float(vals[2])
     for op in operators:
       op.percent_time = (100.0 * op.time) / totalTime

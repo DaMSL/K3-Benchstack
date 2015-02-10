@@ -1,0 +1,6 @@
+role: rows
+master: auto
+x: 8
+data: 
+  - {var: dataFiles , path: /local/data/amplab/1024/uservisits, policy: global}
+server_group: hm

@@ -1,0 +1,5 @@
+role: rows
+master: auto
+data: 
+  - {var: dataFiles, path: /local/data/tpch10g/lineitem, policy: global}
+server_group: hm
