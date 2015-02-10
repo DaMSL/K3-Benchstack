@@ -48,13 +48,9 @@ class Vertica:
   def runVertica(self, schema, queryFile, trial_id):
     command = "./systems/vertica/run_vertica.sh %s %s" % (schema, queryFile)
     output = utils.runCommand(command)
-    print(command)
-    print(output)
     # First line of output is a HINT for profiling
     lines = output.split("\n")
     hint = lines[0]
-    print("----hint:----")
-    print(hint)
     try:
       m = re.search("[.]*transaction_id=(\d+) and statement_id=(\d+)[.]*", hint)
       transaction = m.group(1)
@@ -83,8 +79,6 @@ class Vertica:
       f.write(query)
 
     output = utils.runCommand("systems/vertica/sql/profiling/run_sql.sh %s" % tempfile)
-    print "OP PROFILING ----------:"
-    print output
     utils.runCommand("rm %s" % (tempfile) )
     operators = []
     lines = output.split('\n')

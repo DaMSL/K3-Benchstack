@@ -66,7 +66,7 @@ def runExperiments(experiments, systems, numTrials, debug=False, profiling=False
     for system in systems:
       log.logEvent(2, "Running System: %s" % (system.name()) )
       for trialNum in range(1, numTrials + 1):
-        log.logEvent(3, "Running Trial: %d" % (trialNum) )
+        log.logEvent(3, "Running Query %s on %s, Trial: %d" % (experiment.query, system.name(), trialNum) )
       
         # Enter a new trial into the database
         trial = Trial(exp_id, trialNum, system.name(), datetime.datetime.now())
