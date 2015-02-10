@@ -1,0 +1,3 @@
+[submodule "mesos/webserver"]
+	path = mesos/webserver
+	url = https://github.com/eidheim/Simple-Web-Server.git

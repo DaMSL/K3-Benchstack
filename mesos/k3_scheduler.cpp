@@ -23,8 +23,7 @@
 #include <fstream>
 #include <string>
 
-#include <yaml-cpp/yaml.h>
-
+#include <boost/lockfree/queue.hpp>
 #include <boost/program_options.hpp>
 #include <boost/lexical_cast.hpp>
 #include <boost/algorithm/string.hpp>
@@ -59,6 +58,7 @@ using std::string;
 using std::vector;
 using std::map;
 using std::list;
+using std::queue;
 
 //const int32_t CPUS_PER_TASK = 1;
 const double CPUS_PER_TASK = 1.0;
@@ -130,7 +130,7 @@ class PeerGroup {
     PeerGroup(YAML::Node config) {
       server_ = config["server"] ? parseField<string>("server", config) : "";
       server_group_ = config["server_group"] ? parseField<string>("server_group", config) : "";
-      peers_ = parseField<int>("peers", config); 
+      peers_ = parseField<int>("peers", config);
       peers_per_host_ = config["peers_per_host"] ? parseField<int>("peers_per_host", config) : 0;
       globals_ = config["k3_globals"] ? config["k3_globals"] : globals_;
       data_ = config["k3_data"] ? config["k3_data"] : data_;
@@ -149,7 +149,7 @@ class PeerGroup {
     template <class T>
     T parseField(string key, YAML::Node config) {
       if (config[key]) {
-        return config[key].as<T>(); 
+        return config[key].as<T>();
       }
       else {
         throw missingField(key, config);
@@ -172,7 +172,7 @@ vector<PeerGroup> parseYaml(const std::vector<YAML::Node> inputs) {
 class peerProfile {
 public: peerProfile (string _ip, string _port):
     ip(_ip), port(_port) {}
-  
+
   YAML::Node getAddr () {
     YAML::Node me;
     me.push_back(ip);
@@ -189,7 +189,7 @@ public:
   int numPeers () {
     return peers.size();
   }
-  
+
   void addPeer (int peer) {
     peers.push_back(peer);
   }
@@ -197,7 +197,7 @@ public:
   void setGlobals(list<YAML::Node> _globals) {
     globals = _globals;
   }
-  
+
   double cpu;
   double mem;
   int  offer;
@@ -207,23 +207,57 @@ public:
   list<YAML::Node> data;
 };
 
-class KDScheduler : public Scheduler {
-	public:
-    KDScheduler(string _k3binary, int _totalPeers, YAML::Node _vars, bool log, int maxP, int pph, string rv, int start_port, vector<PeerGroup> _groups)
-    {
-      this->k3binary = _k3binary;
-      this->totalPeers = _totalPeers;
-      this->k3vars = _vars;
-      this->logging = log;
-      this->maxPartitions = maxP;
-      this->peersPerHost = pph;
-      this->resultVar = rv;
-      this->startPort = start_port;
-      this->peerGroups = _groups;
-      this->running = false;
-    }
+class K3Job {
+public:
+  K3Job (string _k3binary, YAML::Node _k3_vars, bool _logging,
+          int _total_peers, int _max_partitions, string _result_var, int _start_port, vector<PeerGroup> _groups)
+  {
+    k3binary       = _k3binary;
+    k3vars         = _k3vars;
+    logging        = _logging;
+    total_peers    = _total_peers;
+    max_partitions = _max_partitions;
+    result_var     = _result_var;
+    start_port     = _start_port;
+    groups         = _groups;
+  }
 
-  virtual ~KDScheduler() {}
+  string            k3binary;
+  YAML::Node        k3vars;
+  bool              logging;
+  int               total_peers;
+  int               max_partitions;
+  string            result_var;
+  int               start_port;
+  vector<PeerGroup> groups;
+  int               retries;
+
+  string description() {
+    stringstream s;
+    s << "Task[" << k3binary << "(" << total_peers << "@" << start_port << ")]";
+    return s.str();
+  }
+};
+
+class K3Scheduler : public Scheduler {
+public:
+  K3Scheduler() {}
+
+  virtual ~K3Scheduler() {}
+
+  void run(K3Job task) {
+    LOG(INFO) << "[RUN] Added pending task " << task.description() << endl;
+    pendingTasks.push(task);
+    ++numPendingTasks;
+  }
+
+  list<K3Job> getActiveTasks() {
+    list<K3Job> r;
+    for (auto entry : activeTasks) { r.push_back(get<1>(entry.second)); }
+    return r;
+  }
+
+  int getNumPendingTasks() { return numPendingTasks; }
 
   virtual void registered(SchedulerDriver*, const FrameworkID&, const MasterInfo&)  {
     LOG(INFO) << "[REGISTERED] K3 Framework REGISTERED with Mesos" << endl;
@@ -245,12 +279,12 @@ class KDScheduler : public Scheduler {
       if (resource.name() == "cpus" &&
         resource.type() == Value::SCALAR) {
         cpus = resource.scalar().value();
-      } 
+      }
     }
 
     return cpus;
   }
-  
+
   double getMem(const Offer& offer) {
     double mem;
 
@@ -259,14 +293,13 @@ class KDScheduler : public Scheduler {
       if (resource.name() == "mem" &&
         resource.type() == Value::SCALAR) {
         mem = resource.scalar().value();
-      } 
+      }
     }
 
     return mem;
   }
 
   string getTextAttr(const Offer& offer, const string& key) {
-
     for (int i = 0; i < offer.attributes_size(); i++) {
       const Attribute& attrib = offer.attributes(i);
       if (attrib.name().compare (key) == 0) {
@@ -275,84 +308,157 @@ class KDScheduler : public Scheduler {
     }
 
     throw std::runtime_error("Attribute " + key + "not found in offer");
-
   }
 
   virtual void resourceOffers(SchedulerDriver* driver, const vector<Offer>& offers)  {
-    if (this->running) {
-      return;
+    LOG(INFO) << "[RESOURCE OFFER] " << offers.size() << " offer(s)." << endl;
+
+    if ( pendingTasks.empty() ) { return; }
+
+    // Launch task.
+    K3Job next;
+    pendingTasks.pop(next);
+    --numPendingTasks;
+
+    tuple<Status, int> launchR = launchK3Job(driver, next);
+    if ( get<0>(launchR) == DRIVER_RUNNING ) {
+      // Register task as active.
+      activeTasks[tasksLaunched] = make_tuple(get<1>(launchR), next);
+      ++tasksLaunched;
+    } else if ( --next.retries > 0 ) {
+      // Retry up to a certain number of times.
+      pendingTasks.push(next);
+      ++numPendingTasks;
+    }
+  }
+
+  virtual void offerRescinded(SchedulerDriver* driver, const OfferID& offerId) {}
+
+  virtual void statusUpdate(SchedulerDriver* driver, const TaskStatus& status)  {
+    int taskId = lexical_cast<int>(status.task_id().value());
+
+    if (status.state() == TASK_FINISHED) {
+      // Update, and garbage collect active tasks.
+      map<int,int>::iterator it = executorTasks.find(taskId);
+      if ( it != executorTasks.end() ) {
+        tuple<int, K3Job>& activeTaskEntry = activeTasks[it->second];
+        if ( get<0>(activeTaskEntry) == 1 ) {
+          activeTasks.erase(it->second);
+          LOG(INFO) << "K3 Task " << it->second << " -> " << taskState[status.state()] << endl;
+        } else {
+          activeTasks[it->second] = make_tuple(get<0>(activeTaskEntry)-1, get<1>(activeTaskEntry));
+        }
+      }
+
+      executorsFinished++;
+      LOG(INFO) << "Task " << taskId << " -> " << taskState[status.state()] << endl;
+    }
+
+    else if (status.state() == TASK_RUNNING)  {
+      LOG(INFO) << "Task " << taskId << " -> " << taskState[status.state()] << endl;
+    }
+
+    else if (status.state() == TASK_LOST || status.state() == TASK_KILLED)  {
+      executorsFinished++;
+      LOG(INFO) << "Task " << taskId << " -> " << taskState[status.state()] << endl;
+      LOG(INFO) << "Aborting due to LOST or KILLED task!" << endl;
+      driver->stop();
     }
     else {
-      LOG(INFO) << "[RESOURCE OFFER] " << offers.size() << " Offer(s)" << endl;
+      LOG(INFO) << "RECEIVED UNKNOWN STATUS! ABORTING! " << status.message() << endl;
+      driver->stop();
+     }
+
+    if (executorsFinished == executorsAssigned) {
+      LOG(INFO) << "All executors finished successfuly" << endl;
+      driver->stop();
     }
+  }
+
+  virtual void frameworkMessage(SchedulerDriver* driver,
+                                const ExecutorID& executorId,
+                                const SlaveID& slaveId, const string& data)
+  {
+    bool containsEndl = false;
+    if (data.c_str()[data.length() - 1] == '\n') {
+      containsEndl = true;
+    }
+    cout << "[FRMWK]: " << data;
+    if (!containsEndl) {
+      cout << endl;
+    }
+  }
+
+  virtual void slaveLost(SchedulerDriver* driver, const SlaveID& slaveId) {
+    cout << "slave lost" << endl;
+  }
+
+  virtual void executorLost(SchedulerDriver* driver,
+                            const ExecutorID& executorId,
+                            const SlaveID& slaveId, int status)
+  {
+    cout << "Executor lost. Aborting" << endl;
+    driver->stop();
+  }
+
+  virtual void error(SchedulerDriver* driver, const string& message) {
+    cout << "error!" << endl;
+  }
+
+protected:
+  tuple<Status, int> launchK3Job(SchedulerDriver* driver, const K3Job& k3task)
+  {
+    Status launchStatus;
+    int numExecutors;
 
     // Iterate through each resource offer (1 offer per slave with available resources)
     //    Offer -> Vector of resources (cpu, mem, disk, etc)
-    
-    
     vector<int> cpusUsed = vector<int>(offers.size());
     vector<list<YAML::Node>> globals(offers.size());
     vector<list<YAML::Node>> data(offers.size());
-    for (const PeerGroup& pg : peerGroups) {
+    for (const PeerGroup& pg : k3task.groups) {
       int assignedPeers = 0;
 
       for (size_t i=0; i < offers.size(); i++) {
         const Offer& offer = offers[i];
         double cpus = getCpus(offer);
+        if (cpusUsed[i] == cpus) { continue; }
 
-	if (cpusUsed[i] == cpus) {
-          continue;
-	}
-
-	if (pg.server_ != "") {
-	  string server = offer.hostname();
-	  if (pg.server_ != server) {
-            continue;
-	  }
-	}
-
-	if (pg.server_group_ != "") {
-	  string server_group = getTextAttr(offer, "cat");
-	  if (pg.server_group_ != server_group) {
-            continue;
-	  }
+        if (pg.server_ != "") {
+          string server = offer.hostname();
+          if (pg.server_ != server) { continue; }
         }
 
-	int numPeers = pg.peers_;
-	if (cpus < numPeers) {
-          numPeers = cpus;
-	}
-	if (pg.peers_per_host_ != 0 && pg.peers_per_host_ < numPeers) {
-          numPeers = pg.peers_per_host_;
-	}
+        if (pg.server_group_ != "") {
+          string server_group = getTextAttr(offer, "cat");
+          if (pg.server_group_ != server_group) { continue; }
+        }
 
-	assignedPeers += numPeers;
+        int numPeers = pg.peers_;
+        if (cpus < numPeers) { numPeers = cpus; }
+        if (pg.peers_per_host_ != 0 && pg.peers_per_host_ < numPeers) { numPeers = pg.peers_per_host_; }
 
-	for (int j = 0; j < numPeers; j++) {
+        assignedPeers += numPeers;
+
+        for (int j = 0; j < numPeers; j++) {
           globals[i].push_back(pg.globals_);
           data[i].push_back(pg.data_);
-	}
+        }
 
-	if (assignedPeers == pg.peers_) {
-          break;
-	}
+        if (assignedPeers == pg.peers_) { break; }
       }
-      
+
       if (assignedPeers != pg.peers_) {
         throw std::runtime_error("Failed to assign all peers in group: " + YAML::Dump(pg.yaml_));
       }
     }
-  
-    // Log deployment topology 
+
+    // Log deployment topology
     LOG(INFO) << "Successfully allocated all peers: " << endl;
-    this->running = true;
 
     int peersAssigned = 0;
     for (size_t i=0; i < offers.size(); i++) {
-      if (globals[i].size() == 0) {
-        continue; 
-      }
-
+      if (globals[i].size() == 0) { continue; }
 
       hostProfile profile;
       profile.cpu = globals[i].size();
@@ -361,17 +467,17 @@ class KDScheduler : public Scheduler {
       profile.globals = globals[i];
       profile.data = data[i];
 
-      for (size_t p=0; p< globals[i].size(); p++)  {
+      for (size_t p = 0; p < globals[i].size(); p++)  {
         int peerId = peersAssigned++;
 
         // TODO: PORT management
-        string port = stringify(startPort + peerId);
+        string port = stringify(k3task.start_port + peerId);
         profile.addPeer(peerId);
 
         peerProfile peer (ip_addr[offers[i].hostname()], port);
         peerList.push_back(peer);
       }
-      
+
       hostList[offers[i].hostname()] = profile;
       executorsAssigned++;
     }
@@ -388,26 +494,26 @@ class KDScheduler : public Scheduler {
       if (pair.second == peerList[0].ip) {
         LOG(INFO) << "Automatically picked master:" << pair.first << endl;
       }
-    } 
-    
+    }
+
     for (auto &host : hostList)  {
-      string     hostname = host.first;
+      string hostname = host.first;
       hostProfile profile = host.second;
-      
+
       //  Build parameter
       YAML::Node hostParams;
       map<string, string> mountPoints;
 
-      if (this->logging) {
+      if (k3task.logging) {
         hostParams["logging"] = "-l INFO";
       }
 
-      hostParams["binary"] = k3binary;
-      hostParams["totalPeers"] = peerList.size();
-      hostParams["peerStart"] = profile.peers.front();
-      hostParams["peerEnd"] = profile.peers.back();
-      hostParams["maxPartitions"] = this->maxPartitions;
-      
+      hostParams["binary"]        = k3task.k3binary;
+      hostParams["totalPeers"]    = peerList.size();
+      hostParams["peerStart"]     = profile.peers.front();
+      hostParams["peerEnd"]       = profile.peers.back();
+      hostParams["maxPartitions"] = k3task.max_partitions;
+
       for (auto &p : profile.peers) {
         hostParams["me"].push_back(peerList[p].getAddr());
       }
@@ -426,11 +532,9 @@ class KDScheduler : public Scheduler {
             if (key == "master") {
               hostParams["master"] = peerList[0].getAddr();
             }
-          } 
-          else {
+          } else {
             g[key] = data;
           }
-
         }
         hostParams["globals"].push_back(g);
       }
@@ -442,23 +546,23 @@ class KDScheduler : public Scheduler {
       //    YAML::Node data_files = var->second;
       //    hostParams["dataFiles"] = data_files;
       //    mountPoints["/local/data"] = "/local/data";
-      //  } 
-          
-      if (this->resultVar != "") {
-        hostParams["resultVar"] = resultVar;
+      //  }
+
+      if (k3task.result_var != "") {
+        hostParams["resultVar"] = k3task.result_var;
       }
-      
-      ExecutorInfo executor = makeExecutor(k3binary, hostParams, mountPoints);
-      
+
+      ExecutorInfo executor = makeExecutor(k3task.k3binary, hostParams, mountPoints);
+
       TaskInfo task;
-      task.set_name(k3binary + "@" + hostname);
-      task.mutable_task_id()->set_value(stringify(executorsLaunched++));
+      task.set_name(k3task.k3binary + "@" + hostname);
+      task.mutable_task_id()->set_value(stringify(executorsLaunched));
       task.mutable_slave_id()->MergeFrom(offers[profile.offer].slave_id());
       task.mutable_executor()->MergeFrom(executor);
 
       // Pass parameters onto the host
       task.set_data(YAML::Dump(hostParams));
-      
+
       Resource* resource;
 
       resource = task.add_resources();
@@ -471,111 +575,153 @@ class KDScheduler : public Scheduler {
       resource->set_type(Value::SCALAR);
       resource->mutable_scalar()->set_value(profile.mem);
 
-
       vector<TaskInfo> tasks;  // Now running 1 task per slave
       tasks.push_back(task);
-      
 
       LOG(INFO) << " Launching Peers # " << stringify(profile.peers.front()) << " - " << stringify (profile.peers.back()) << " on " << hostname << endl;
-      driver->launchTasks(offers[profile.offer].id(), tasks);
-    }
-	
+      launchStatus = driver->launchTasks(offers[profile.offer].id(), tasks);
+      if ( launchStatus == DRIVER_STOPPED  || launchStatus == DRIVER_ABORTED ) { break; }
 
-    
-  }
-
-  virtual void offerRescinded(SchedulerDriver* driver, const OfferID& offerId) {}
-  virtual void statusUpdate(SchedulerDriver* driver, const TaskStatus& status)  {
-    int taskId = lexical_cast<int>(status.task_id().value());
-
-    if (status.state() == TASK_FINISHED)  {
-      executorsFinished++;
-      LOG(INFO) << "Task " << taskId << " -> " << taskState[status.state()] << endl;
-    }
-    
-    else if (status.state() == TASK_RUNNING)  {
-      LOG(INFO) << "Task " << taskId << " -> " << taskState[status.state()] << endl;
+      executorTasks[executorsLaunched] = tasksLaunched;
+      ++executorsLaunched;
+      ++numExecutors;
     }
 
-    else if (status.state() == TASK_LOST || status.state() == TASK_KILLED)  {
-      executorsFinished++;
-      LOG(INFO) << "Task " << taskId << " -> " << taskState[status.state()] << endl;
-      LOG(INFO) << "Aborting due to LOST or KILLED task!" << endl;
-      driver->stop();
-    }
-    else {
-      LOG(INFO) << "RECEIVED UNKNOWN STATUS! ABORTING! " << status.message() << endl;
-      driver->stop();
-     }
-               
-    if (executorsFinished == executorsAssigned) {
-      LOG(INFO) << "All executors finished successfuly" << endl;
-      driver->stop();
-    }
-
-  }
-
-  virtual void frameworkMessage(SchedulerDriver* driver, 
-            const ExecutorID& executorId, 
-            const SlaveID& slaveId, const string& data) {
-
-    bool containsEndl = false;
-    if (data.c_str()[data.length() - 1] == '\n') {
-      containsEndl = true;
-    }
-    cout << "[FRMWK]: " << data;
-    if (!containsEndl) {
-      cout << endl;
-    }
-  }
-
-  virtual void slaveLost(SchedulerDriver* driver, 
-            const SlaveID& slaveId) 
-
-
-        {
-    cout << "slave lost" << endl;
-
-        }
-  virtual void executorLost(SchedulerDriver* driver,
-            const ExecutorID& executorId, 
-            const SlaveID& slaveId, int status) {
-
-
-          cout << "Executor lost. Aborting" << endl;
-          driver->stop();
-        }
-  virtual void error(SchedulerDriver* driver, const string& message) {
-    cout << "error!" << endl;
-
+    return make_tuple(launchStatus, numExecutors);
   }
 
 private:
-//  const ExecutorInfo executor;
-  bool running;
+  // const ExecutorInfo executor;
   int peersAssigned = 0;
   int peersFinished = 0;
   int executorsLaunched = 0;
   int executorsFinished = 0;
   int executorsAssigned = 0;
-  int totalPeers;
-  int maxPartitions = 0;
-  int peersPerHost = 0;
-  string resultVar;
-  string k3binary;
-  YAML::Node k3vars;
+  int tasksLaunched = 0;
+
   string runpath;
   string fileServer;
   map<string, hostProfile> hostList;
   vector<peerProfile> peerList;
-  vector<PeerGroup> peerGroups;
-  bool logging;
-  int startPort = 40000;
+
+  map<int, std::tuple<int, K3Job>> activeTasks;
+  map<int, int> executorTasks;
+
+  boost::lockfree::queue<K3Job> pendingTasks;
+  int numPendingTasks;
 };
 
+// A proxy class for MesosSchedulerDriver
+class K3SchedulerDriver {
+public:
+  K3SchedulerDriver(const K3Job& _task)
+    : task(_task), scheduler(_task)
+  {
+    initialize();
+  }
+
+  void initialize()
+  {
+    framework.set_user(""); // Have Mesos fill in the current user.
+    framework.set_name(params.k3binary + "-" + stringify(params.total_peers) + "-" + currTime());
+    framework.mutable_id()->set_value(params.k3binary + "-" + currTime());
+
+    // FROM: Example Frame, left unchanged for adding Creds/ChckPts, etc..
+    if (os::hasenv("MESOS_CHECKPOINT")) {
+      cout << "Enabling checkpoint for the framework" << endl;
+      framework.set_checkpoint(true);
+    }
+
+    if (os::hasenv("MESOS_AUTHENTICATE")) {
+      cout << "Enabling authentication for the framework" << endl;
+
+      if (!os::hasenv("DEFAULT_PRINCIPAL")) {
+        EXIT(1) << "Expecting authentication principal in the environment";
+      }
+
+      if (!os::hasenv("DEFAULT_SECRET")) {
+        EXIT(1) << "Expecting authentication secret in the environment";
+      }
+
+      credential.set_principal(getenv("DEFAULT_PRINCIPAL"));
+      credential.set_secret(getenv("DEFAULT_SECRET"));
+
+      framework.set_principal(getenv("DEFAULT_PRINCIPAL"));
+
+      driver = shared_ptr<MesosSchedulerDriver>(new MesosSchedulerDriver(
+                  &scheduler, framework, master, credential));
+    } else {
+      framework.set_principal("k3-framework");
+      driver = shared_ptr<MesosSchedulerDriver>(new MesosSchedulerDriver(&scheduler, framework, master));
+    }
+  }
+
+  // Proxy methods for scheduler driver control.
+  Status start() { return driver->start(); }
+  Status stop(bool failover = false) { return driver->stop(failover); }
+  Status abort() { return driver->abort(); }
+  Status join() { return driver->join(); }
+  Status run() { return driver->run(); }
+
+protected:
+  K3Job task;
+  shared_ptr<MesosSchedulerDriver> driver;
+  K3Scheduler scheduler;
+  Framework framework;
+  Credential credential;
+};
+
+// A web-based K3+Mesos scheduler driver.
+class K3SDriverHTTP : public K3SchedulerDriver {
+public:
+  K3HTTPDriver(int port, int threads, const K3SDriverParams& params)
+    : K3SchedulerDriver(params)
+  {
+    server = shared_ptr<Server<HTTP>>(new server(port, threads));
+    initializeRoutes();
+
+  }
+
+  void startServer() {
+    server_thread = shared_ptr<thread>(new server_thread([&server](){ server->start(); }));
+  }
+
+  // Set up routes handled by the HTTP server.
+  void initializeRoutes() {
+    if ( server ) {
+
+      //POST-example for the path /string, responds the posted string
+      server->resource["^/runtask/?$"]["POST"]=[](ostream& response, auto request) {
+          stringstream ss;
+          request->content >> ss.rdbuf();
+          string content = ss.str();
+
+          response << "HTTP/1.1 200 OK\r\nContent-Length: " << content.length() << "\r\n\r\n" << content;
+      };
+
+      //GET-example for the path /info
+      //Responds with request-information
+      server->resource["^/tasks/?$"]["GET"]=[](ostream& response, auto request) {
+        stringstream content_stream;
+        content_stream << "<h1>Request:</h1>";
+        content_stream << request->method << " " << request->path << " HTTP/" << request->http_version << "<br>";
+        for(auto& header: request->header) {
+            content_stream << header.first << ": " << header.second << "<br>";
+        }
+
+        //find length of content_stream (length received using content_stream.tellp())
+        content_stream.seekp(0, ios::end);
+        response <<  "HTTP/1.1 200 OK\r\nContent-Length: " << content_stream.tellp() << "\r\n\r\n" << content_stream.rdbuf();
+      };
+    }
+  }
+
+private:
+  shared_ptr<Server<HTTP>> server;
+  shared_ptr<thread> server_thread;
+};
 
 int main(int argc, char** argv) {
-
   string master = MASTER;
   string k3binary;
   string k3args_json;
@@ -587,7 +733,7 @@ int main(int argc, char** argv) {
   int start_port = 40000;
   bool logging = false;
   bool ktrace = false;
-  
+
 
   //  Parse Command Line options
   namespace po = boost::program_options;
@@ -596,21 +742,21 @@ int main(int argc, char** argv) {
 
   po::options_description desc("K3 Run options");
   desc.add_options()
-    ("program", po::value<string>(&k3binary)->required(), "K3 executable program filename") 
+    ("program", po::value<string>(&k3binary)->required(), "K3 executable program filename")
     ("yaml", po::value<string>(&k3args_yaml)->required(), "YAML encoded input file")
     ("max_partitions", po::value<int>(&max_partitions), "Hard Limit number of data file partitions")
     ("logging,l", po::value<bool>(&logging), "Toggle K3 Logging (global environment)")
     ("ktrace,k", po::value<bool>(&logging), "Toggle KTrace (log globals and messages to JSON for use with Postgresql) ")
     ("help,h", "Print help message");
-                
-  po::positional_options_description positionalOptions; 
-    positionalOptions.add("program", 1); 
+
+  po::positional_options_description positionalOptions;
+    positionalOptions.add("program", 1);
     positionalOptions.add("yaml", 1);
 
   po::variables_map vm;
 
   try {
-    po::store(po::command_line_parser(argc, argv).options(desc) 
+    po::store(po::command_line_parser(argc, argv).options(desc)
                   .positional(positionalOptions).run(), vm);
     if (vm.count("help") || vm.empty()) {
       cout << "K3 Distributed program framework backed by Mesos cluser" << endl << endl;
@@ -619,9 +765,9 @@ int main(int argc, char** argv) {
       cout << desc << endl;
       return 0;
     }
-    
+
     po::notify(vm);
-    
+
     if (vm.count("yaml")) {
       string buf;
       std::ostringstream contents;
@@ -636,7 +782,7 @@ int main(int argc, char** argv) {
         LOG(INFO) << endl << "---" << endl <<YAML::Dump(y.yaml_) << endl;
       }
     }
-    
+
     if (vm.count("logging")) {
       logging = true;
     }
@@ -651,80 +797,45 @@ int main(int argc, char** argv) {
     cout << desc << endl;
     return 1;
   }
-  
-  KDScheduler scheduler(k3binary, total_peers, k3vars, logging, max_partitions, 0, result_var, start_port, peerGroups);
 
-  FrameworkInfo framework;
-  framework.set_user(""); // Have Mesos fill in the current user.
-  framework.set_name(k3binary + "-" + stringify(total_peers) + "-" + currTime());
-  framework.mutable_id()->set_value(k3binary + "-" + currTime());
-  
-  // FROM: Example Frame, left unchanged for adding Creds/ChckPts, etc..
-  if (os::hasenv("MESOS_CHECKPOINT")) {
-    cout << "Enabling checkpoint for the framework" << endl;
-    framework.set_checkpoint(true);
-  }
+  K3Job task(k3binary, total_peers, k3vars, logging, max_partitions, result_var, start_port, peerGroups);
+  K3SDriverHTTP drv(task);
 
-  MesosSchedulerDriver* driver;
-  if (os::hasenv("MESOS_AUTHENTICATE")) {
-    cout << "Enabling authentication for the framework" << endl;
-
-    if (!os::hasenv("DEFAULT_PRINCIPAL")) {
-      EXIT(1) << "Expecting authentication principal in the environment";
-    }
-
-    if (!os::hasenv("DEFAULT_SECRET")) {
-      EXIT(1) << "Expecting authentication secret in the environment";
-    }
-
-    Credential credential;
-    credential.set_principal(getenv("DEFAULT_PRINCIPAL"));
-    credential.set_secret(getenv("DEFAULT_SECRET"));
-
-    framework.set_principal(getenv("DEFAULT_PRINCIPAL"));
-
-    driver = new MesosSchedulerDriver(
-        &scheduler, framework, master, credential);
-  } else {
-    framework.set_principal("k3-framework");
-    driver = new MesosSchedulerDriver(&scheduler, framework, master);
-  }
-  
-  int status = driver->run() == DRIVER_STOPPED ? 0 : 1;
+  int status = drv->run() == DRIVER_STOPPED ? 0 : 1;
   // Ensure that the driver process terminates.
-  driver->stop();
-
-  delete driver;
+  k3sdriver->stop();
   return status;
 }
 
-ExecutorInfo makeExecutor (string programBinary, YAML::Node hostParams,
-      map<string, string> mounts) {
+ExecutorInfo makeExecutor (string programBinary,
+                           YAML::Node hostParams,
+                           map<string, string> mounts)
+{
     string fileServer = FILE_SERVER;
-  
-  // CREATE The DOCKER Executor
+
+    // CREATE The DOCKER Executor
     ExecutorInfo executor;
     executor.mutable_executor_id()->set_value("k3-executor2");
 
 
-  // Sets executor name to program name to pass along to slaves for execution
+    // Sets executor name to program name to pass along to slaves for execution
     executor.set_name(programBinary);
     executor.set_data(YAML::Dump(hostParams));
 
-  //  executor.set_source("K3");    // not necessary to set this, 
+    // executor.set_source("K3");    // not necessary to set this,
                     // but may be useful for interacting frameworks
-    
+
     /* Pull remote files from a "fileServer" location
-      Files will be locally stored in $MESOS_SANDBOX location 
-      and Mesos will automatically map host's sandbox dir to 
+      Files will be locally stored in $MESOS_SANDBOX location
+      and Mesos will automatically map host's sandbox dir to
       a sandbox inside the docker container. Location accessible
       via the MESOS_SANDBOX env            */
     CommandInfo command;
     CommandInfo_URI * uri_e = command.add_uris();
-    uri_e->set_value(fileServer + "/k3executor"); 
+    uri_e->set_value(fileServer + "/k3executor");
     uri_e->set_executable(true);
     uri_e->set_extract(false);
-    
+
     CommandInfo_URI * k3_bin = command.add_uris();
     k3_bin->set_value(fileServer + "/" + programBinary);
     k3_bin->set_executable(true);
@@ -734,17 +845,17 @@ ExecutorInfo makeExecutor (string programBinary, YAML::Node hostParams,
     executor.mutable_command()->MergeFrom(command);
 
     // Alternate way of Adding Args, but shell=false which interferes stdout redirect
-//    executor.mutable_command()->set_shell(false);
+    //  executor.mutable_command()->set_shell(false);
     //  executor.mutable_command()->add_arguments("3");
 
     /*  Build the Docker Container & map volume(s) */
     ContainerInfo::DockerInfo docker;
-    
-    /* Docker Image can be pulled, but requires libmesos lib installed which 
+
+    /* Docker Image can be pulled, but requires libmesos lib installed which
       is not baked into the sandbox when lauching a container
         NOTE: We could link it locally via setenv & mounted volume; however,
-        that's not recommended. Mesos devs argue: if you're building 
-        a custom executor, then you should provide a custom 
+        that's not recommended. Mesos devs argue: if you're building
+        a custom executor, then you should provide a custom
         docker image for the executor   */
     docker.set_image(DOCKER_IMAGE);
 
@@ -764,9 +875,9 @@ ExecutorInfo makeExecutor (string programBinary, YAML::Node hostParams,
     volume->set_host_path("/local/mesos");
     volume->set_container_path("/mnt/out");
     volume->set_mode(Volume_Mode_RW);
- 
+
 
     executor.mutable_container()->MergeFrom(container);
-    
+
     return executor;
 }
