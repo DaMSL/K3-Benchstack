@@ -76,6 +76,7 @@ FROM
     experiment_id, system, AVG(elapsed_ms) as avg_time, coalesce(stddev(elapsed_ms), 0) as error, count(*) as num_trials
   FROM
     trial_results
+  WHERE trial_num > 4
   GROUP BY
     experiment_id, system) T
 WHERE

@@ -8,39 +8,6 @@ from entities.operator import *
 from entities.result import *
 
 
-class sparkJob(object):
-  def __init__ (self, depth):
-    self.depth = depth
-    self.oplist = []
-    self.objs = []
-    self.mem = 0
-    self.start = 0
-    self.end = 0
-    self.percent = 0.0
-    self.job_id = 0
-  def addOp(self, op):
-    if op not in self.oplist:
-      self.oplist.append(op)
-  def name(self):
-     return(','.join(self.oplist))
-  def objects(self):
-     return(','.join(self.objs))
-  def time(self):
-     return self.end - self.start
-  def set(self, job_id, name, start, end):
-    self.job_id = job_id
-    self.oplist = [name]
-    self.start= start
-    self.end = end
-
-
-  #  Helper function to check if a Spark job exists in a given list
-def checkJob (jl, d):
-  for job in jl:
-    if job.depth == d:
-      return jl.index(job)
-  return -1
-
 class sparkStage(object):
   def __init__(self, sid, name, time, mem):
     self.sid = sid
@@ -101,16 +68,14 @@ class Spark:
 
   
   def runExperiment(self, e, trial_id):
-    if e.dataset == "tpch100g" and e.workload == "tpch" and (e.query == "18" or e.query == "22"):
-      return Result(trial_id, "Skipped", 0, "TPCH 100G Query %s fails to finish on Spark" % (e.query))
+    #if e.dataset == "tpch100g" and e.workload == "tpch" and (e.query == "18" or e.query == "22"):
+    #  return Result(trial_id, "Skipped", 0, "TPCH 100G Query %s fails to finish on Spark" % (e.query))
 
     className = self.getClassName(e)
     sf = self.scaleFactorMap[e.dataset]
     command = "systems/spark/run_spark.sh %s %s %s" % (self.jarFile, sf, className) 
-    print command
 
     output = utils.runCommand_stderr(command)
-    print(output)
 
     #  Extract Query Plan from output, parse & convert to set of operation tuples
     elapsed = 0
@@ -121,6 +86,7 @@ class Spark:
 
     #  Find the JSON formatted event log (should be first line of output
     out_lines = output.split('\n')
+    logfile = ''
     for l in output.split('\n'):
       if "EventLoggingListener" in l:
         logfile = l.split(':')[-1]+'/EVENT_LOG_1'
@@ -133,7 +99,7 @@ class Spark:
     eventlist = [json.loads(ev) for ev in source_data.split('\n') if len(ev) > 0]
     stages = [ev['Stage Info'] for ev in eventlist if ev['Event'] == 'SparkListenerStageCompleted']
 
-    total_time = 0
+    total_time = 0.
     ops = []
 
     # Collect data for each stage
@@ -148,15 +114,11 @@ class Spark:
             #  2. Any collection operation is an Exchange (shuffle) op
             #  3. Any call to HashJoin on the call stack is a Join Op
             #  4. Everything else is deemed a GroupBy or pipeline of it (filter, project, etc...)
-      operation = ('TableScan'
-         if s['Stage ID'] <= rddLoadingStage[e.workload][int(e.query)] 
-         else 'Exchange' 
-             if s['Stage Name'].startswith('collect') 
-             else 'Join' 
-               if 'HashJoin' in s['Details'] 
-               else 'GroupBy' )
-#operation = 'TableScan' if s['Stage ID'] == 1 else ('Exchange' if s['Stage Name'].startswith('collect') else ('Join' if 'HashJoin' in s['Details'] else 'GroupBy'))
-
+      operation = ('TableScan' if s['Stage ID'] <= rddLoadingStage[e.workload][int(e.query)] 
+        else 'Exchange' if s['Stage Name'].startswith('collect') 
+          else 'Join' if 'HashJoin' in s['Details'] 
+            else 'GroupBy' )
+      
       # EXCLUDE TableScan time (opertion & mem will still show)
       time = (0 if operation == 'TableScan'
                 else int(s['Completion Time']) - int(s['Submission Time']) )
@@ -165,7 +127,7 @@ class Spark:
 
     operations = []
     for s in ops:
-      operations.append(Operator(trial_id, s.sid, s.name, s.time, s.time/total_time, s.mem, ''))
+      operations.append(Operator(trial_id, s.sid, s.name, s.time, float(s.time)/total_time, s.mem, ''))
 
     result = Result(trial_id, "Success", elapsed, "")
     result.setOperators(operations)

@@ -98,9 +98,6 @@ class Oracle:
     output = utils.runCommand(command)
     lines = output.split('\n')
 
-    for l in lines:
-        print l
-
     # TODO: Try to capture metrics for querried run under 100 ms
     if lines[0].strip() == '' or lines[1].strip() == '':
       elapsed = 100
@@ -123,7 +120,6 @@ class Oracle:
 
     operators = [Operator(trial_id, 0, 'Pre-Execution', run_time - exec_time, pre_percent, 0, '')]
     for op in ops:
-      print '%s, %f, %f' % (op.name, op.time, op.percent)
       operators.append(Operator(trial_id, op.oid, op.name, op.time, op.percent, op.mem, op.obj))
 
     result =  Result(trial_id, "Success", exec_time, "")

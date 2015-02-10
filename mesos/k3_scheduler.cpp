@@ -313,7 +313,10 @@ class KDScheduler : public Scheduler {
 
 	if (pg.server_group_ != "") {
 	  string server_group = getTextAttr(offer, "cat");
+	  cout << "Offers group: " << server_group << endl;
+	  cout << "My group: " << pg.server_group_ << endl;
 	  if (pg.server_group_ != server_group) {
+	    cout << "rejecting" << endl << "----------" << endl;
             continue;
 	  }
         }

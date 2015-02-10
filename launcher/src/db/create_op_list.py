@@ -11,6 +11,9 @@ def create_opname():
           GroupBy| SELECT STATEMENT,VIEW,WINDOW BUFFER,HASH GROUP BY,HASH JOIN,JOIN FILTER CREATE,TABLE ACCESS INMEMORY FULL,JOIN FILTER USE
           TableScan| ExistingRdd,
           Join| Join
+          TableScan| TableScan
+          GroupBy| GroupBy
+          Exchange| Exchange
           GroupBy| Aggregate,Project
           GroupBy| GroupByPipe
           Exchange| COMM / OTHER
@@ -131,6 +134,27 @@ def create_opname():
           GroupBy| WINDOW BUFFER,HASH GROUP BY,HASH JOIN,TABLE ACCESS INMEMORY FULL
           GroupBy| WINDOW BUFFER,HASH GROUP BY,TABLE ACCESS INMEMORY FULL
           Planning|
+          TableScan| FILTER
+          Exchange| PX COORDINATOR
+          Exchange| PX SEND QC (RANDOM)
+          GroupBy| PX SEND HYBRID HASH
+          GroupBy| STATISTICS COLLECTOR
+          TableScan| VIEW
+          GroupBy| SORT AGGREGATE
+          Exchange| PX BLOCK ITERATOR
+          GroupBy| SORT GROUP BY STOPKEY
+          GroupBy| PX SEND HASH
+          Exchange| PX SEND BROADCAST
+          TableScan| WINDOW BUFFER
+          Join| JOIN FILTER USE
+          Exchange| PX RECEIVE
+          GroupBy| HASH GROUP BY
+          GroupBy| GroupByHash
+          Join| ParallelUnion
+          GroupBy| Sort
+          Planning| NewEENode
+          Planning| Root
+          TableScan| Filter
           '''
 
     olist = []

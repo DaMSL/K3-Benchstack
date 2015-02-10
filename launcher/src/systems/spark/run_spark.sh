@@ -16,5 +16,5 @@ CLASS=$3
 CMD="/software/spark-1.2.0/bin/spark-submit --master spark://$SPARK_HOME:$SPARK_PORT --class $CLASS $JARFILE $SF"
 #$CMD 2>&1 | grep -E "EventLoggingListener|Elapsed"
 
-#$CMD 3>&1 1>&2 2>&3 | grep "EventLoggingListener"
-$CMD 3>&1 1>&2 2>&3
+$CMD 3>&1 1>&2 2>&3 | grep "EventLoggingListener"
+#$CMD 3>&1 1>&2 2>&3
