@@ -1,6 +1,6 @@
 # cAdvisor Profiling
 
-External profiling is handled via the cAdvisor project - a container to monitor all docker containers on the parent host. Pull the container from google/cadvisor. To include the metrics, ensure that a cadvisor container is running on each machine you want to run a benchmark experiment. Docker container names must be set so that the profiling script can scape the JSON output from the cadvisor. 
+External profiling is handled via the cAdvisor project - a container to monitor all docker containers on the parent host. Pull the container from google/cadvisor. To include the metrics, ensure that a cadvisor container is running on each machine you want to run a benchmark experiment. Docker container names must be set so that the profiling script can scrape the JSON output from the cadvisor. 
 
 Use the following run command:
 ```
