@@ -14,7 +14,7 @@ include(CheckLibraryExists)
 include(CheckCSourceCompiles)
 include(CMakeDetermineCCompiler)
 
-set(CMAKE_CXX_FLAGS "-g -std=c++11")
+set(CMAKE_CXX_FLAGS "-g -std=c++1y")
 
 FIND_PACKAGE(Boost 1.54.0 COMPONENTS program_options system thread REQUIRED )
 

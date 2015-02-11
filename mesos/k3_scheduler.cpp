@@ -19,11 +19,14 @@
 #include <libgen.h>
 #include <time.h>
 #include <iostream>
-#include <string>
 #include <fstream>
 #include <string>
+#include <vector>
+#include <queue>
+#include <tuple>
+#include <sstream>
+#include <thread>
 
-#include <boost/lockfree/queue.hpp>
 #include <boost/program_options.hpp>
 #include <boost/lexical_cast.hpp>
 #include <boost/algorithm/string.hpp>
@@ -39,6 +42,8 @@
 #include <stout/os.hpp>
 #include <stout/stringify.hpp>
 
+#include "webserver/server_http.hpp"
+
 #define TOTAL_PEERS 4
 #define MASTER "zk://192.168.0.10:2181,192.168.0.11:2181,192.168.0.18:2181/mesos"
 #define FILE_SERVER "http://192.168.0.10:8002"
@@ -47,18 +52,12 @@
 #define MEM_REQUESTED 80000
 
 using namespace mesos;
+using namespace std;
 
 using boost::lexical_cast;
 
-using std::cout;
-using std::cerr;
-using std::endl;
-using std::flush;
-using std::string;
-using std::vector;
-using std::map;
-using std::list;
-using std::queue;
+using SimpleWeb::Server;
+using SimpleWeb::HTTP;
 
 //const int32_t CPUS_PER_TASK = 1;
 const double CPUS_PER_TASK = 1.0;
@@ -209,8 +208,11 @@ public:
 
 class K3Job {
 public:
-  K3Job (string _k3binary, YAML::Node _k3_vars, bool _logging,
-          int _total_peers, int _max_partitions, string _result_var, int _start_port, vector<PeerGroup> _groups)
+  K3Job() {}
+
+  K3Job (string _k3binary, YAML::Node _k3vars, bool _logging,
+         int _total_peers, int _max_partitions, string _result_var,
+         int _start_port, vector<PeerGroup> _groups)
   {
     k3binary       = _k3binary;
     k3vars         = _k3vars;
@@ -220,6 +222,17 @@ public:
     result_var     = _result_var;
     start_port     = _start_port;
     groups         = _groups;
+  }
+
+  K3Job(const K3Job& other) {
+    k3binary       = other.k3binary;
+    k3vars         = other.k3vars;
+    logging        = other.logging;
+    total_peers    = other.total_peers;
+    max_partitions = other.max_partitions;
+    result_var     = other.result_var;
+    start_port     = other.start_port;
+    groups         = other.groups;
   }
 
   string            k3binary;
@@ -245,19 +258,19 @@ public:
 
   virtual ~K3Scheduler() {}
 
-  void run(K3Job task) {
-    LOG(INFO) << "[RUN] Added pending task " << task.description() << endl;
-    pendingTasks.push(task);
-    ++numPendingTasks;
+  void run(K3Job job) {
+    LOG(INFO) << "[RUN] Added pending task " << job.description() << endl;
+    pendingJobs.push(job);
+    ++numPendingJobs;
   }
 
   list<K3Job> getActiveTasks() {
     list<K3Job> r;
-    for (auto entry : activeTasks) { r.push_back(get<1>(entry.second)); }
+    for (auto entry : activeJobs) { r.push_back(std::get<1>(entry.second)); }
     return r;
   }
 
-  int getNumPendingTasks() { return numPendingTasks; }
+  int getNumPendingJobs() { return numPendingJobs; }
 
   virtual void registered(SchedulerDriver*, const FrameworkID&, const MasterInfo&)  {
     LOG(INFO) << "[REGISTERED] K3 Framework REGISTERED with Mesos" << endl;
@@ -313,22 +326,22 @@ public:
   virtual void resourceOffers(SchedulerDriver* driver, const vector<Offer>& offers)  {
     LOG(INFO) << "[RESOURCE OFFER] " << offers.size() << " offer(s)." << endl;
 
-    if ( pendingTasks.empty() ) { return; }
+    if ( pendingJobs.empty() ) { return; }
 
     // Launch task.
-    K3Job next;
-    pendingTasks.pop(next);
-    --numPendingTasks;
+    K3Job next = pendingJobs.front();
+    pendingJobs.pop();
+    --numPendingJobs;
 
-    tuple<Status, int> launchR = launchK3Job(driver, next);
-    if ( get<0>(launchR) == DRIVER_RUNNING ) {
+    tuple<Status, int> launchR = launchK3Job(driver, offers, next);
+    if ( std::get<0>(launchR) == DRIVER_RUNNING ) {
       // Register task as active.
-      activeTasks[tasksLaunched] = make_tuple(get<1>(launchR), next);
+      activeJobs[tasksLaunched] = std::make_tuple(std::get<1>(launchR), next);
       ++tasksLaunched;
     } else if ( --next.retries > 0 ) {
       // Retry up to a certain number of times.
-      pendingTasks.push(next);
-      ++numPendingTasks;
+      pendingJobs.push(next);
+      ++numPendingJobs;
     }
   }
 
@@ -338,19 +351,7 @@ public:
     int taskId = lexical_cast<int>(status.task_id().value());
 
     if (status.state() == TASK_FINISHED) {
-      // Update, and garbage collect active tasks.
-      map<int,int>::iterator it = executorTasks.find(taskId);
-      if ( it != executorTasks.end() ) {
-        tuple<int, K3Job>& activeTaskEntry = activeTasks[it->second];
-        if ( get<0>(activeTaskEntry) == 1 ) {
-          activeTasks.erase(it->second);
-          LOG(INFO) << "K3 Task " << it->second << " -> " << taskState[status.state()] << endl;
-        } else {
-          activeTasks[it->second] = make_tuple(get<0>(activeTaskEntry)-1, get<1>(activeTaskEntry));
-        }
-      }
-
-      executorsFinished++;
+      cleanK3Job(status, taskId);
       LOG(INFO) << "Task " << taskId << " -> " << taskState[status.state()] << endl;
     }
 
@@ -359,18 +360,13 @@ public:
     }
 
     else if (status.state() == TASK_LOST || status.state() == TASK_KILLED)  {
-      executorsFinished++;
       LOG(INFO) << "Task " << taskId << " -> " << taskState[status.state()] << endl;
       LOG(INFO) << "Aborting due to LOST or KILLED task!" << endl;
       driver->stop();
     }
+
     else {
       LOG(INFO) << "RECEIVED UNKNOWN STATUS! ABORTING! " << status.message() << endl;
-      driver->stop();
-     }
-
-    if (executorsFinished == executorsAssigned) {
-      LOG(INFO) << "All executors finished successfuly" << endl;
       driver->stop();
     }
   }
@@ -398,6 +394,7 @@ public:
                             const SlaveID& slaveId, int status)
   {
     cout << "Executor lost. Aborting" << endl;
+    // TODO: stop remaining executors for the job, instead of stopping the driver.
     driver->stop();
   }
 
@@ -406,7 +403,27 @@ public:
   }
 
 protected:
-  tuple<Status, int> launchK3Job(SchedulerDriver* driver, const K3Job& k3task)
+  void cleanK3Job(const TaskStatus& status, int executorId, bool force = false)
+  {
+    // Update, and garbage collect active tasks.
+    map<int,int>::iterator it = executorJobs.find(executorId);
+    if ( it != executorJobs.end() ) {
+      map<int, std::tuple<int, K3Job>>::iterator actIt = activeJobs.find(it->second);
+      if ( actIt != activeJobs.end() ) {
+        tuple<int, K3Job>& activeTaskEntry = actIt->second;
+        if ( force || std::get<0>(activeTaskEntry) == 1 ) {
+          activeJobs.erase(it->second);
+          LOG(INFO) << "K3 Task " << it->second << " -> " << taskState[status.state()] << endl;
+        } else {
+          activeJobs[it->second] = std::make_tuple(std::get<0>(activeTaskEntry)-1, std::get<1>(activeTaskEntry));
+        }
+      }
+    }
+  }
+
+  tuple<Status, int> launchK3Job(SchedulerDriver* driver,
+                                 const vector<Offer>& offers,
+                                 const K3Job& k3task)
   {
     Status launchStatus;
     int numExecutors;
@@ -479,7 +496,6 @@ protected:
       }
 
       hostList[offers[i].hostname()] = profile;
-      executorsAssigned++;
     }
 
     // Build the Peers list
@@ -582,21 +598,18 @@ protected:
       launchStatus = driver->launchTasks(offers[profile.offer].id(), tasks);
       if ( launchStatus == DRIVER_STOPPED  || launchStatus == DRIVER_ABORTED ) { break; }
 
-      executorTasks[executorsLaunched] = tasksLaunched;
+      executorJobs[executorsLaunched] = tasksLaunched;
       ++executorsLaunched;
       ++numExecutors;
     }
 
-    return make_tuple(launchStatus, numExecutors);
+    return std::make_tuple(launchStatus, numExecutors);
   }
 
 private:
   // const ExecutorInfo executor;
   int peersAssigned = 0;
-  int peersFinished = 0;
   int executorsLaunched = 0;
-  int executorsFinished = 0;
-  int executorsAssigned = 0;
   int tasksLaunched = 0;
 
   string runpath;
@@ -604,27 +617,25 @@ private:
   map<string, hostProfile> hostList;
   vector<peerProfile> peerList;
 
-  map<int, std::tuple<int, K3Job>> activeTasks;
-  map<int, int> executorTasks;
+  queue<K3Job> pendingJobs;
+  int numPendingJobs;
 
-  boost::lockfree::queue<K3Job> pendingTasks;
-  int numPendingTasks;
+  map<int, std::tuple<int, K3Job>> activeJobs;
+  map<int, int> executorJobs;
 };
 
 // A proxy class for MesosSchedulerDriver
 class K3SchedulerDriver {
 public:
-  K3SchedulerDriver(const K3Job& _task)
-    : task(_task), scheduler(_task)
-  {
-    initialize();
-  }
+  K3SchedulerDriver() { initialize(); }
 
   void initialize()
   {
+    string master = MASTER;
+
     framework.set_user(""); // Have Mesos fill in the current user.
-    framework.set_name(params.k3binary + "-" + stringify(params.total_peers) + "-" + currTime());
-    framework.mutable_id()->set_value(params.k3binary + "-" + currTime());
+    framework.set_name("K3-" + currTime());
+    framework.mutable_id()->set_value("K3-" + currTime());
 
     // FROM: Example Frame, left unchanged for adding Creds/ChckPts, etc..
     if (os::hasenv("MESOS_CHECKPOINT")) {
@@ -648,13 +659,14 @@ public:
 
       framework.set_principal(getenv("DEFAULT_PRINCIPAL"));
 
-      driver = shared_ptr<MesosSchedulerDriver>(new MesosSchedulerDriver(
-                  &scheduler, framework, master, credential));
+      driver = std::make_shared<MesosSchedulerDriver>(&scheduler, framework, master, credential);
     } else {
       framework.set_principal("k3-framework");
-      driver = shared_ptr<MesosSchedulerDriver>(new MesosSchedulerDriver(&scheduler, framework, master));
+      driver = std::make_shared<MesosSchedulerDriver>(&scheduler, framework, master);
     }
   }
+
+  void runJob(K3Job job) { scheduler.run(job); }
 
   // Proxy methods for scheduler driver control.
   Status start() { return driver->start(); }
@@ -664,26 +676,36 @@ public:
   Status run() { return driver->run(); }
 
 protected:
-  K3Job task;
   shared_ptr<MesosSchedulerDriver> driver;
   K3Scheduler scheduler;
-  Framework framework;
+  FrameworkInfo framework;
   Credential credential;
 };
 
 // A web-based K3+Mesos scheduler driver.
 class K3SDriverHTTP : public K3SchedulerDriver {
 public:
-  K3HTTPDriver(int port, int threads, const K3SDriverParams& params)
-    : K3SchedulerDriver(params)
+  K3SDriverHTTP(int port, int threads)
   {
-    server = shared_ptr<Server<HTTP>>(new server(port, threads));
+    server = make_shared<Server<HTTP>>(port, threads);
     initializeRoutes();
-
+    startServices();
   }
 
-  void startServer() {
-    server_thread = shared_ptr<thread>(new server_thread([&server](){ server->start(); }));
+  void startServices() {
+    http_server_thread = std::make_shared<thread>([this](){ this->server->start(); });
+    mesos_driver_thread = std::make_shared<thread>([this](){
+      this->run();
+      this->stop();
+    });
+  }
+
+  void waitForServices() {
+    if ( http_server_thread )  {
+      http_server_thread->join();
+      this->stop();
+    }
+    if ( mesos_driver_thread && mesos_driver_thread->joinable() ) { mesos_driver_thread->join(); }
   }
 
   // Set up routes handled by the HTTP server.
@@ -709,16 +731,15 @@ public:
             content_stream << header.first << ": " << header.second << "<br>";
         }
 
-        //find length of content_stream (length received using content_stream.tellp())
-        content_stream.seekp(0, ios::end);
-        response <<  "HTTP/1.1 200 OK\r\nContent-Length: " << content_stream.tellp() << "\r\n\r\n" << content_stream.rdbuf();
+        response <<  "HTTP/1.1 200 OK\r\n\r\n" << content_stream.rdbuf();
       };
     }
   }
 
 private:
   shared_ptr<Server<HTTP>> server;
-  shared_ptr<thread> server_thread;
+  shared_ptr<thread> http_server_thread;
+  shared_ptr<thread> mesos_driver_thread;
 };
 
 int main(int argc, char** argv) {
@@ -733,7 +754,6 @@ int main(int argc, char** argv) {
   int start_port = 40000;
   bool logging = false;
   bool ktrace = false;
-
 
   //  Parse Command Line options
   namespace po = boost::program_options;
@@ -798,13 +818,11 @@ int main(int argc, char** argv) {
     return 1;
   }
 
-  K3Job task(k3binary, total_peers, k3vars, logging, max_partitions, result_var, start_port, peerGroups);
-  K3SDriverHTTP drv(task);
-
-  int status = drv->run() == DRIVER_STOPPED ? 0 : 1;
-  // Ensure that the driver process terminates.
-  k3sdriver->stop();
-  return status;
+  K3Job task(k3binary, k3vars, logging, total_peers, max_partitions, result_var, start_port, peerGroups);
+  K3SDriverHTTP drv(8080, 4);
+  drv.runJob(task);
+  drv.waitForServices();
+  return 0;
 }
 
 ExecutorInfo makeExecutor (string programBinary,
