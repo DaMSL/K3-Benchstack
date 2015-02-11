@@ -1,5 +1,6 @@
-role: rows
-master: auto
-data: 
-  - {var: dataFiles, path: /local/data/tpch10g/lineitem, policy: global}
+---
+peers: 64
+k3_globals:
+  role: rows
+  master: auto
 server_group: hm

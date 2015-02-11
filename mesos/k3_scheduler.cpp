@@ -46,10 +46,11 @@
 
 #define TOTAL_PEERS 4
 #define MASTER "zk://192.168.0.10:2181,192.168.0.11:2181,192.168.0.18:2181/mesos"
-#define FILE_SERVER "http://192.168.0.10:8002"
+#define FILE_SERVER "http://192.168.0.11:8002"
 #define DOCKER_IMAGE "damsl/k3-mesos2"
 #define CONDENSED true
 #define MEM_REQUESTED 80000
+
 
 using namespace mesos;
 using namespace std;
@@ -114,7 +115,7 @@ std::string currTime() {
 // Forward Declare
 //ExecutorInfo makeExecutor (string customExecutor, map<string, string> mounts);
 ExecutorInfo makeExecutor (string programBinary, YAML::Node hostParams,
-      map<string, string> mounts);
+      map<string, string> mounts, int id);
 
 class PeerGroup {
   public:
@@ -252,6 +253,8 @@ public:
   }
 };
 
+typedef tuple<list<int>, K3Job, shared_ptr<ostringstream>> ActiveJobState;
+
 class K3Scheduler : public Scheduler {
 public:
   K3Scheduler() {}
@@ -323,25 +326,38 @@ public:
     throw std::runtime_error("Attribute " + key + "not found in offer");
   }
 
+  // TODO: we currently assume we will be able to launch a job given a single set of offers (one call to this function).
+  // In practice, we may need to keep track of offers between callbacks (taking into account offersRescinded)
+  // For example, if we want to run on 4 machines but we are offered 2 at a time.
   virtual void resourceOffers(SchedulerDriver* driver, const vector<Offer>& offers)  {
     LOG(INFO) << "[RESOURCE OFFER] " << offers.size() << " offer(s)." << endl;
 
-    if ( pendingJobs.empty() ) { return; }
+    if ( pendingJobs.empty() ) {
+      for (const Offer& o: offers) {
+        driver->declineOffer(o.id());
+      }
+      return;
+    }
 
     // Launch task.
     K3Job next = pendingJobs.front();
     pendingJobs.pop();
     --numPendingJobs;
 
-    tuple<Status, int> launchR = launchK3Job(driver, offers, next);
+    LOG(INFO) << "Attempting to launch K3 Job " << jobsLaunched << endl;
+    tuple<Status, list<int>> launchR = launchK3Job(driver, offers, next);
     if ( std::get<0>(launchR) == DRIVER_RUNNING ) {
       // Register task as active.
-      activeJobs[tasksLaunched] = std::make_tuple(std::get<1>(launchR), next);
-      ++tasksLaunched;
+      activeJobs[jobsLaunched] = std::make_tuple(std::get<1>(launchR), next, make_shared<ostringstream>());
+      LOG(INFO) << "Succesfully launched K3 Job " << jobsLaunched << endl;
+      ++jobsLaunched;
     } else if ( --next.retries > 0 ) {
       // Retry up to a certain number of times.
       pendingJobs.push(next);
       ++numPendingJobs;
+    }
+    else {
+      LOG(INFO) << "Failed to launch K3 Job " << jobsLaunched << endl;
     }
   }
 
@@ -351,37 +367,46 @@ public:
     int taskId = lexical_cast<int>(status.task_id().value());
 
     if (status.state() == TASK_FINISHED) {
-      cleanK3Job(status, taskId);
       LOG(INFO) << "Task " << taskId << " -> " << taskState[status.state()] << endl;
+      cleanK3Job(driver, status, taskId);
     }
 
     else if (status.state() == TASK_RUNNING)  {
       LOG(INFO) << "Task " << taskId << " -> " << taskState[status.state()] << endl;
     }
 
-    else if (status.state() == TASK_LOST || status.state() == TASK_KILLED)  {
+    else {
       LOG(INFO) << "Task " << taskId << " -> " << taskState[status.state()] << endl;
-      LOG(INFO) << "Aborting due to LOST or KILLED task!" << endl;
-      driver->stop();
+      // Kill all tasks associated with the job
+      cleanK3Job(driver, status, taskId, true);
     }
 
-    else {
-      LOG(INFO) << "RECEIVED UNKNOWN STATUS! ABORTING! " << status.message() << endl;
-      driver->stop();
-    }
   }
 
   virtual void frameworkMessage(SchedulerDriver* driver,
                                 const ExecutorID& executorId,
                                 const SlaveID& slaveId, const string& data)
   {
-    bool containsEndl = false;
-    if (data.c_str()[data.length() - 1] == '\n') {
-      containsEndl = true;
-    }
-    cout << "[FRMWK]: " << data;
-    if (!containsEndl) {
-      cout << endl;
+    int id = std::stoi(executorId.value());
+   
+    // Log to the stream associated with the job
+    map<int,int>::iterator it = executorJobs.find(id);
+    if ( it != executorJobs.end() ) {
+      map<int, ActiveJobState>::iterator actIt = activeJobs.find(it->second);
+      if ( actIt != activeJobs.end() ) {
+        ActiveJobState& activeTaskEntry = actIt->second;
+	shared_ptr<ostringstream> s = std::get<2>(activeTaskEntry);
+	*s << data;
+	bool containsEndl = false;
+        if (data.c_str()[data.length() - 1] == '\n') {
+          containsEndl = true;
+        }
+	if (!containsEndl) {
+	  *s << endl;
+	}
+     
+      }
+     
     }
   }
 
@@ -403,30 +428,60 @@ public:
   }
 
 protected:
-  void cleanK3Job(const TaskStatus& status, int executorId, bool force = false)
+  void cleanK3Job(SchedulerDriver* driver, const TaskStatus& status, int executorId, bool abortJob = false)
   {
+   
     // Update, and garbage collect active tasks.
     map<int,int>::iterator it = executorJobs.find(executorId);
     if ( it != executorJobs.end() ) {
-      map<int, std::tuple<int, K3Job>>::iterator actIt = activeJobs.find(it->second);
+      map<int, ActiveJobState>::iterator actIt = activeJobs.find(it->second);
       if ( actIt != activeJobs.end() ) {
-        tuple<int, K3Job>& activeTaskEntry = actIt->second;
-        if ( force || std::get<0>(activeTaskEntry) == 1 ) {
+        if ( abortJob ) {
+          LOG(INFO) << "Asked to abort K3 Job " << it->second << ". All tasks will be killed."<< endl;
+        }
+
+        ActiveJobState& activeTaskEntry = actIt->second;
+	auto executorIds = std::get<0>(activeTaskEntry);
+
+	LOG(INFO) << "Cleaning Task " << executorId << ". Before cleanup there are " << executorIds.size() << " tasks left" << endl;
+	for (int i : executorIds) {
+          LOG(INFO) << "\tTask " << i << endl;
+	}
+
+        if ( abortJob || executorIds.size() == 1 ) {
           activeJobs.erase(it->second);
-          LOG(INFO) << "K3 Task " << it->second << " -> " << taskState[status.state()] << endl;
+	  executorJobs.erase(executorId);
+	  executorIds.remove(executorId);
+	 
+	  if ( abortJob ) {
+	    // Kill all tasks associated with the job
+            for (int id : executorIds) {
+              TaskID t;
+	      t.set_value(stringify(id));
+	      LOG(INFO) << "Killing Task " << id << "." << endl;
+	      driver->killTask(t);
+	    }
+	  }
+	 
+          LOG(INFO) << "K3 Job " << it->second << " -> " << taskState[status.state()] << endl;
+	  LOG(INFO) << "Job " << it->second << " output: " << endl;
+	  LOG(INFO) << std::get<2>(activeTaskEntry)->str() << endl;
         } else {
-          activeJobs[it->second] = std::make_tuple(std::get<0>(activeTaskEntry)-1, std::get<1>(activeTaskEntry));
+	  list<int> executorIds = std::get<0>(activeTaskEntry);
+	  executorIds.remove(executorId);
+          activeJobs[it->second] = std::make_tuple(executorIds, std::get<1>(activeTaskEntry), std::get<2>(activeTaskEntry));
+	  executorJobs.erase(executorId);
         }
       }
     }
   }
 
-  tuple<Status, int> launchK3Job(SchedulerDriver* driver,
+  tuple<Status, list<int>> launchK3Job(SchedulerDriver* driver,
                                  const vector<Offer>& offers,
                                  const K3Job& k3task)
   {
     Status launchStatus;
-    int numExecutors;
+    list<int> executorIds;
 
     // Iterate through each resource offer (1 offer per slave with available resources)
     //    Offer -> Vector of resources (cpu, mem, disk, etc)
@@ -455,6 +510,7 @@ protected:
         if (cpus < numPeers) { numPeers = cpus; }
         if (pg.peers_per_host_ != 0 && pg.peers_per_host_ < numPeers) { numPeers = pg.peers_per_host_; }
 
+	cpusUsed[i] += numPeers;
         assignedPeers += numPeers;
 
         for (int j = 0; j < numPeers; j++) {
@@ -462,15 +518,20 @@ protected:
           data[i].push_back(pg.data_);
         }
 
-        if (assignedPeers == pg.peers_) { break; }
+        if (assignedPeers >= pg.peers_) { break; }
       }
 
-      if (assignedPeers != pg.peers_) {
+      if (assignedPeers < pg.peers_) {
         throw std::runtime_error("Failed to assign all peers in group: " + YAML::Dump(pg.yaml_));
       }
     }
 
-    // Log deployment topology
+    // Reject any unused offers
+    for (size_t i =0; i < cpusUsed.size(); i++) {
+      if ( cpusUsed[i] == 0) {
+        driver->declineOffer(offers[i].id());
+      }
+    }
     LOG(INFO) << "Successfully allocated all peers: " << endl;
 
     int peersAssigned = 0;
@@ -568,7 +629,7 @@ protected:
         hostParams["resultVar"] = k3task.result_var;
       }
 
-      ExecutorInfo executor = makeExecutor(k3task.k3binary, hostParams, mountPoints);
+      ExecutorInfo executor = makeExecutor(k3task.k3binary, hostParams, mountPoints, executorsLaunched);
 
       TaskInfo task;
       task.set_name(k3task.k3binary + "@" + hostname);
@@ -598,19 +659,19 @@ protected:
       launchStatus = driver->launchTasks(offers[profile.offer].id(), tasks);
       if ( launchStatus == DRIVER_STOPPED  || launchStatus == DRIVER_ABORTED ) { break; }
 
-      executorJobs[executorsLaunched] = tasksLaunched;
+      executorJobs[executorsLaunched] = jobsLaunched;
+      executorIds.push_back(executorsLaunched);
       ++executorsLaunched;
-      ++numExecutors;
     }
 
-    return std::make_tuple(launchStatus, numExecutors);
+    return std::make_tuple(launchStatus, executorIds);
   }
 
 private:
   // const ExecutorInfo executor;
   int peersAssigned = 0;
   int executorsLaunched = 0;
-  int tasksLaunched = 0;
+  int jobsLaunched = 0;
 
   string runpath;
   string fileServer;
@@ -620,7 +681,8 @@ private:
   queue<K3Job> pendingJobs;
   int numPendingJobs;
 
-  map<int, std::tuple<int, K3Job>> activeJobs;
+  map<int, ActiveJobState> activeJobs;
+  // Map from executorID to jobID
   map<int, int> executorJobs;
 };
 
@@ -827,13 +889,13 @@ int main(int argc, char** argv) {
 
 ExecutorInfo makeExecutor (string programBinary,
                            YAML::Node hostParams,
-                           map<string, string> mounts)
+                           map<string, string> mounts, int id)
 {
     string fileServer = FILE_SERVER;
 
     // CREATE The DOCKER Executor
     ExecutorInfo executor;
-    executor.mutable_executor_id()->set_value("k3-executor2");
+    executor.mutable_executor_id()->set_value(stringify(id));
 
 
     // Sets executor name to program name to pass along to slaves for execution

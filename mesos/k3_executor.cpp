@@ -391,10 +391,11 @@ public:
   virtual void killTask(ExecutorDriver* driver, const TaskID& taskId) {
     if (thread) {
       thread->interrupt();
-      thread->join();
+      //thread->join();
       delete thread;
       thread = 0;
     }
+    cout << "Killing Task" << endl;
     driver->sendFrameworkMessage("Executor " + host_name+ " KILLING TASK");
     driver->stop();
   }
