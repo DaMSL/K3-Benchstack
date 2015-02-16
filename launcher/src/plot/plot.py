@@ -190,6 +190,9 @@ def plotBigOpGraph(ds, data, metric, error=None):
         plt.text(x + offset + width/2., 0, 'X', ha='center', size='large', color='darkred')
       elif y < 10:
         plt.text(x + offset + width/2., y, '%.1f' % y, size='x-small', ha='center', va='bottom')
+      elif y < 100:
+        label_align = 'center' if error == None or error[qry][x] < .03*y else 'left'
+        plt.text(x + offset + width/2., y, ' %.0f' % y, size='xx-small', ha=label_align, va='bottom')
     offset += len(systems) + spacing
 
 
@@ -248,6 +251,9 @@ def plotAllTimes(ds):
         plt.text(x + width*i + width/2., 0, 'X', ha='center', size='large', color='darkred')
       elif y < 10:
         plt.text(x + width*i + width/2., y, '%.1f' % y, size='x-small', ha='center', va='bottom')
+      elif y < 100:
+        label_align = 'center' if data[1][x] < .03*y else 'left'
+        plt.text(x + width*i + width/2., y, '%.0f' % y, size='xx-small', ha=label_align, va='bottom')
 
   plt.title("%s Execution Times" % ds.upper())
   plt.xlabel("Query")
@@ -316,8 +322,8 @@ def plotAllMemory(ds):
     for x, y in zip (index, data[0]):
       if y == 0:
         plt.text(x * (width*5) + width*i + width/2., 0, 'X', size='large', ha='center', color='darkred')
-      elif y < 10:
-        plt.text(x * (width*5) + width*i + width/2., y, '%.0fGB' % y, size='xx-small', ha='center', va='bottom')
+      elif y < 100:
+        plt.text(x * (width*5) + width*i + width/2., y, '%.0f' % y, size='xx-small', ha='center', va='bottom')
   
   plt.title("%s Memory" % ds.upper())
   plt.xlabel("Query")

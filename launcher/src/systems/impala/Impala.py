@@ -62,7 +62,7 @@ class Impala:
     queryFolder = self.queryMap[e.workload]
     queryFile = os.path.join(queryFolder, e.query + ".sql")
 
-    command = "./systems/impala/run_impala.sh %s %s %s" % (schemaFolder, scaleFactor, queryFile)
+    command = "./systems/impala/run_impala.sh %s %s" % (scaleFactor, queryFile)
 
     # Parse output and summary    
     output = utils.runCommand(command)
@@ -87,13 +87,9 @@ class Impala:
     offsets = []
     for line in summary:
       x = line.split('|')
-      if len(x) == 11:
-        offsets.append(0)
-      else:
-        offsets.append(1)
+      offsets.append(len(x) - 11)
       clean.append([s.strip(" -") for s in x])
 
-   
     # break apart columns
     operators = []
     p = re.compile('(\d+\.\d+)(.+)')
@@ -176,8 +172,8 @@ class Impala:
   def runTPCH11(self, e, trial_id):
     scaleFactor = self.scaleFactorMap[e.dataset]
     schemaFolder = self.schemaMap[e.workload]
-    command1 = "./systems/impala/run_impala.sh %s %s %s" % (schemaFolder, scaleFactor, self.tpch11SubQueryFile)
-    command2 = "./systems/impala/run_impala.sh %s %s %s" % (schemaFolder, scaleFactor, self.tpch11MainQueryFile)
+    command1 = "./systems/impala/run_impala.sh %s %s" % (scaleFactor, self.tpch11SubQueryFile)
+    command2 = "./systems/impala/run_impala.sh %s %s" % (scaleFactor, self.tpch11MainQueryFile)
     output = utils.runCommand(command1)
     r1 = self.parseOutput(trial_id, output)
     

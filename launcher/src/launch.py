@@ -74,6 +74,8 @@ def runExperiments(experiments, systems, numTrials, debug=False, profiling=False
    
         # Run the experiment with profiling. 
         p = Profiler(system.machines, system.container, trial_id)
+
+
         if profiling:
           p.start()
   

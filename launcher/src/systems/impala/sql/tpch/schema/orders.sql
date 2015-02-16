@@ -1,5 +1,5 @@
-DROP TABLE IF EXISTS orders;
-CREATE EXTERNAL TABLE orders (
+DROP TABLE IF EXISTS orders_src;
+CREATE EXTERNAL TABLE orders_src (
   o_orderkey      Int,
   o_custkey       Int,
   o_orderstatus   String,
@@ -13,3 +13,21 @@ CREATE EXTERNAL TABLE orders (
 ROW FORMAT DELIMITED 
 FIELDS TERMINATED BY '|' 
 LOCATION "hdfs://qp-hm1.damsl.cs.jhu.edu:54310/tpch/@@SCALE_FACTOR@@/orders/";
+
+DROP TABLE IF EXISTS orders;
+CREATE TABLE orders (
+  o_orderkey      Int,
+  o_custkey       Int,
+  o_orderstatus   String,
+  o_totalprice    Double,
+  o_orderdate     String,
+  o_orderpriority String,
+  o_clerk         String,
+  o_shippriority  Int,
+  o_comments      String
+)
+PARTITIONED BY (okey Int);
+
+INSERT INTO orders PARTITION (okey) SELECT *, o_orderkey % 8 FROM orders_src;
+
+COMPUTE STATS orders;

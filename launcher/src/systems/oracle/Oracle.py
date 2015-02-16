@@ -6,33 +6,8 @@ from entities.operator import *
 
 
 
-class oracleJob(object):
-  def __init__ (self, depth):
-    self.depth = depth
-    self.oplist = []
-    self.objs = []
-    self.mem = 0
-    self.time = 0
-    self.percent = 0.0
-  def addOp(self, op, obj):
-    if op not in self.oplist:
-      self.oplist.append(op)
-    if len(obj) > 0 and obj not in self.objs:
-      self.objs.append(obj)
-  def name(self):
-    return(','.join(self.oplist))
-  def objects(self):
-    return(','.join(self.objs))
-  def time(self):
-    return self.end - self.start
-  def update(self, mem, time, percent):
-    self.mem += mem
-    self.time += time
-    self.percent += percent
-
 class oracleOp(object):
   def __init__ (self, oid, name, time, percent, mem, obj):
-
     self.oid = oid
     self.name = name
     self.time = time
@@ -40,18 +15,10 @@ class oracleOp(object):
     self.mem = mem
     self.obj = obj
 
-  #  Helper function to check if a Spark job exists in a given list
-def checkJob (jl, d):
-  for job in jl:
-    if job.depth == d:
-      return jl.index(job)
-  return -1
-
-
 class Oracle:
   def __init__(self, machine):
     self.machines = [machine]
-    self.container = "orcl"
+    self.container = "orcl2"
 
   def name(self):
     return "Oracle"

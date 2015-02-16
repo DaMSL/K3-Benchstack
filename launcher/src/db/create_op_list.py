@@ -155,6 +155,8 @@ def create_opname():
           Planning| NewEENode
           Planning| Root
           TableScan| Filter
+          GroupBy| GROUPBY
+          Join| JOIN
           '''
 
     olist = []
