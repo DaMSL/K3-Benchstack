@@ -12,11 +12,11 @@ from matplotlib.ticker import FuncFormatter
 from mpl_toolkits.axes_grid1 import host_subplot
 import mpl_toolkits.axisartist as AA
 
-systems = ['Vertica', 'Oracle', 'Spark', 'Impala', 'K3']
-system_labels = {'Vertica': 'DB X', 'Oracle':'DB Y', 'Spark': 'Spark', 'Impala': 'Impala', 'K3': 'K3'}
-operations = ['Planning','TableScan','Join','GroupBy','Exchange']
-op_colors = ['gold', 'red', 'green', 'cyan', 'saddlebrown']
-sys_colors = ['r', 'g', 'b', 'c', 'gold']
+systems = ['Vertica', 'Oracle', 'Spark', 'Impala', 'Impala-p', 'K3']
+system_labels = {'Vertica': 'DB X', 'Oracle':'DB Y', 'Spark': 'Spark', 'Impala': 'Impala', 'K3': 'K3', 'Impala-p': 'Impala (Part)'}
+operations = ['Planning','TableScan','Join','GroupBy','Exchange', 'FilterProject']
+op_colors = ['gold', 'orangered', 'skyblue', 'mediumseagreen', 'royalblue', 'saddlebrown']
+sys_colors = ['r', 'g', 'b', 'c', 'royalblue', 'gold']
 
 workload = {'tpch10g':'tpch', 'tpch100g':'tpch', 'amplab':'amplab'}
 query_labels = {'tpch': {1:'Q1', 3:'Q3', 5:'Q5', 6:'Q6', 11:'Q11', 18:'Q18', 22:'Q22'},
@@ -84,10 +84,6 @@ def getOperationStats(ds, qry):  #expId_list):
   query = "SELECT system, avg_time/1000, error/1000 from summary_by_system WHERE dataset='%s' and query='%s';" % (ds, qry)
   cur.execute(query)
   for result in cur.fetchall():
- #   query = "SELECT avg_time/1000, error/1000 from summary_by_system WHERE dataset='%s' and query='%s' and system='%s';" % (ds, qry, sys)
-#    cur.execute(query)
-#    result = cur.fetchone()
-#    if result != None:
     sys, time, err = result
     total_time[sys] = float(time)
     err_time[systems.index(sys)] = float(err)
@@ -222,7 +218,8 @@ def plotBigOpGraph(ds, data, metric, error=None):
 #--------------------------------------------------------------------------------
 def plotAllTimes(ds):
   queries = query_list[workload[ds]]
-  width = 0.2
+  width = 1./(len(systems) + 1)
+  spacing = 1
   results = {}
   conn = db.getConnection()
   cur = conn.cursor()
@@ -243,23 +240,25 @@ def plotAllTimes(ds):
     # Unzip date into plot-able vectors & draw each bar
     data = zip(*[ (v[0]/1000.0, v[1]/1000.0) for k, v in results.items()] ) # in cur.fetchall() ])
     index = np.arange(len(data[0]))
-    plt.bar(index + width*i, data[0], width, color=sys_colors[i], yerr=data[1], label=system_labels[sys])
+    #index = [i + spacing for i in range(len(data[0]))]
+    index[0] = 0
+    plt.bar(index + (width)*i, data[0], width, color=sys_colors[i], yerr=data[1], label=system_labels[sys])
 
     # Check for annotations 
     for x, y in zip (index, data[0]):
       if y == 0:
-        plt.text(x + width*i + width/2., 0, 'X', ha='center', size='large', color='darkred')
+        plt.text(x + (width)*i + width/2., 0, 'X', ha='center', size='large', color='darkred')
       elif y < 10:
-        plt.text(x + width*i + width/2., y, '%.1f' % y, size='x-small', ha='center', va='bottom')
+        plt.text(x + (width)*i + width/2., y, '%.1f' % y, size='x-small', ha='center', va='bottom')
       elif y < 100:
         label_align = 'center' if data[1][x] < .03*y else 'left'
-        plt.text(x + width*i + width/2., y, '%.0f' % y, size='xx-small', ha=label_align, va='bottom')
+        plt.text(x + (width)*i + width/2., y, '%.0f' % y, size='xx-small', ha=label_align, va='bottom')
 
   plt.title("%s Execution Times" % ds.upper())
   plt.xlabel("Query")
-  plt.ylabel('Time (s)')
+  plt.ylabel('Time (sec)')
   plt.ylim(ymin=0)
-  plt.xticks(index + 2*width, queries)
+  plt.xticks(index + .5, queries)
   plt.legend(loc='best')
   plt.tight_layout()
   plt.show()

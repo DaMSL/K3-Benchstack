@@ -23,9 +23,8 @@ CREATE TABLE customer (
   c_acctbal    Double,
   c_mktsegment String,
   c_comments   String
-)
-PARTITIONED BY (ckey Int);
+);
 
-INSERT INTO customer PARTITION (ckey) select *, c_custkey % 8 from customer_src;
+INSERT INTO customer select * from customer_src;
 
 COMPUTE STATS customer;

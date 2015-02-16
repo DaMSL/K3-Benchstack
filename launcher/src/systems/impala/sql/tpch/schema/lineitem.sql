@@ -39,9 +39,8 @@ CREATE TABLE lineitem (
   l_shipinstruct  String,
   l_shipmode      String,
   l_comments      String
-) 
-PARTITIONED BY (okey Int);
+); 
 
-insert into lineitem partition (okey) select *, l_orderkey % 8 from lineitem_src;
+insert into lineitem select * from lineitem_src;
 
 COMPUTE STATS lineitem;

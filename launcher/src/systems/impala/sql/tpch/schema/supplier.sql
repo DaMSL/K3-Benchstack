@@ -21,9 +21,8 @@ CREATE TABLE supplier (
   s_phone     String,
   s_acctbal   Double,
   s_comments  String 
-)
-PARTITIONED BY (skey Int);
+);
 
-INSERT INTO supplier PARTITION (skey) SELECT *, s_suppkey % 8 from supplier_src;
+INSERT INTO supplier SELECT * from supplier_src;
 
 COMPUTE STATS supplier;

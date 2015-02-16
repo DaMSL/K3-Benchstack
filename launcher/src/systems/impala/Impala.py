@@ -6,16 +6,17 @@ from entities.result import *
 from entities.operator import *
 
 class Impala:
-  def __init__(self, machines):
+  def __init__(self, machines, partitioned=False):
     self.machines = machines
     self.container = "Impala_slave" 
     # Special code for running TPCH Query 11
-    # Need to run subquery and main query  
+    # Need to run subquery and main query
+    self.partitioned = partitioned
     self.tpch11SubQueryFile = './systems/impala/sql/tpch/q11_10G/11sub.sql'
     self.tpch11MainQueryFile = './systems/impala/sql/tpch/q11_10G/11.sql'
 
   def name(self):
-    return "Impala"
+    return "Impala-p" if self.partitioned else "Impala"
 
   queryMap = {'tpch': 'systems/impala/sql/tpch/queries/',
               'amplab': 'systems/impala/sql/amplab/queries/'}

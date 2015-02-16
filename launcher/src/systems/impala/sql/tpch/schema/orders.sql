@@ -25,9 +25,8 @@ CREATE TABLE orders (
   o_clerk         String,
   o_shippriority  Int,
   o_comments      String
-)
-PARTITIONED BY (okey Int);
+);
 
-INSERT INTO orders PARTITION (okey) SELECT *, o_orderkey % 8 FROM orders_src;
+INSERT INTO orders SELECT * FROM orders_src;
 
 COMPUTE STATS orders;
