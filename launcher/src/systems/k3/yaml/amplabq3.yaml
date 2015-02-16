@@ -1,0 +1,12 @@
+---
+name: role 1
+peers: 128
+hostmask: ".*hm.*"
+k3_globals:
+  role: rows
+  master: auto
+  x: 8
+  profilingEnabled: True
+k3_data:
+  - {var: uvFiles, path: /local/data/amplab/1024/uservisits, policy: global}
+  - {var: rkFiles, path: /local/data/amplab/1024/rankings, policy: pinned}

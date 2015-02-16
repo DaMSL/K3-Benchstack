@@ -3,6 +3,7 @@ import utils.utils as utils
 import time
 
 from entities.result import *
+from entities.operator import *
 
 class K3:
   def __init__(self, machines):
@@ -11,12 +12,14 @@ class K3:
 
   def name(self):
     return "K3"
-
-  k3Core = '/k3/K3-Core'  
-  k3Driver = '/k3/K3-Driver'
-  schedulerPath = './systems/k3/k3scheduler'
+  
+  webAddress = "http://192.168.0.11:8002"
+  k3Dir = '/K3'
+  schedulerDir = '/K3/tools/scheduler/scheduler/'
+  schedulerPath = os.path.join(schedulerDir, 'dispatcher.py')
   webServer = '/build'
-  queryMap = {'tpch': os.path.join(k3Core, 'examples/sql/tpch/queries/k3')}
+  queryMap = {'tpch': os.path.join(k3Dir, 'examples/sql/tpch/queries/k3'),
+              'amplab': os.path.join(k3Dir, 'examples/distributed/amplab')}
 
   def getBinaryName(self, e):
     return e.workload + 'q' + e.query
@@ -36,18 +39,18 @@ class K3:
   
 
     try:
-      cleanupCmd = "rm %s" % os.path.join(self.k3Driver, '__build/A')
+      cleanupCmd = "rm %s" % os.path.join(self.k3Dir, '__build/A')
       utils.runCommand(cleanupCmd)
-      cleanupCmd = "rm %s" % os.path.join(self.k3Driver, '__build/__build/*')
+      cleanupCmd = "rm %s" % os.path.join(self.k3Dir, '__build/__build/*')
       utils.runCommand(cleanupCmd)
     except Exception:
       pass
 
-    compileCmd = os.path.join(self.k3Driver, 'compile.sh') + " " + sourcePath
-    utils.runCommand('cd ' + self.k3Driver + ' && ' + compileCmd)
+    compileCmd = os.path.join(self.k3Dir, 'tools/scripts/run/compile.sh') + " " + sourcePath
+    utils.runCommand('cd ' + self.k3Dir + ' && ' + compileCmd)
 
     binaryName = self.getBinaryName(e)
-    src = os.path.join(self.k3Driver, '__build/A')
+    src = os.path.join(self.k3Dir, '__build/A')
     dest = os.path.join(self.webServer, binaryName)
     utils.runCommand("mv %s %s" % (src,dest))
     return True
@@ -84,31 +87,52 @@ class K3:
 
     return True
 
+  # TODO toggle 100g vs 10g
   def runExperiment(self, e, trial_id, retries=3):
     sched = self.schedulerPath
-    binary = self.getBinaryName(e)
+    binary = self.webAddress + "/" + self.getBinaryName(e)
     yaml = self.getYamlPath(e)
+    tmp = "/tmp/k3.yaml"
 
-    cmd = "%s %s 16 -y %s"  % (sched, binary, yaml)
+    precmd = ""
+    # hack, replace 10g with 100g for tpch
+    if e.dataset == "tpch100g":
+      precmd = "sed s/10g/100g/g " + yaml
+    else:
+      precmd = "cat " + yaml
+      
+    
+    cmd = "%s > %s && PYTHONPATH=%s python %s --binary %s --roles %s 2>&1"  % (precmd, tmp, self.schedulerDir, self.schedulerPath, binary, tmp)
 
     output = utils.runCommand(cmd)
-    print(output)
     lines = output.split('\n')
 
     elapsedTime = 0
     r = None
+    operators = []
+    r = None
+    totalOpTime = 0.0
     for line in lines:
-      if "Time query:" in line:
+      if "Time Query:" in line:
         elapsedTime = int(line.split(":")[-1].strip())
         r = Result(trial_id, "Success", elapsedTime, "")
-      if "RECEIVED UNKNOWN STATUS" in line and retries > 0:
+      if "GROUPBY" in line:
+        time = int(line.split(":")[-1].strip())
+        totalOpTime = totalOpTime + time
+        o = Operator(trial_id, len(operators), "GROUPBY", time, 0, 0, "")
+        operators.append(o)
+      if "JOIN" in line:
+        time = int(line.split(":")[-1].strip())
+        totalOpTime = totalOpTime + time
+        o = Operator(trial_id, len(operators), "JOIN", time, 0, 0, "")
+        operators.append(o)
 
-        print("RECEIVED UNKNOWN STATUS... Aborting")
-        return Result(trial_id, "Failure", 0, "Executors failed with unknown status!")
-    
+  
     if elapsedTime == 0:
       r = Result(trial_id, "Failure", 0, "Failed to find elapsedTime in output. error.")
 
-    print("sleeping for 60 seconds to avoid address in use errors");
-    time.sleep(60)
+    for o in operators:
+      o.percent_time = 100 * o.time / totalOpTime
+    r.setOperators(operators)
+
     return r

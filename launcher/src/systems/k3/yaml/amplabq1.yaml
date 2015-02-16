@@ -5,6 +5,7 @@ hostmask: ".*hm.*"
 k3_globals:
   role: rows
   master: auto
+  x: 1000
   profilingEnabled: True
 k3_data:
-  - {var: dataFiles, path: /local/data/tpch10g/lineitem, policy: global}
+  - {var: dataFiles, path: /local/data/amplab/1024/rankings, policy: global}

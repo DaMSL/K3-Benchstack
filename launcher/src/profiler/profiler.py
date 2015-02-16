@@ -79,13 +79,13 @@ class Profiler(threading.Thread):
           for m in self.machines:
 
             if self.containers[m] == None:
-              c = Client(base_url='tcp://' + m + ':41000')
+              c = Client(base_url='tcp://' + m + ':41000', version='1.15')
               allContainers = c.containers()
               allNames = [c['Names'][0] for c in allContainers]
               mesos = [n for n in allNames if 'mesos' in n]
               if len(mesos) > 0:
                 self.containers[m] = mesos[0]
-                print("Container named %s found on %s" % (mesos[0], m))
+                #print("Container named %s found on %s" % (mesos[0], m))
           time.sleep(1)
 
 
