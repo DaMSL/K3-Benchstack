@@ -47,6 +47,8 @@ def buildIndex(path, title):
   index += '<title>%s</title>' % title
   index += '<body><h2>%s</h2>' % title
   for img in sorted(os.listdir(path)):
+    if img.startswith('index'):
+      continue
     index += '<img src="%s" />' % img  
   index += '</body></html>'
   indexfile = open(path + '/index.html', 'w')
@@ -101,7 +103,7 @@ def get_cadvisor_metrics(con, dset, qry):
       mem_data[s] = []
 
 #    query = "SELECT system, %s FROM cadvisor_experiment_stats WHERE experiment_id=%d ORDER BY interval" % (metric.label, expid)
-    query = "SELECT C.system, C.cpu_usage_total, C.memory_usage FROM cadvisor_experiment_stats C, (SELECT system, experiment_id from summary_by_system where dataset='%s' and query='%s') as E WHERE C.system = E.system AND C.experiment_id = E.experiment_id ORDER BY interval;" % (dset, qry)
+    query = "SELECT C.system, C.cpu_usage_total, C.memory_usage FROM cadvisor_experiment_stats C, summary_by_system S where s.dataset='%s' and s.query='%s' and  C.system = S.system AND C.experiment_id = S.experiment_id ORDER BY system, interval;" % (dset, qry)
     cur = con.cursor()
     cur.execute(query)
     for row in cur.fetchall():

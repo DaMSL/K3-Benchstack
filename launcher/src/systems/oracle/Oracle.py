@@ -6,33 +6,8 @@ from entities.operator import *
 
 
 
-class oracleJob(object):
-  def __init__ (self, depth):
-    self.depth = depth
-    self.oplist = []
-    self.objs = []
-    self.mem = 0
-    self.time = 0
-    self.percent = 0.0
-  def addOp(self, op, obj):
-    if op not in self.oplist:
-      self.oplist.append(op)
-    if len(obj) > 0 and obj not in self.objs:
-      self.objs.append(obj)
-  def name(self):
-    return(','.join(self.oplist))
-  def objects(self):
-    return(','.join(self.objs))
-  def time(self):
-    return self.end - self.start
-  def update(self, mem, time, percent):
-    self.mem += mem
-    self.time += time
-    self.percent += percent
-
 class oracleOp(object):
   def __init__ (self, oid, name, time, percent, mem, obj):
-
     self.oid = oid
     self.name = name
     self.time = time
@@ -40,18 +15,10 @@ class oracleOp(object):
     self.mem = mem
     self.obj = obj
 
-  #  Helper function to check if a Spark job exists in a given list
-def checkJob (jl, d):
-  for job in jl:
-    if job.depth == d:
-      return jl.index(job)
-  return -1
-
-
 class Oracle:
   def __init__(self, machine):
     self.machines = [machine]
-    self.container = "orcl"
+    self.container = "orcl2"
 
   def name(self):
     return "Oracle"
@@ -98,9 +65,6 @@ class Oracle:
     output = utils.runCommand(command)
     lines = output.split('\n')
 
-    for l in lines:
-        print l
-
     # TODO: Try to capture metrics for querried run under 100 ms
     if lines[0].strip() == '' or lines[1].strip() == '':
       elapsed = 100
@@ -123,7 +87,6 @@ class Oracle:
 
     operators = [Operator(trial_id, 0, 'Pre-Execution', run_time - exec_time, pre_percent, 0, '')]
     for op in ops:
-      print '%s, %f, %f' % (op.name, op.time, op.percent)
       operators.append(Operator(trial_id, op.oid, op.name, op.time, op.percent, op.mem, op.obj))
 
     result =  Result(trial_id, "Success", exec_time, "")

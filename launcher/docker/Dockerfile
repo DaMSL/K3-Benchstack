@@ -1,4 +1,4 @@
-FROM ubuntu:latest
+FROM damsl/k3-debug
 
 # Locale
 RUN locale-gen en_US.UTF-8
@@ -21,7 +21,6 @@ RUN apt-get install -y oracle-java7-installer
 ENV JAVA_HOME /usr/lib/jvm/java-7-oracle/
 
 # Install Scala
-RUN mkdir /software
 WORKDIR /software
 RUN wget http://www.scala-lang.org/files/archive/scala-2.10.4.tgz
 RUN tar -xvzf scala-2.10.4.tgz
@@ -64,9 +63,28 @@ RUN unzip instantclient-sqlplus-linux.x64-12.1.0.2.0.zip
 RUN ln -s /oracle/instantclient_12_1/sqlplus /usr/bin/sqlplus
 ENV LD_LIBRARY_PATH /oracle/instantclient_12_1/
 
+# Mesos
+WORKDIR /software
+RUN apt-get install -y build-essential python-dev python-boto libcurl4-nss-dev libsasl2-dev maven libapr1-dev libsvn-dev autoconf libtool
+RUN wget http://archive.apache.org/dist/mesos/0.21.0/mesos-0.21.0.tar.gz
+RUN tar -zxf mesos-0.21.0.tar.gz
+RUN apt-get install -y gcc-4.6
+RUN update-alternatives --remove-all gcc 
+RUN apt-get install -y gcc-4.6 g++-4.6
+RUN update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-4.6 10
+RUN update-alternatives --install /usr/bin/g++ g++ /usr/bin/g++-4.6 10
+
+RUN cd mesos-0.21.0 && mkdir build && cd build && ../configure && make && make install
+RUN update-alternatives --remove-all gcc && update-alternatives --remove-all g++
+RUN update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-4.9 10
+RUN update-alternatives --install /usr/bin/g++ g++ /usr/bin/g++-4.9 10
+RUN apt-get install -y libprotobuf-dev libgoogle-glog-dev
 
 WORKDIR /
 RUN git clone https://github.com/damsl/k3-benchstack
 ADD entrypoint.sh /
 RUN chmod +x /entrypoint.sh
+
+RUN apt-get install -y cmake
+
 ENTRYPOINT ["/entrypoint.sh"]

@@ -8,13 +8,15 @@ import utils.utils as utils
 import metric_plots as mplots
 import matplotlib.pyplot as plt
 import matplotlib.colors
+from matplotlib.ticker import FuncFormatter
 from mpl_toolkits.axes_grid1 import host_subplot
 import mpl_toolkits.axisartist as AA
 
-systems = ['Vertica', 'Oracle', 'Spark', 'Impala']
+systems = ['Vertica', 'Oracle', 'Spark', 'Impala', 'K3']
+system_labels = {'Vertica': 'DB X', 'Oracle':'DB Y', 'Spark': 'Spark', 'Impala': 'Impala', 'K3': 'K3'}
 operations = ['Planning','TableScan','Join','GroupBy','Exchange']
 op_colors = ['gold', 'red', 'green', 'cyan', 'saddlebrown']
-sys_colors = ['r', 'g', 'b', 'c']
+sys_colors = ['r', 'g', 'b', 'c', 'gold']
 
 workload = {'tpch10g':'tpch', 'tpch100g':'tpch', 'amplab':'amplab'}
 query_labels = {'tpch': {1:'Q1', 3:'Q3', 5:'Q5', 6:'Q6', 11:'Q11', 18:'Q18', 22:'Q22'},
@@ -25,9 +27,43 @@ Oracle_comprmem = {'tpch10g':  {1:3.55, 3:5.13, 5:5.15, 6:3.55, 11:1.56, 18:5.13
                    'tpch100g': {1:38.19, 3:53.82, 5:53.97, 6:38.19, 11:11.87, 18:53.82, 22:15.63},
                    'amplab':   {1:5.6, 2:5.25, 3:10.85} }
 
+
+#----------------------------------------------------------
+#  Metric Class -- defines meta data for given metrics
+#---------------------------------------------------------
+class Metric:
+    def __init__(self, label, convert, title, axis, delta=False):
+        self.label = label
+        self.convert = convert
+        self.title = title
+        self.axis = axis
+        self.delta = delta
+
+
+def conv_ts(ts):
+    time = ts.split('.')
+    return dt.datetime.strptime(time[0], "%Y-%m-%dT%X")
+
+def conv_mem(m):
+    return int(m / (1024 * 1024 * 1024))
+
+def conv_cpu(c):
+    return float(c / 1000000)
+
+cpu_total = Metric("cpu_usage_total", conv_cpu, "CPU_Total", "Time (ms)", True)
+cpu_system = Metric("cpu_usage_system", conv_cpu, "CPU_System", "Time (ms)", True)
+mem_usage = Metric("memory_usage", conv_mem, "MEM_Usage", "Mem (GB)")
+
 p_metric= {'title':'Percent Time by Operation', 'label':'Percent Time', 'fileprefix': 'percent_'}
 t_metric= {'title':'Time by Operation', 'label':'Time (sec)', 'fileprefix': 'time_'}
-m_metric= {'title':'Memory Allotted by Operation', 'label':'Mem (MB)', 'fileprefix': 'memory_'}
+m_metric= {'title':'Memory Allotted by Operation', 'label':'Mem (GB)', 'fileprefix': 'memory_'}
+
+
+def normalizeData(data, norm_from=0, norm_to=100):
+    to = np.linspace(norm_from, norm_to, len(data))
+    tn = np.linspace(norm_from, norm_to, norm_to)
+    dn = np.interp(tn, to, data)
+    return dn
 
 
 
@@ -38,17 +74,26 @@ def getOperationStats(ds, qry):  #expId_list):
   memory = [[0. for s in systems] for o in operations]
   percent_time = [[0. for s in systems] for o in operations]
   abs_time = [[0. for s in systems] for o in operations]
+  err_time = [0.] * len(systems)
   total_time = {}
+
 
   # Get avg time per system based on recorded ELAPSED time for given query
   conn = db.getConnection()
   cur = conn.cursor()
-  for sys in systems:
-    query = "SELECT avg_time/1000 from summary_by_system WHERE dataset='%s' and query='%s' and system='%s';" % (ds, qry, sys)
-    cur.execute(query)
-    result = cur.fetchone()
-    if result != None:
-        total_time[sys] = float(result[0])
+  query = "SELECT system, avg_time/1000, error/1000 from summary_by_system WHERE dataset='%s' and query='%s';" % (ds, qry)
+  cur.execute(query)
+  for result in cur.fetchall():
+ #   query = "SELECT avg_time/1000, error/1000 from summary_by_system WHERE dataset='%s' and query='%s' and system='%s';" % (ds, qry, sys)
+#    cur.execute(query)
+#    result = cur.fetchone()
+#    if result != None:
+    sys, time, err = result
+    total_time[sys] = float(time)
+    err_time[systems.index(sys)] = float(err)
+        
+
+    query = "SELECT system, avg_time, error from summary_by_system where dataset='%s' and query='%d';" % (ds, qry)
 
   # Get percentage & memory data for each operation for each system for given query
   query = "SELECT S.system, op_name, avg(percent_time) as percent_time, avg(memory) as memory FROM operator_stats O, trials T, summary_by_system S WHERE S.experiment_id = T.experiment_id AND S.system = T.system AND O.trial_id = T.trial_id  AND S.dataset='%s' and S.query='%s' GROUP BY S.system, op_name;" % (ds, qry)
@@ -56,15 +101,39 @@ def getOperationStats(ds, qry):  #expId_list):
   for row in cur.fetchall():
     sys, op, percent, mem = row
     i, j = (operations.index(op.strip()), systems.index(sys))
-    memory[i][j] = float(mem)
-    if sys == 'Oracle':
-        memory[i][j] = float(mem) / 1024 / 1024
+    memory[i][j] = float(mem) / 1024.
     percent_time[i][j] = float(percent)
+    if sys == 'Spark':
+      percent_time[i][j] *= 100.
 
     #Calculate absolute time per operation based on measured percent time per operation out of reported elapsed time
-    abs_time[i][j] = (float(percent) / 100.0) * total_time[sys]
+    abs_time[i][j] = (percent_time[i][j] / 100.0) * total_time[sys]
 
-  return memory, percent_time, abs_time
+  # Manually Add in the Oracle im-memory tables
+  oracle_memory = Oracle_comprmem[ds]
+  memory[operations.index('TableScan')][systems.index('Oracle')] += oracle_memory[int(qry)] 
+
+  return memory, percent_time, abs_time, err_time
+
+
+#---------------------------------------------------------------------------------
+#  getCadvisorMetrics -- Returns time-series of all mem & cpu data for all 
+#      queries on all systems for given dataset
+#--------------------------------------------------------------------------------
+def getCadvisorMetrics(ds):
+  con = db.getConnection()
+  cpu_data = {qry: {sys: [] for sys in systems} for qry in query_list[workload[ds]]}
+  mem_data = {qry: {sys: [] for sys in systems} for qry in query_list[workload[ds]]}
+
+  query = "SELECT S.query, C.system, C.cpu_usage_total, C.memory_usage FROM cadvisor_experiment_stats C, summary_by_system S WHERE S.dataset='%s' AND  C.system = S.system AND C.experiment_id = S.experiment_id ORDER BY query, system, interval;" % (ds)
+  cur = con.cursor()
+  cur.execute(query)
+  for row in cur.fetchall():
+      qry, sys, cpu, mem = row
+      cpu_data[int(qry)][sys].append(conv_cpu(cpu))
+      mem_data[int(qry)][sys].append(conv_mem(mem))
+  return cpu_data, mem_data
+
 
 
 
@@ -77,63 +146,74 @@ def plotAllOperationMetrics(ds):
 
   time = {}
   memory = {}
+  error = {}
   try:
     for qry in qlist:
-      memory[qry], p, time[qry] = getOperationStats(ds, qry)
+      memory[qry], p, time[qry], error[qry] = getOperationStats(ds, qry)
   except Exception as ex:
     print "Failed to process all data for dataset, %s" % ds
     print (ex)
     sys.exit(0)
 
   plotBigOpGraph(ds, memory, m_metric)
-  plotBigOpGraph(ds, time, t_metric)
+  plotBigOpGraph(ds, time, t_metric, error)
 
 
 #---------------------------------------------------------------------------------
 #  plotBigOpGraph -- plotting call to draw large graph for given metric & data
 #--------------------------------------------------------------------------------
-def plotBigOpGraph(ds, data, metric):
+def plotBigOpGraph(ds, data, metric, error=None):
   qlist = query_list[workload[ds]]
   qlabel = query_labels[workload[ds]]
 
-  inds = np.array(range(4))
+  inds = np.array(range(len(systems)))
   width = 1
-  spacing = 3
+  spacing = 2
   fig = plt.figure(figsize=(12, 4))
   offset = 0
   bars = [None] * len(operations)
 
-  # Plot TIME graph bars
+  # Plot graph bars
   for qry in qlist:
     if qry not in data:
         continue
     bottom = [0]*len(systems)
     bars = [None] * len(operations)
     for i, op in enumerate(operations):
-      bars[i] = plt.bar(inds+offset, data[qry][i], width, color=op_colors[i], bottom=bottom)
+      bars[i] = plt.bar(inds+offset, data[qry][i], width, color=op_colors[i], bottom=bottom) 
       bottom = [sum(x) for x in zip(data[qry][i], bottom)]
+      if i == 4 and error!=None:
+        plt.errorbar(inds+offset+width/2., bottom, linestyle='None', color='black', yerr=error[qry])
+
     for x, y in zip (inds, bottom):
       if y == 0:
-        plt.text(x + offset + width/2., 15, 'X', ha='center', va='top', size='large', color='darkred')
-    offset += 4 + spacing
+        plt.text(x + offset + width/2., 0, 'X', ha='center', size='large', color='darkred')
+      elif y < 10:
+        plt.text(x + offset + width/2., y, '%.1f' % y, size='x-small', ha='center', va='bottom')
+      elif y < 100:
+        label_align = 'center' if error == None or error[qry][x] < .03*y else 'left'
+        plt.text(x + offset + width/2., y, ' %.0f' % y, size='xx-small', ha=label_align, va='bottom')
+    offset += len(systems) + spacing
 
 
   plt.title("%s for all Queries, %s" % (metric['title'], ds.upper()))
   plt.ylabel(metric['label'])
+  plt.ylim(ymin=0)
   inds = np.array(range(len(qlabel)))
   xlabels = [qlabel[q] for q in sorted(qlabel.keys())]
-  for x, q in enumerate(xlabels):
-    plt.annotate(q, (x*7+2,-4), va='bottom', ha='center')
-
-  syslabels = ['V', 'O', 'S', 'I', '', '', ''] * len(qlist)
-  inds = np.array(range((4+spacing)*len(qlabel)))
+  plt.xlim(xmax=(width*len(systems) + width*spacing*(len(systems)-1)))
+  syslabels = ['X', 'Y', 'S', 'I', 'K', '', ''] * (len(qlist)-1) + ['X','Y','S','I','K']
+  #inds = np.array(range((+spacing)*len(qlabel)))
+  inds = np.array(range(len(syslabels)))
   plt.xticks(inds+0.5, syslabels)
   plt.tick_params(axis='x', which='both', bottom='off', top='off')
-  lgd = plt.legend(bars[::-1], operations[::-1], loc='center left', bbox_to_anchor=(1, 0.5))
+#  lgd = plt.legend(bars[::-1], operations[::-1], loc='best', bbox_to_anchor=(1, 0.5))
+  plt.legend(bars[::-1], operations[::-1], loc='best')
   plt.show()
   plt.tight_layout()
   path = utils.checkDir('../web/%sgraphs' % metric['fileprefix'])
-  fig.savefig(path + '/%sper_operation_%s.jpg' % (metric['fileprefix'], ds), bbox_extra_artists=(lgd,), bbox_inches='tight')
+#  fig.savefig(path + '/%sper_operation_%s.jpg' % (metric['fileprefix'], ds), bbox_extra_artists=(lgd,), bbox_inches='tight')
+  fig.savefig(path + '/%sper_operation_%s.jpg' % (metric['fileprefix'], ds))
   plt.close()
 
 
@@ -163,26 +243,30 @@ def plotAllTimes(ds):
     # Unzip date into plot-able vectors & draw each bar
     data = zip(*[ (v[0]/1000.0, v[1]/1000.0) for k, v in results.items()] ) # in cur.fetchall() ])
     index = np.arange(len(data[0]))
-    plt.bar(index + width*i, data[0], width, color=sys_colors[i], yerr=data[1], label=sys)
+    plt.bar(index + width*i, data[0], width, color=sys_colors[i], yerr=data[1], label=system_labels[sys])
 
     # Check for annotations 
     for x, y in zip (index, data[0]):
       if y == 0:
-        plt.text(x + width*i + width/2., 15, 'X', ha='center', va='top', size='large', color='darkred')
-      elif y < 5:
+        plt.text(x + width*i + width/2., 0, 'X', ha='center', size='large', color='darkred')
+      elif y < 10:
         plt.text(x + width*i + width/2., y, '%.1f' % y, size='x-small', ha='center', va='bottom')
+      elif y < 100:
+        label_align = 'center' if data[1][x] < .03*y else 'left'
+        plt.text(x + width*i + width/2., y, '%.0f' % y, size='xx-small', ha=label_align, va='bottom')
 
   plt.title("%s Execution Times" % ds.upper())
   plt.xlabel("Query")
   plt.ylabel('Time (s)')
+  plt.ylim(ymin=0)
   plt.xticks(index + 2*width, queries)
-  plt.legend()
+  plt.legend(loc='best')
   plt.tight_layout()
   plt.show()
   path = utils.checkDir("../web/time_graphs/")
-  plt.savefig(path + "timegraph_%s.png" % ds)
+  plt.savefig(path + "time_graph_%s.png" % ds)
   plt.close()
-  mplots.buildIndex(path, "Consoildated Time Graphs")
+  utils.buildIndex(path, "Consoildated Time Graphs")
 
 
 #---------------------------------------------------------------------------------
@@ -226,44 +310,77 @@ def plotAllMemory(ds):
     for row in cur.fetchall():
       qry, mem, err = row
       if sys == 'Oracle':
-        mem +=  + oracle_memory[int(qry)] * 1024
+        mem += oracle_memory[int(qry)] * 1024
       results[int(qry)] = (mem, err)
 
     # Unzip data, convert to GB, & draw bars
     data = zip(*[ (v[0]/1024., v[1]/1024.) for k, v in results.items()] ) # in cur.fetchall() ])
     index = np.arange(len(queries))
-    plt.bar(index * (width*5) + width*i, data[0], width, color=sys_colors[i], yerr=data[1], label=sys)
+    plt.bar(index * (width*5) + width*i, data[0], width, color=sys_colors[i], yerr=data[1], label=system_labels[sys])
 
     # Check for annotations
     for x, y in zip (index, data[0]):
       if y == 0:
-        plt.text(x * (width*5) + width*i + width/2., 15, 'X', size='large', ha='center', va='top', color='darkred')
-      elif y < 7:
-        plt.text(x * (width*5) + width*i + width/2., y, '%.0fGB' % y, size='xx-small', ha='center', va='bottom')
+        plt.text(x * (width*5) + width*i + width/2., 0, 'X', size='large', ha='center', color='darkred')
+      elif y < 100:
+        plt.text(x * (width*5) + width*i + width/2., y, '%.0f' % y, size='xx-small', ha='center', va='bottom')
   
   plt.title("%s Memory" % ds.upper())
   plt.xlabel("Query")
   plt.ylabel('Memory (GB)')
+  plt.ylim(ymin=0)
   plt.xticks(index * (width*5) + 2*width, queries)
   plt.legend(loc='best')
   plt.tight_layout()
-  plt.show()
   path = utils.checkDir("../web/memory_graphs/")
-  plt.savefig(path + "memgraph_%s.png" % ds)
+  plt.savefig(path + "mem_graph_%s.png" % ds)
   plt.close()  
-  mplots.buildIndex(path, "Consoildated Memory Graphs")
+  utils.buildIndex(path, "Consoildated Memory Graphs")
+
+
+#---------------------------------------------------------------------------------
+#  plotExernalMetrics --  wrapper call to draw cadvisor graphs
+#--------------------------------------------------------------------------------
+def draw_cadvisor_graph(ds, qry, data, metric):
+  fig  = plt.figure()
+  x_range = np.arange(100)
+  for sys, vals in data.items():
+    if len(vals) == 0:
+        continue
+    rel_data = [(vals[i] - vals[i-1]) for i in range(1, len(vals))] if metric.delta else vals
+    normdata = normalizeData(rel_data)
+    bar_label = sys
+    if metric.label == 'cpu_usage_total':
+        bar_label ="%s, %d sec" %(sys, len(data[sys]))
+    if metric.label == 'memory_usage':
+        bar_label ="%s, %d GB (max)" % (sys, max(data[sys]))
+
+    plt.plot(x_range, normdata, label=bar_label, color=sys_colors[systems.index(sys)])
+
+  percent_formatter = FuncFormatter(lambda x, pos: str(x) + r'$\%$' if matplotlib.rcParams['text.usetex'] else str(x))
+  plt.title("%s - Query # %s: %s" % (ds.upper(), qry, metric.title))
+  plt.legend(loc='best')
+  plt.xlabel("Execution (%)")
+  plt.gca().xaxis.set_major_formatter(percent_formatter)
+  plt.ylabel(metric.axis)
+  plt.ylim(ymin=0)
+  path = utils.checkDir("../web/cadvisor/%s_%s" % (metric.title, ds))
+  filename = path + '/%s_%s_%s' %(metric.title, ds, qry)
+  plt.savefig(filename)
+  print "Saving file to %s" % (filename)
+  plt.close(fig)
+  utils.buildIndex(path, "CADVISOR Metrics for %s - %s" % (metric.title, ds.upper()))
+
 
 
 #---------------------------------------------------------------------------------
 #  plotExernalMetrics --  wrapper call to draw cadvisor graphs
 #--------------------------------------------------------------------------------
 def plotExternalMetrics(ds):
-  query = "select experiment_id from most_recent where dataset='%s';" % (ds)
-  conn = db.getConnection()
-  cur = conn.cursor()
-  cur.execute(query)
-  for row in cur.fetchall():
-    mplots.draw_all_metrics(row[0])
+  cpu, mem = getCadvisorMetrics(ds)
+  for qry in query_list[workload[ds]]:
+    draw_cadvisor_graph(ds, qry, cpu[qry], cpu_total)
+    draw_cadvisor_graph(ds, qry, mem[qry], mem_usage)
 
 
 
@@ -273,14 +390,10 @@ def plotExternalMetrics(ds):
 def parseArgs():
   parser = argparse.ArgumentParser()
   parser.add_argument('-d', '--dataset', nargs='+', help='Plot specific dataset (amplab, tpch10g, tpch100g)', required=False)
-  parser.add_argument('-e', '--experiment', help='Plot specific experiment', required=False)
   parser.add_argument('-g', '--graphs', help='Plot consolidate bar graph of all system\'s results for given dataset', action='store_true')
   parser.add_argument('-c', '--cadvisor', help='Plot individual line graphs of externally collected cadvisor metrics', action='store_true')
   parser.add_argument('-o', '--operations', help='Plot bar graphs of per-operation metrics ', action='store_true')
   args = parser.parse_args()
-
-  if args.dataset and args.experiment:
-    print "Choose EITHER   --experiment   OR  --dataset"
 
   ds = ['tpch10g', 'tpch100g', 'amplab']
   if args.dataset:
@@ -295,17 +408,10 @@ def parseArgs():
       plotAllTimes(d)
       plotAllMemory(d)
 
-  if args.experiment:
-    print 'Plotting graphs for experiment #%s' % args.experiment
-    mplots.plot_experiment_metrics(args.experiment)
-    plotExpOps(args.experiment)
-    return
-
   if args.cadvisor:
     for d in ds:
       print "Plot cadvisor metrics for %s"  % d
-      mplots.plot_dset_metrics(d)
-      #plotExternalMetrics(d)
+      plotExternalMetrics(d)
 
   if args.operations:
     print "Plot Operator metrics"
@@ -353,19 +459,19 @@ def plotQueryOperationsGraph(ds, qry):
   plt.figure(1)
   path = utils.checkDir('../web/operations/percent_time_%s/' % ds)
   plotSmallOpGraph(p_metric, percent_time, path + 'percent_q%s' % qry, percent=True)
-  mplots.buildIndex(path, "Percent Time per Operation - %s" % (ds.upper()))
+  utils.buildIndex(path, "Percent Time per Operation - %s" % (ds.upper()))
 
   # Plot Memory Graph
   plt.figure(2)
   path = utils.checkDir('../web/operations/memory_%s/' % ds)
   plotSmallOpGraph(m_metric, memory, path + 'memory_q%s' % qry)
-  mplots.buildIndex(path, "Memory per Operation - %s" % (ds.upper()))
+  utils.buildIndex(path, "Memory per Operation - %s" % (ds.upper()))
 
   # Plot Time Graph
   plt.figure(3)
   path = utils.checkDir('../web/operations/absolute_time_%s/' % ds)
   plotSmallOpGraph(t_metric, abs_time, path + 'time_q%s' % qry)
-  mplots.buildIndex(path, "Absolute Time Per Operation - %s" % (ds.upper()))
+  utils.buildIndex(path, "Absolute Time Per Operation - %s" % (ds.upper()))
 
   plt.close()
 
