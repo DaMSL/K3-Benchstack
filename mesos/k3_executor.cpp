@@ -60,6 +60,7 @@ public:
     host_name= slaveInfo.hostname();
     localPeerCount = 0;
     totalPeerCount = 0;
+    cout << "Executor registered" << endl;
   }
 
   virtual void reregistered(ExecutorDriver* driver, const SlaveInfo& slaveInfo)   {
@@ -73,6 +74,7 @@ public:
   }
 
   virtual void launchTask(ExecutorDriver* driver, const TaskInfo& task)    {
+    cout << "Launching Task" << endl;
   	localPeerCount++;
 
     TaskStatus status;
@@ -86,6 +88,7 @@ public:
 
     using namespace YAML;
 
+    cout << task.data() << endl;
     Node hostParams = Load(task.data());
     Node peerParams;
     Node peers;
@@ -135,6 +138,7 @@ public:
       		        // that only includes the data files from the first peer group
       		        // and assigns them to any peer
         Node dataFilesNode = param->second[0];
+	cout << "Checking data" << endl;
         for(YAML::const_iterator it=dataFilesNode.begin();it!=dataFilesNode.end();++it) {
           DataFile f;
           auto d = *it;
@@ -204,7 +208,7 @@ public:
         }
 
         cout << "FILE  " << srcfile->d_name << ":  ";
-        if (srcfile->d_type == DT_REG) {
+        if ( !(strcmp( srcfile->d_name,".") == 0 || strcmp(srcfile->d_name,"..") == 0) ) {
           string filename = srcfile->d_name;
           filePaths.push_back(dataFile.path + "/" + filename);
           cout << "Added -> " << filename;
@@ -219,11 +223,6 @@ public:
 
       sort (filePaths.begin(), filePaths.end());
 
-      if (hostParams["maxPartitions"].as<int>() != 0) {
-        cout << "limited number of partitions!" << endl;
-        filePaths.resize(hostParams["maxPartitions"].as<int>());
-        numfiles = hostParams["maxPartitions"].as<int>();
-      }
 
       int p_start = 0;
       int p_end = numfiles;
@@ -241,18 +240,6 @@ public:
         }
       }
 
-    	//if (dataFile.policy == "global") {
-    	//	p_start = (numfiles / totalPeerCount) * peerStart;
-    	//	p_end = (numfiles / totalPeerCount) * (peerEnd+1);
-    	//	p_total = totalPeerCount;
-    	//	cout << ("Global files s=" + stringify(p_start) + " e=" + stringify(p_end) + " t=" + stringify(p_total)) << endl;
-    	//        for (int filenum = p_start; filenum < p_end; filenum++) {
-    	//        	int peer = floor((((p_total)*1.0*filenum) / numfiles)) - peerStart;
-    	//        	cout << "  Peer # " << peer << " : [" << filenum << "] " << filePaths[filenum] << endl;
-    	//        	peerFiles[peer][dataFile.varName].push_back(filePaths[filenum]);
-    	//		myfiles++;
-    	//        }
-    	//}
       else if (dataFile.policy == "pinned") {
         for(int filenum = 0; filenum < numfiles; filenum++) {
           peerFiles[0][dataFile.varName].push_back(filePaths[filenum]);
@@ -263,14 +250,6 @@ public:
     }
 
 
-  	// 2. divide up dir list in datavar
-  	// 3. create a vector<string> for each
-    //		for (std::size_t i=0; i<peers.size(); i++)  {
-    //			dataFile.push_back("/mnt/data/rankings0000");
-    //		}
-
-
-    //	cout << "   [K3 CMD:] " << task.data().c_str() << endl;
     cout << "BUILDING PARAMS FOR PEERS" << endl;
 
     for (std::size_t i=0; i<peers.size(); i++)  {
@@ -299,8 +278,16 @@ public:
       YAML::Emitter emit;
       emit << YAML::Flow << thispeer;
       string param = emit.c_str();
-      // cout << "PARAM: " << param << endl;
-      k3_cmd += " -p '" + param + "'";
+      
+      ofstream config;
+      stringstream conf_fname;
+      conf_fname << "config_peer_" << i << ".yaml";
+      config.open(conf_fname.str());
+      config << param;
+      config.close();
+
+      //k3_cmd += " -p '" + param + "'";
+      k3_cmd += " -p " + conf_fname.str();
       for (auto it : peerFiles[i]) {
         auto datavar = it.first;
         if (thispeer[datavar]) {
@@ -317,6 +304,7 @@ public:
       delete thread;
       thread = 0;
     }
+
 
     bool isMaster = false;
     cout << "Checking master" << endl;
@@ -345,6 +333,7 @@ public:
       : task(t), k3_cmd(cmd), driver(d), isMaster(m) {}
 
       void operator()() {
+	cout << " K3 Thread operating" << endl;
         TaskStatus status;
         status.mutable_task_id()->MergeFrom(task.task_id());
         	  // Currently, just call the K3 executable with the generated command line from task.data()
@@ -356,9 +345,12 @@ public:
             cout << "Failed to open subprocess" << endl;
           }
           char buffer[256];
+	  cout << "Pipe opened successfully" << endl;
           while (!feof(pipe)) {
+	    cout << "Reading from buffer..." << endl;
             if (fgets(buffer, 256, pipe) != NULL) {
               std::string s = std::string(buffer);
+	      cout << "Received from pipe: " << s << endl;
               if (this->isMaster) {
                 driver->sendFrameworkMessage(s);
               }
@@ -366,7 +358,10 @@ public:
                 cout << s << endl;
               }
             }
+            std::string s = std::string(buffer);
+	    cout << "BUFFER: " << s << endl;
           }
+	  cout << "Pipe is closing" << endl;
           int k3 = pclose(pipe);
 
           if (k3 == 0) {
@@ -424,6 +419,7 @@ public:
 
 int main(int argc, char** argv)
 {
+  cout << "Running Executor" << endl;
 	K3Executor executor;
 	MesosExecutorDriver driver(&executor);
   TaskStatus status;
