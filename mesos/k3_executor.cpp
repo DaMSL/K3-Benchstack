@@ -221,12 +221,6 @@ public:
 
 		sort (filePaths.begin(), filePaths.end());
 
-                if (hostParams["maxPartitions"].as<int>() != 0) {
-                        cout << "limited number of partitions!" << endl;
-			filePaths.resize(hostParams["maxPartitions"].as<int>());
-                        numfiles = hostParams["maxPartitions"].as<int>();
-		}
-
 
 		int p_start = 0;
 		int p_end = numfiles;
@@ -244,6 +238,14 @@ public:
 
 		  }
 
+		}
+		else if (dataFile.policy == "replicate") {
+		  for (int p = 0; p < peers.size(); p++) {
+	            for (int i =0; i < numfiles; i++) {
+		      myfiles++;
+                      peerFiles[p][dataFile.varName].push_back(filePaths[i]);
+	            }
+		  }
 		}
 
 		//if (dataFile.policy == "global") {
