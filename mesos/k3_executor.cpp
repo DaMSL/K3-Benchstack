@@ -270,18 +270,36 @@ public:
                 cout << "my files: " << myfiles << endl;
 
 	}
-		
 
-
-		// 2. divide up dir list in datavar
-		// 3. create a vector<string> for each 
-//		for (std::size_t i=0; i<peers.size(); i++)  {
-//			dataFile.push_back("/mnt/data/rankings0000");
-//		}
-	
-	
-//	cout << "   [K3 CMD:] " << task.data().c_str() << endl;
 	cout << "BUILDING PARAMS FOR PEERS" << endl;
+	int pph = 0;
+	if (peerParams["peers"].size() > 1) {
+	  YAML::Node peer_masters;
+	  YAML::Node masters;
+	  YAML::Node curMaster = YAML::Load(YAML::Dump(peerParams["peers"][0]));
+	  masters.push_back(YAML::Load(YAML::Dump(curMaster)));
+	  std::cout << peerParams["peers"].size() << " peers to map" << endl;
+	  for (std::size_t i=0; i< peerParams["peers"].size(); i++) {
+	    YAML::Node kv;
+	    if (peerParams["peers"][i]["addr"][0].as<string>() != curMaster["addr"][0].as<string>()) {
+	      cout << "Host: " << curMaster["addr"][0].as<string>() << ". Peers: " << pph << endl;
+	      pph = 0;
+	      masters.push_back(YAML::Load(YAML::Dump(peerParams["peers"][i])));
+              curMaster = YAML::Load(YAML::Dump(peerParams["peers"][i]));
+	    }
+	    pph++;
+	    std::cout << "added one" << endl;
+	    kv["key"] = YAML::Load(YAML::Dump(peerParams["peers"][i]["addr"]));
+	    kv["value"] = YAML::Load(YAML::Dump(curMaster["addr"]));
+	    peer_masters.push_back(kv);
+	  }
+	  cout << "Host: " << curMaster["addr"][0].as<string>() << ". Peers: " << pph << endl;
+
+	  peerParams["peer_masters"] = YAML::Load(YAML::Dump(peer_masters));
+	  peerParams["masters"] = YAML::Load(YAML::Dump(masters));
+          std::cout << "Masters: " << YAML::Dump(masters) << endl;
+	}
+
 	
 	for (std::size_t i=0; i<peers.size(); i++)  {
 		YAML::Node thispeer = peerParams;
@@ -291,6 +309,13 @@ public:
 	        }
 		YAML::Node me = peers[i]; 
 		thispeer["me"] = me;
+		YAML::Node local_peers;
+		std::cout << "start: " << peerStart << ". end: " << peerEnd << std::endl;
+		for (int j=peerStart; j<= peerEnd; j++) {
+                  local_peers.push_back(YAML::Load(YAML::Dump(peerParams["peers"][j])));
+		}
+
+		thispeer["local_peers"] = YAML::Load(YAML::Dump(local_peers));
                 
 		for (auto it : peerFiles[i])  {
 			auto datavar = it.first;
@@ -308,8 +333,13 @@ public:
 		YAML::Emitter emit;
 		emit << YAML::Flow << thispeer;
 		string param = emit.c_str();
-//		cout << "PARAM: " << param << endl;
-		k3_cmd += " -p '" + param + "'";
+		std::ofstream peerFile;
+		string peerFileName = "peers" + std::to_string(i) + ".yaml";
+		peerFile.open(peerFileName, std::ofstream::out);
+		peerFile << param;
+		peerFile.close();
+		std::cout << param << std::endl;
+		k3_cmd += " -p " + peerFileName;
 		for (auto it : peerFiles[i])  {
 			auto datavar = it.first;
                         if (thispeer[datavar]) {
