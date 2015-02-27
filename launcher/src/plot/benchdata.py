@@ -41,6 +41,8 @@ def getOperationStats(ds, qry, systems, operations):
     cur.execute(query)
     for result in cur.fetchall():
       sys, time, err = result
+      if sys not in systems:
+          continue
       total_time[sys] = float(time)
       err_time[systems.index(sys)] = float(err)
   except Exception as (ex):
@@ -56,6 +58,8 @@ def getOperationStats(ds, qry, systems, operations):
     cur.execute(query)
     for row in cur.fetchall():
       sys, op, percent, mem = row
+      if sys not in systems:
+          continue
       i, j = (operations.index(op.strip()), systems.index(sys))
       memory[i][j] = float(mem) / 1024.
       percent_time[i][j] = float(percent)
@@ -80,7 +84,7 @@ def getOperationStats(ds, qry, systems, operations):
 #  getCadvisorMetrics -- Returns time-series of all mem & cpu data for all 
 #      queries on all systems for given dataset
 #--------------------------------------------------------------------------------
-def getCadvisorMetrics(ds, query_list):
+def getCadvisorMetrics(ds, systems, query_list):
   con = db.getConnection()
   cpu_data = {qry: {sys: [] for sys in systems} for qry in query_list}
   mem_data = {qry: {sys: [] for sys in systems} for qry in query_list}
@@ -90,6 +94,8 @@ def getCadvisorMetrics(ds, query_list):
   cur.execute(query)
   for row in cur.fetchall():
       qry, sys, cpu, mem = row
-      cpu_data[int(qry)][sys].append(conv_cpu(cpu))
-      mem_data[int(qry)][sys].append(conv_mem(mem))
+      if sys not in systems:
+          continue
+      cpu_data[int(qry)][sys].append(cpu / 1000000)
+      mem_data[int(qry)][sys].append(mem / 1024/1024/1024)
   return cpu_data, mem_data

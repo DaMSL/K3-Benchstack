@@ -76,7 +76,7 @@ FROM
     experiment_id, system, AVG(elapsed_ms) as avg_time, coalesce(stddev(elapsed_ms), 0) as error, count(*) as num_trials
   FROM
     trial_results
-  WHERE trial_num > 4
+  WHERE trial_num > 2
   GROUP BY
     experiment_id, system) T
 WHERE
@@ -205,7 +205,7 @@ CREATE VIEW cadvisor_experiment_stats AS (
 	    avg(memory_usage) AS memory_usage
 	   FROM cadvisor_trial_stats
 	     JOIN trials USING (trial_id)
-	  WHERE trials.trial_num > 5
+	  WHERE trials.trial_num > 2
 			  GROUP BY experiment_id, system, interval);
 
 
@@ -262,7 +262,7 @@ CREATE VIEW cadvisor_aggregated AS (
 	FROM 
 	  cadvisor_collected natural join trials 
 	WHERE 
-	  trial_num > 5 
+	  trial_num > 2 
 	GROUP BY
 	  experiment_id, system, interval);
 

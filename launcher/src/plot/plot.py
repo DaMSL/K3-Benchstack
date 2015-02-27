@@ -12,12 +12,15 @@ from matplotlib.ticker import FuncFormatter
 from benchdata import *
 import metric
 
-systems         = ['Vertica', 'Oracle', 'Spark', 'Impala', 'Impala-p', 'K3']
+FIGURE_SIZE     = (8, 4)
+VAL_LABEL_SIZE  = 'medium'
+
+systems         = ['Vertica', 'Oracle', 'Spark', 'Impala', 'K3']
 
 system_labels   = {'Vertica': 'DB X', 'Oracle':'DB Y', 'Spark': 'Spark', 
                         'Impala': 'Impala', 'K3': 'K3', 'Impala-p': 'Impala (P)'}
 
-sys_colors      = {'Vertica':'red', 'Oracle':'green', 'Spark':'blue', 'Impala':'royalblue', 'Impala-p':'cyan', 'K3':'gold'}
+sys_colors      = {'Vertica':'lightcoral', 'Oracle':'goldenrod', 'Spark':'darkseagreen', 'Impala':'powderblue', 'Impala-p':'cyan', 'K3':'blueviolet'}
 sys_greyscale   = {'Vertica':'dimgrey', 'Oracle':'darkgrey', 'Spark':'whitesmoke', 'Impala':'lightgrey', 'Impala-p':'silver', 'K3':'black'}
 sys_pattern     = {'Vertica':'', 'Oracle':'', 'Spark':'', 'Impala':'--', 'Impala-p':'--', 'K3':''}
 
@@ -28,8 +31,11 @@ op_pattern      = {'Planning':'','TableScan':'','Join':'','GroupBy':'','Exchange
 
 workload        = {'tpch10g':'tpch', 'tpch100g':'tpch', 'amplab':'amplab'}
 
-query_labels    = {'tpch':   {1:'Q1', 3:'Q3', 5:'Q5', 6:'Q6', 11:'Q11', 18:'Q18', 22:'Q22'},
-                   'amplab': {1:'Q1', 2:'Q2', 3:'Q3'}}
+#query_labels    = {'tpch':   {1:'Q1', 3:'Q3', 5:'Q5', 6:'Q6', 11:'Q11', 18:'Q18', 22:'Q22'},
+#                   'amplab': {1:'Q1', 2:'Q2', 3:'Q3'}}
+
+query_labels    = {'tpch':   ['Q1', 'Q3', 'Q5', 'Q6', 'Q11', 'Q18', 'Q22'],
+                   'amplab': ['Q1', 'Q2', 'Q3']}
 
 query_list      = {'tpch':[1, 3, 5, 6, 11, 18, 22], 'amplab': [1,2,3]}
 
@@ -86,7 +92,7 @@ def plotBigOpGraph(ds, data, metric, error=None, isColor=True):
   inds = np.array(range(len(systems)))
   width = 1
   spacing = 1
-  fig = plt.figure(figsize=(12, 4))
+  fig = plt.figure(figsize=FIGURE_SIZE)
   offset = spacing / 2.
   bars = [None] * len(operations)
   val_labels = []
@@ -109,10 +115,10 @@ def plotBigOpGraph(ds, data, metric, error=None, isColor=True):
     for x, y in zip (inds, bottom):
       if y == 0:
         plt.text(x + offset + width/2., 0, 'X', ha='center', size='large', color='darkred')
-      elif y < (manual_ymax[ds] / 10):
-        plt.text(x + offset + width/2., y, '%.1f' % y, size='xx-small', ha='center', va='bottom')
+#      elif y < (manual_ymax[ds] / 10):
+#        plt.text(x + offset + width/2., y, '%.1f' % y, size=VAL_LABEL_SIZE, ha='center', va='bottom')
       elif y > manual_ymax[ds]:  
-        plt.text(x + offset, manual_ymax[ds]- min(10, manual_ymax[ds]/12.), '%.0f' % y, size='xx-small', ha='right', va='bottom')
+        plt.text(x + offset + 1.125*width, manual_ymax[ds] - min(manual_ymax[ds]-5, manual_ymax[ds]/12.), '%.0f' % y, size=VAL_LABEL_SIZE, ha='left', va='bottom')
 #      elif y < 100:
 #        label_align = 'center' if error == None or error[qry][x] < .03*y else 'left'
 #        plt.text(x + offset + width/2., y, ' %.0f' % y, size='xx-small', ha=label_align, va='bottom')
@@ -128,7 +134,7 @@ def plotBigOpGraph(ds, data, metric, error=None, isColor=True):
   plt.tick_params(axis='y', which='both', left='on', right='on')
 
   plt.xlim(xmax=(width*(len(systems)+spacing)*len(qlist)))
-  syslabels = ['X', 'Y', 'S', 'I', 'Ip', 'K', ''] * len(qlist)  
+  syslabels = ['X', 'Y', 'S', 'I', 'K', ''] * len(qlist)  
   inds = np.array(range((+spacing)*len(syslabels)))
 
   plt.xticks(inds+spacing, syslabels)
@@ -137,8 +143,8 @@ def plotBigOpGraph(ds, data, metric, error=None, isColor=True):
   plt.grid(which='minor', axis='x', linewidth=0.75, linestyle='-', color='0.75')
 
   plt.title("%s for all Queries, %s" % (metric['title'], ds.upper()))
-  plt.legend(bars[::-1], operations[::-1], loc='best')
-  plt.show()
+  plt.legend(bars[::-1], operations[::-1], loc='upper left', fontsize='small')
+#  plt.show()
   plt.tight_layout()
   path = utils.checkDir('../web/%sgraphs' % metric['fileprefix'])
   fig.savefig(path + '/%sper_operation_%s.jpg' % (metric['fileprefix'], ds))
@@ -151,6 +157,7 @@ def plotBigOpGraph(ds, data, metric, error=None, isColor=True):
 def plotConsolidated(ds, metric, isColor=True):
   print "Drawing %s for %s..." % (metric.title, ds), 
   queries = query_list[workload[ds]]
+  qlabels = query_labels[workload[ds]]
   width = 1./(len(systems) + 1)
   spacing = width
   offset = width / 2.
@@ -160,7 +167,7 @@ def plotConsolidated(ds, metric, isColor=True):
 
   index = np.arange(len(queries))
 
-  fig = plt.figure(figsize=(12, 5))
+  fig = plt.figure(figsize=FIGURE_SIZE)
   for i, sys in enumerate(systems):
 
     # Initialize data to 0
@@ -186,14 +193,14 @@ def plotConsolidated(ds, metric, isColor=True):
     # Check for annotations 
     for x, y in zip (index, data[0]):
       if y == 0:
-        plt.text(offset + x + (width)*i + width/2., 0, 'X', ha='center', size='large', color='darkred')
-      elif y < 10:
-        plt.text(offset + x + (width)*i + width/2., y, '%.1f' % y, size='x-small', ha='center', va='bottom')
-      elif y < manual_ymax[ds]:
-        label_align = 'center' if data[1][x] < .03*y else 'left'
-        plt.text(offset + x + (width)*i + width/2., y, '%.0f' % y, size='xx-small', ha=label_align, va='bottom')
-      else:
-        plt.text(offset + x + (width)*i, manual_ymax[ds]-5, '%.0f' % y, size='xx-small', ha='right', va='top')
+        plt.text(offset + x + (width)*i + width/4., 0, 'X', ha='center', size='large', color='darkred')
+#      elif y < 10:
+#        plt.text(offset + x + (width)*i + width/2., y, '%.1f' % y, size=VAL_LABEL_SIZE, ha='center', va='bottom')
+#      elif y < manual_ymax[ds]:
+#        label_align = 'center' if data[1][x] < .03*y else 'left'
+#        plt.text(offset + x + (width)*i + width/2., y, '%.0f' % y, size=VAL_LABEL_SIZE, ha=label_align, va='bottom')
+      elif y > manual_ymax[ds]:
+        plt.text(offset + x + (width)*i + 1.125*width, manual_ymax[ds] - min(manual_ymax[ds]-5, manual_ymax[ds]/12.), '%.0f' % y, size=VAL_LABEL_SIZE, ha='left', va='bottom')
 
   ax = plt.gca()
   ax.xaxis.set_major_locator(plt.MultipleLocator(1.0 - width/2.))
@@ -206,23 +213,86 @@ def plotConsolidated(ds, metric, isColor=True):
   ax.xaxis.set_minor_locator(plt.MultipleLocator(width*len(systems)+spacing))
   plt.grid(which='minor', axis='x', linewidth=0.75, linestyle='-', color='0.75')
 
-  plt.xlabel("Query")
-  plt.xticks(index + .5, queries)
+#  plt.xlabel("Query")
+  plt.xticks(index + .5, qlabels, va='top')
 
   plt.title("%s, %s" % (metric.title, ds.upper()))
   plt.gca().set_axisbelow(True)
-  plt.legend(loc='best')
+  plt.legend(loc='upper left', fontsize='small')
   plt.tight_layout()
-  plt.show()
+#  plt.show()
   path = utils.checkDir("../web/%s_graphs/" % metric.label)
-  filename = path + "%s_graph_%s.png" % (metric.label, ds)
-  plt.savefig(path + "%s_graph_%s.png" % (metric.label, ds))
+  filename = path + "%s_graph_%s.jpg" % (metric.label, ds)
+  plt.savefig(path + "%s_graph_%s.jpg" % (metric.label, ds))
   plt.close()
   utils.buildIndex(path, "Consoildated Graphs, %s" % metric.axis)
   print ' Saved to %s' % filename
 
 
+#---------------------------------------------------------------------------------
+#  plotQueryResult -- draws simple results for a single query
+#--------------------------------------------------------------------------------
+def plotQueryResults(ds, metric, isColor=True):
+  print "Drawing %s for %s..." % (metric.title, ds), 
+  queries = query_list[workload[ds]]
+  qlabels = query_labels[workload[ds]]
+  width = 1
+  spacing = width
+  offset = width / 2.
+  results = {q: {sys: (0.,0.) for sys in systems} for q in queries}
+  conn = db.getConnection()
+  cur = conn.cursor()
 
+  index = np.arange(len(systems))
+
+  fig = plt.figure(figsize=FIGURE_SIZE)
+  for i, sys in enumerate(systems):
+
+    # Get data
+    query = metric.query(ds, sys)
+    cur.execute(query)
+    for row in cur.fetchall():
+      qry, val, err = row
+
+      if metric.label == 'memory' and sys == 'Oracle':
+        val += Oracle_comprmem[ds][int(qry)] * 1024
+      results[int(qry)][sys] = (metric.convert(val), metric.convert(err))
+
+  # TODO:  Update color/pattern list
+  pattern = None if isColor else sys_pattern[sys]
+  barcolor = [sys_colors[s] for s in systems]
+  barlabel = [system_labels[s] for s in systems]
+
+  for qry in queries:
+  # Unzip date into plot-able vectors & draw each bar
+#  data = zip(*[ (metric.convert(v[0]), metric.convert(v[1])) for k, v in results.items()] ) # in cur.fetchall() ])
+    data = zip(* [(v[0], v[1]) for k, v in results[qry].items()] )
+    plt.bar(index, data[0], width, color=barcolor, yerr=data[1], label=barlabel, hatch=pattern)
+
+    ax = plt.gca()
+    ax.xaxis.set_major_locator(plt.MultipleLocator(1.0 - width/2.))
+    ax.xaxis.set_minor_locator(plt.MultipleLocator(width))
+    ax.get_xaxis().set_tick_params(pad=2)
+
+    plt.ylabel(metric.axis)
+    plt.ylim(ymin=0, ymax=manual_ymax[ds])
+    plt.grid(which='major', axis='y', linewidth=0.75, linestyle='--', color='0.75')
+    ax.xaxis.set_minor_locator(plt.MultipleLocator(width*len(systems)+spacing))
+    plt.grid(which='minor', axis='x', linewidth=0.75, linestyle='-', color='0.75')
+
+    plt.xticks(index + .5, qlabels, va='top')
+
+    plt.title("%s, %s" % (metric.title, ds.upper()))
+    plt.gca().set_axisbelow(True)
+    plt.legend(loc='upper left', fontsize='small')
+    plt.tight_layout()
+    path = utils.checkDir("../web/small_%s_graphs/" % metric.label)
+    filename = path + "%s_graph_%s_q%s.jpg" % (metric.label, ds, qry)
+    plt.savefig(filename) 
+    plt.close()
+    print ' Saved %s' % filename
+
+  utils.buildIndex(path, "Consoildated Graphs, %s" % metric.axis)
 
 
 #---------------------------------------------------------------------------------
@@ -232,9 +302,14 @@ def draw_cadvisor_graph(ds, qry, data, metric):
   fig  = plt.figure()
   x_range = np.arange(100)
   for sys, vals in data.items():
+    print vals
     if len(vals) == 0:
         continue
-    rel_data = [(vals[i] - vals[i-1]) for i in range(1, len(vals))] if metric.delta else vals
+    elif len(vals) == 1:
+        vals.append(vals[0])
+    rel_data = vals
+    if metric.delta:
+        rel_data = [(vals[i] - vals[i-1]) for i in range(1, len(vals))] 
     normdata = normalizeData(rel_data)
     bar_label = sys
     if metric.label == 'cpu_usage_total':
@@ -264,10 +339,10 @@ def draw_cadvisor_graph(ds, qry, data, metric):
 #  plotExernalMetrics --  wrapper call to draw cadvisor graphs
 #--------------------------------------------------------------------------------
 def plotExternalMetrics(ds, color=True):
-  cpu, mem = getCadvisorMetrics(ds, query_list[workload[ds]])
+  cpu, mem = getCadvisorMetrics(ds, systems, query_list[workload[ds]])
   for qry in query_list[workload[ds]]:
-    draw_cadvisor_graph(ds, qry, cpu[qry], cpu_total, color)
-    draw_cadvisor_graph(ds, qry, mem[qry], mem_usage, color)
+    draw_cadvisor_graph(ds, qry, cpu[qry], cpu_total)
+    draw_cadvisor_graph(ds, qry, mem[qry], mem_usage)
 
 
 
@@ -328,7 +403,8 @@ def plotQueryOperationsGraph(ds, qry):
 def parseArgs():
   parser = argparse.ArgumentParser()
   parser.add_argument('-d', '--dataset', nargs='+', help='Plot specific dataset (amplab, tpch10g, tpch100g)', required=False)
-  parser.add_argument('-g', '--graphs', help='Plot consolidate bar graph of all system\'s results for given dataset', action='store_true')
+  parser.add_argument('-g', '--graphs', help='Plot individual bar graphs for each query for given dataset', action='store_true')
+  parser.add_argument('-r', '--results', help='Plot consolidated results for all queries for given dataset', action='store_true')
   parser.add_argument('-c', '--cadvisor', help='Plot individual line graphs of externally collected cadvisor metrics', action='store_true')
   parser.add_argument('-o', '--operations', help='Plot bar graphs of per-operation metrics ', action='store_true')
   parser.add_argument('-b', '--blackwhite', help='Plot graphs for non-color (black & white) display', action='store_true')
@@ -342,12 +418,19 @@ def parseArgs():
 
   isColor = False if args.blackwhite else True
 
-  if args.graphs:
+  if args.results:
     print 'Plotting Consolidated Uber Graphs'
     for d in ds:
       plotAllOperationMetrics(d, isColor)
       plotConsolidated(d, timeM, isColor)
       plotConsolidated(d, memoryM, isColor)
+#      plotAllMemory(d)
+  
+  if args.graphs:
+    print 'Plotting Consolidated Uber Graphs'
+    for d in ds:
+      plotQueryResults(d, timeM, isColor)
+      plotQueryResults(d, memoryM, isColor)
 #      plotAllMemory(d)
 
   if args.cadvisor:
