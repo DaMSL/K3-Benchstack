@@ -74,8 +74,9 @@ def getOperationStats(ds, qry, systems, operations):
     sys.exit(0)
 
   # Manually Add in the Oracle im-memory tables
-  oracle_memory = Oracle_comprmem[ds]
-  memory[operations.index('TableScan')][systems.index('Oracle')] += oracle_memory[int(qry)] 
+  if 'Oracle' in systems:
+    oracle_memory = Oracle_comprmem[ds]
+    memory[operations.index('TableScan')][systems.index('Oracle')] += oracle_memory[int(qry)] 
 
   return memory, percent_time, abs_time, err_time
 

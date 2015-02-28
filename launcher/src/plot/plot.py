@@ -15,29 +15,31 @@ import metric
 FIGURE_SIZE     = (8, 4)
 VAL_LABEL_SIZE  = 'medium'
 
-systems         = ['Vertica', 'Oracle', 'Spark', 'Impala', 'K3']
+#systems         = ['Vertica', 'Oracle', 'Spark', 'Impala', 'K3']
+systems         = ['Spark', 'Impala', 'K3']
 
 system_labels   = {'Vertica': 'DB X', 'Oracle':'DB Y', 'Spark': 'Spark', 
                         'Impala': 'Impala', 'K3': 'K3', 'Impala-p': 'Impala (P)'}
 
-sys_colors      = {'Vertica':'lightcoral', 'Oracle':'goldenrod', 'Spark':'darkseagreen', 'Impala':'powderblue', 'Impala-p':'cyan', 'K3':'blueviolet'}
-sys_greyscale   = {'Vertica':'dimgrey', 'Oracle':'darkgrey', 'Spark':'whitesmoke', 'Impala':'lightgrey', 'Impala-p':'silver', 'K3':'black'}
-sys_pattern     = {'Vertica':'', 'Oracle':'', 'Spark':'', 'Impala':'--', 'Impala-p':'--', 'K3':''}
+sys_colors      = {'Vertica':'lightcoral', 'Oracle':'goldenrod', 'Spark':'salmon', 'Impala':'yellowgreen', 'Impala-p':'cyan', 'K3':'cornflowerblue'}
+sys_greyscale   = {'Vertica':'dimgrey', 'Oracle':'darkgrey', 'Spark':'whitesmoke', 'Impala':'darkgrey', 'Impala-p':'silver', 'K3':'black'}
+sys_pattern     = {'Vertica':'', 'Oracle':'', 'Spark':'', 'Impala':'', 'Impala-p':'--', 'K3':''}
 
 operations      = ['Planning','TableScan','Join','GroupBy','Exchange', 'FilterProject']
-op_colors       = ['gold', 'crimson', 'royalblue', 'olivedrab', 'darkmagenta', 'saddlebrown']
+op_colors       = ['firebrick', 'coral', 'khaki', 'thistle', 'turquoise', 'olivedrab']
 op_greyscale    = {'Planning':'black','TableScan':'whitesmoke','Join':'dimgrey','GroupBy':'silver','Exchange':'darkgrey', 'FilterProject':'gainsboro'}
 op_pattern      = {'Planning':'','TableScan':'','Join':'','GroupBy':'','Exchange':'xxx', 'FilterProject':'|||'}
 
+datasets        = ['tpch10g', 'tpch100g', 'amplab']
 workload        = {'tpch10g':'tpch', 'tpch100g':'tpch', 'amplab':'amplab'}
 
 #query_labels    = {'tpch':   {1:'Q1', 3:'Q3', 5:'Q5', 6:'Q6', 11:'Q11', 18:'Q18', 22:'Q22'},
 #                   'amplab': {1:'Q1', 2:'Q2', 3:'Q3'}}
 
-query_labels    = {'tpch':   ['Q1', 'Q3', 'Q5', 'Q6', 'Q11', 'Q18', 'Q22'],
+query_labels    = {'tpch':   ['Q1', 'Q3', 'Q5', 'Q6', 'Q18', 'Q22'],
                    'amplab': ['Q1', 'Q2', 'Q3']}
 
-query_list      = {'tpch':[1, 3, 5, 6, 11, 18, 22], 'amplab': [1,2,3]}
+query_list      = {'tpch':[1, 3, 5, 6, 18, 22], 'amplab': [1,2,3]}
 
 
 manual_ymax     = {'tpch10g': 40, 'tpch100g': 250, 'amplab': 100}
@@ -85,7 +87,7 @@ def plotAllOperationMetrics(ds, isColor=True):
 #---------------------------------------------------------------------------------
 #  plotBigOpGraph -- plotting call to draw large graph for given metric & data
 #--------------------------------------------------------------------------------
-def plotBigOpGraph(ds, data, metric, error=None, isColor=True):
+def plotDatasetOpGraph(ds, data, metric, error=None, isColor=True):
   qlist = query_list[workload[ds]]
   qlabel = query_labels[workload[ds]]
 
@@ -134,7 +136,7 @@ def plotBigOpGraph(ds, data, metric, error=None, isColor=True):
   plt.tick_params(axis='y', which='both', left='on', right='on')
 
   plt.xlim(xmax=(width*(len(systems)+spacing)*len(qlist)))
-  syslabels = ['X', 'Y', 'S', 'I', 'K', ''] * len(qlist)  
+  syslabels = ['S', 'I', 'K', ''] * len(qlist)  
   inds = np.array(range((+spacing)*len(syslabels)))
 
   plt.xticks(inds+spacing, syslabels)
@@ -149,6 +151,151 @@ def plotBigOpGraph(ds, data, metric, error=None, isColor=True):
   path = utils.checkDir('../web/%sgraphs' % metric['fileprefix'])
   fig.savefig(path + '/%sper_operation_%s.jpg' % (metric['fileprefix'], ds))
   plt.close()
+
+
+#---------------------------------------------------------------------------------
+#  plotBigOpGraph -- plotting call to draw large graph for given metric & data
+#--------------------------------------------------------------------------------
+def plotAllOperationsAllDatasets(metric, error=None, isColor=True):
+#  qlabel = query_labels[workload[ds]]
+  inds = np.array(range(len(systems)))
+  width = 1
+  spacing = 1
+  fig = plt.figure(figsize=(12, 4))
+  offset = spacing / 2.
+  time = {}
+  memory = {}
+  error = {}
+
+  for ds in datasets:
+    qlist = query_list[workload[ds]]
+    try:
+      for qry in qlist:
+        memory[(ds,qry)], p, time[(ds,qry)], error[(ds,qry)] = getOperationStats(ds, qry, systems, operations)
+    except Exception as ex:
+      print "Failed to process all data for dataset, %s" % ds
+      print (ex)
+      sys.exit(0)
+
+  bars = [None] * len(operations)
+ 
+  data_list = []
+  for ds in datasets:
+    qlist = query_list[workload[ds]]
+    data_list.extend ([time[(ds,q)] for q in qlist])
+
+
+  # Plot graph bars
+  for data in data_list:
+    bottom = [0]*len(systems)
+#      bars = [None] * len(operations)
+    for i, op in enumerate(operations):
+      barcolor = op_colors[i] if isColor else op_greyscale[op]
+      pattern = None if isColor else op_pattern[op]
+      bars[i] = plt.bar(inds+offset, data[i], width, color=barcolor, bottom=bottom, hatch=pattern) 
+      bottom = [sum(x) for x in zip(data[i], bottom)]
+#      if i == len(operations)-1 and error!=None:
+#        plt.errorbar(inds+offset+width/2., bottom, linestyle='None', color='black', yerr=error[qry])
+
+    offset += len(systems) + spacing
+
+  ax = plt.gca()
+  ax.set_axisbelow(True)
+
+  plt.ylabel(metric['label'])
+  plt.ylim(ymin=0, ymax=100)
+  plt.grid(which='major', axis='y', linewidth=0.75, linestyle='--', color='0.75')
+  plt.tick_params(axis='y', which='both', left='on', right='on')
+
+  plt.xlim(xmax=(width*(len(systems)+spacing)*15))
+  syslabels = ['S', 'I', 'K', ''] * 15  
+  inds = np.array(range((+spacing)*len(syslabels)))
+
+  plt.xticks(inds+spacing, syslabels)
+  plt.tick_params(axis='x', which='both', bottom='off', top='off')
+  ax.xaxis.set_minor_locator(plt.MultipleLocator(width*len(systems)+spacing))
+  plt.grid(which='minor', axis='x', linewidth=0.75, linestyle='-', color='0.75')
+
+#  plt.title("%s for all Queries, %s" % (metric['title'], ds.upper()))
+  plt.legend(bars[::-1], operations[::-1], loc='upper left', fontsize='medium')
+#  plt.show()
+  plt.tight_layout()
+  path = utils.checkDir('../web/%sgraphs' % metric['fileprefix'])
+  fig.savefig(path + '/uber_%sper_operation_%s.jpg' % (metric['fileprefix'], ds))
+  utils.buildIndex(path, "Consoildated Graphs")
+  plt.close()
+
+
+#---------------------------------------------------------------------------------
+#  plotAlldataSets -- draws all the operation graphs for each query
+#--------------------------------------------------------------------------------
+def plotAllDatasets(metric, isColor=True):
+  print "Drawing %s condolidated for all datasets..." % (metric.title), 
+
+  xlabels = [q for q in query_labels['tpch']]*2
+  xlabels.extend([q for q in query_labels['amplab']])
+
+  width = 1./(len(systems) + 1)
+  spacing = width
+  offset = width / 2.
+  conn = db.getConnection()
+  cur = conn.cursor()
+
+  index = np.arange(15)
+  fig = plt.figure(figsize=(12, 4))
+
+  for i, sys in enumerate(systems):
+
+    results = []
+
+    for ds in datasets:
+      queries = query_list[workload[ds]]
+      ds_results = {}
+
+      # Get data
+      query = metric.query(ds, sys)
+      cur.execute(query)
+      for row in cur.fetchall():
+        qry, val, err = row
+        if int(qry) not in queries:
+            continue
+        ds_results[qry] = (val, err)
+      
+      results.extend([ds_results[str(q)] for q in queries])
+      # Unzip date into plot-able vectors & draw each bar
+
+    data = zip(*[ (metric.convert(v[0]), metric.convert(v[1])) for v in results] ) # in cur.fetchall() ])
+
+    pattern = None if isColor else sys_pattern[sys]
+    barcolor = sys_colors[sys] if isColor else sys_greyscale[sys]
+
+    plt.bar(offset + index + (width)*i, data[0], width, color=barcolor, yerr=data[1], label=system_labels[sys], hatch=pattern)
+
+  ax = plt.gca()
+  ax.xaxis.set_major_locator(plt.MultipleLocator(1.0 - width/2.))
+  ax.xaxis.set_minor_locator(plt.MultipleLocator(width))
+  ax.get_xaxis().set_tick_params(pad=2)
+  plt.xlim(xmax=15)
+
+  plt.ylabel(metric.axis)
+  plt.ylim(ymin=0, ymax=manual_ymax[ds])
+  plt.grid(which='major', axis='y', linewidth=0.75, linestyle='--', color='0.75')
+  ax.xaxis.set_minor_locator(plt.MultipleLocator(width*len(systems)+spacing))
+  plt.grid(which='minor', axis='x', linewidth=0.75, linestyle='-', color='0.75')
+  plt.xticks(index + .5, xlabels, va='top')
+  plt.tick_params(axis='x', which='both', top='off', bottom='off')
+  #plt.xlabel('%50s %60s %20s' % ('TPCH, 10 GB', 'TPCH, 100 GB', 'AMPLAB, SF 5'))
+
+  plt.gca().set_axisbelow(True)
+  plt.legend(loc='upper left', fontsize='medium')
+  plt.tight_layout()
+  path = utils.checkDir("../web/%s_graphs/" % metric.label)
+  filename = path + "uber_%s_graph.jpg" % (metric.label)
+  plt.savefig(filename)
+  plt.close()
+  utils.buildIndex(path, "Consoildated Graphs, %s" % metric.axis)
+  print ' Saved to %s' % filename
+
 
 
 #---------------------------------------------------------------------------------
@@ -179,9 +326,11 @@ def plotConsolidated(ds, metric, isColor=True):
     cur.execute(query)
     for row in cur.fetchall():
       qry, val, err = row
+      if int(qry) not in queries:
+          continue
 
-      if metric.label == 'memory' and sys == 'Oracle':
-        val += Oracle_comprmem[ds][int(qry)] * 1024
+      #if metric.label == 'memory' and sys == 'Oracle':
+      #  val += Oracle_comprmem[ds][int(qry)] * 1024
       results[int(qry)] = (val, err)
 
     # Unzip date into plot-able vectors & draw each bar
@@ -212,15 +361,12 @@ def plotConsolidated(ds, metric, isColor=True):
   plt.grid(which='major', axis='y', linewidth=0.75, linestyle='--', color='0.75')
   ax.xaxis.set_minor_locator(plt.MultipleLocator(width*len(systems)+spacing))
   plt.grid(which='minor', axis='x', linewidth=0.75, linestyle='-', color='0.75')
-
-#  plt.xlabel("Query")
   plt.xticks(index + .5, qlabels, va='top')
 
   plt.title("%s, %s" % (metric.title, ds.upper()))
   plt.gca().set_axisbelow(True)
   plt.legend(loc='upper left', fontsize='small')
   plt.tight_layout()
-#  plt.show()
   path = utils.checkDir("../web/%s_graphs/" % metric.label)
   filename = path + "%s_graph_%s.jpg" % (metric.label, ds)
   plt.savefig(path + "%s_graph_%s.jpg" % (metric.label, ds))
@@ -405,6 +551,7 @@ def parseArgs():
   parser.add_argument('-d', '--dataset', nargs='+', help='Plot specific dataset (amplab, tpch10g, tpch100g)', required=False)
   parser.add_argument('-g', '--graphs', help='Plot individual bar graphs for each query for given dataset', action='store_true')
   parser.add_argument('-r', '--results', help='Plot consolidated results for all queries for given dataset', action='store_true')
+  parser.add_argument('-a', '--allinone', help='Plot all results in one big Uber Graph', action='store_true')
   parser.add_argument('-c', '--cadvisor', help='Plot individual line graphs of externally collected cadvisor metrics', action='store_true')
   parser.add_argument('-o', '--operations', help='Plot bar graphs of per-operation metrics ', action='store_true')
   parser.add_argument('-b', '--blackwhite', help='Plot graphs for non-color (black & white) display', action='store_true')
@@ -432,6 +579,10 @@ def parseArgs():
       plotQueryResults(d, timeM, isColor)
       plotQueryResults(d, memoryM, isColor)
 #      plotAllMemory(d)
+
+  if args.allinone:
+    plotAllDatasets(timeM, isColor)
+    plotAllOperationsAllDatasets(t_metric, isColor)
 
   if args.cadvisor:
     for d in ds:
