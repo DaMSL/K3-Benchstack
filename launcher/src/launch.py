@@ -148,14 +148,26 @@ def parseAmplabExperiments(lst):
   for query in lst:
     result.append(Experiment("amplab", query, "amplab"))
   return result
+
+def parseScalabilityExperiments(lst, dataset):
+  result = []
+  for query in lst:
+    result.append(Experiment("scalability", query, dataset))
+  return result
+
  
 def parseArgs():
   parser = argparse.ArgumentParser() 
   parser.add_argument('--systems', nargs='+', help='Space seperated list of systems to run. Choices include (Spark, Impala, Vertica, Oracle). If omitted, all systems will be used')
   parser.add_argument('--trials', type=int, default=10, help='Number of trials to run each experiment. Default is 10.')
+  parser.add_argument('--amplab', nargs='*',  help='Run the Amplab BDB workload. Provide a space seperated list of queries to run.')
   parser.add_argument('--tpch10g', nargs='*', help='Run the TPCH workload on the 10G dataset. Provide a space seperated list of queries to run.')
   parser.add_argument('--tpch100g', nargs='*',  help='Run the TPCH workload on the 100G dataset. Provide a space seperated list of queries to run.')
-  parser.add_argument('--amplab', nargs='*',  help='Run the Amplab BDB workload. Provide a space seperated list of queries to run.')
+  parser.add_argument('--scalability16g', nargs='*',  help='Run the TPCH workload on the 16G dataset. Provide a space seperated list of queries to run.')
+  parser.add_argument('--scalability32g', nargs='*',  help='Run the TPCH workload on the 32G dataset. Provide a space seperated list of queries to run.')
+  parser.add_argument('--scalability64g', nargs='*',  help='Run the TPCH workload on the 64G dataset. Provide a space seperated list of queries to run.')
+  parser.add_argument('--scalability128g', nargs='*',  help='Run the TPCH workload on the 128G dataset. Provide a space seperated list of queries to run.')
+  parser.add_argument('--scalability256g', nargs='*',  help='Run the TPCH workload on the 256G dataset. Provide a space seperated list of queries to run.')
   args = parser.parse_args()
 
   log.logHeader("Parsing Arguments: ")
@@ -171,6 +183,16 @@ def parseArgs():
     experiments.extend(parseTPCHExperiments(args.tpch10g, "tpch10g"))
   if args.tpch100g:
     experiments.extend(parseTPCHExperiments(args.tpch100g, "tpch100g"))
+  if args.scalability16g:
+    experiments.extend(parseScalabilityExperiments(args.scalability16g, "16"))
+  if args.scalability32g:
+    experiments.extend(parseScalabilityExperiments(args.scalability32g, "32"))
+  if args.scalability64g:
+    experiments.extend(parseScalabilityExperiments(args.scalability64g, "64"))
+  if args.scalability128g:
+    experiments.extend(parseScalabilityExperiments(args.scalability128g, "128"))
+  if args.scalability256g:
+    experiments.extend(parseScalabilityExperiments(args.scalability256g, "256"))
   if args.amplab:
     experiments.extend(parseAmplabExperiments(args.amplab))
   

@@ -19,14 +19,20 @@ class K3:
   schedulerPath = os.path.join(schedulerDir, 'dispatcher.py')
   webServer = '/build'
   queryMap = {'tpch': os.path.join(k3Dir, 'examples/sql/tpch/queries/k3'),
-              'amplab': os.path.join(k3Dir, 'examples/distributed/amplab')}
+              'amplab': os.path.join(k3Dir, 'examples/distributed/amplab'),
+              'scalability': os.path.join(k3Dir, 'examples/sql/tpch/queries/k3')}
 
   def getBinaryName(self, e):
-    return e.workload + 'q' + e.query
+    if e.workload == 'scalability':
+      return 'tpch' + 'q' + e.query
+    else:
+      return e.workload + 'q' + e.query
 
   def getYamlPath(self, e):
-    return os.path.join('./systems/k3/yaml', self.getBinaryName(e) + '.yaml')
-
+    if e.workload == 'scalability':
+      return os.path.join('./systems/k3/scalability_yaml', self.getBinaryName(e) + '.yaml')
+    else:
+      return os.path.join('./systems/k3/yaml', self.getBinaryName(e) + '.yaml')
 
   # Compile program, place it in web server folder
   # Return true on success, false otherwise
@@ -105,8 +111,22 @@ class K3:
       precmd = "sed s/10g/100g/g " + yaml
     else:
       precmd = "cat " + yaml
-      
-    
+
+    # for scalability experiments, need to fill in a query template
+    if e.workload == "scalability":
+      totalMachines = 16
+      result = ""
+      with open(yaml, "r") as f:
+        s = f.read()
+        sf = int(e.dataset)
+        peers = sf
+        peers_per_host = sf / totalMachines
+        result = s % {'peers': peers, 'sf': sf, 'peers_per_host': peers_per_host}
+      tmpfile = "/tmp/scalability.txt"
+      with open(tmpfile, 'w') as f:
+        f.write(result)
+      precmd = "cat %s" % (tmpfile,)
+        
     cmd = "%s > %s && PYTHONPATH=%s python %s --binary %s --roles %s 2>&1"  % (precmd, tmp, self.schedulerDir, self.schedulerPath, binary, tmp)
 
     output = utils.runCommand(cmd)
