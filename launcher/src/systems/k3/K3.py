@@ -13,9 +13,9 @@ class K3:
   def name(self):
     return "K3"
   
-  webAddress = "http://192.168.0.11:8002"
-  k3Dir = '/K3'
-  schedulerDir = '/K3/tools/scheduler/scheduler/'
+  webAddress = "http://qp3:8002"
+  k3Dir = '/k3/K3'
+  schedulerDir = '/k3/K3/tools/scheduler/scheduler/'
   schedulerPath = os.path.join(schedulerDir, 'dispatcher.py')
   webServer = '/build'
   queryMap = {'tpch': os.path.join(k3Dir, 'examples/sql/tpch/queries/k3'),
@@ -32,6 +32,11 @@ class K3:
   # Return true on success, false otherwise
   def compileProgram(self, e):
     sourceName = 'q' + e.query + '.k3'
+    if e.query == "5" and e.workload == "tpch":
+        sourceName = "barrier-queries/q5_bushy.k3"
+    elif e.workload == "tpch" and (e.query == "3" or e.query == "18" or e.query == "22"):
+        sourceName = "barrier-queries/q" + e.query + ".k3"
+
     sourcePath = os.path.join(self.queryMap[e.workload], sourceName)
     if not os.path.isfile(sourcePath):
       print("Could not find k3 source: %s" % sourcePath)
@@ -105,6 +110,7 @@ class K3:
     cmd = "%s > %s && PYTHONPATH=%s python %s --binary %s --roles %s 2>&1"  % (precmd, tmp, self.schedulerDir, self.schedulerPath, binary, tmp)
 
     output = utils.runCommand(cmd)
+    print(output)
     lines = output.split('\n')
 
     elapsedTime = 0
