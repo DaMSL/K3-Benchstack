@@ -6,10 +6,6 @@ import common._
 
 object SGD {
   
-  def makeLabel(v : Array[Double]) : Double = {
-    if (v(0) > 0) 1.0 else -1.0  
-  }
-
   def inPlaceScale(v : Array[Double], c : Double) = {
     (0 until v.length).foreach {i =>
       v(i) *= c
@@ -53,10 +49,10 @@ object SGD {
   def main(args: Array[String]) = {
     val sc = Common.sc
     val sf = args(0)
-    val path = s"hdfs://qp-hm1.damsl.cs.jhu.edu:54310/kmeans/$sf/"
+    val path = s"hdfs://qp-hm1.damsl.cs.jhu.edu:54310/sgd_single_file/$sf/sgd$sf"
     val rawData = sc.textFile(path)
     val intData = rawData.map(s => ( s.split(',').map(_.toDouble) )).cache()
-    val parsedData = intData.map(v => (v, makeLabel(v))).cache()
+    val parsedData = intData.map(v => (v.init, v.last)).cache()
     println(parsedData.count.toString + " rows parsed!")
     val lambda = 0.1
     val alpha = 0.1

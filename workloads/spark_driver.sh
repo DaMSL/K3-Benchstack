@@ -27,8 +27,8 @@ do
   for i in $(seq 1 $NUMTRIALS);
   do
     echo "Running: $class. Trial $i"
-    CMD="/software/spark-1.1.0/bin/spark-submit --master spark://qp-hm1.damsl.cs.jhu.edu:7077 --class $class $JARFILE $SF"
-    $CMD | grep 'Elapsed\|Results' >> spark_results/$class\_result; 
+    CMD="/software/spark-1.2.0/bin/spark-submit --master spark://qp-hm1.damsl.cs.jhu.edu:7077 --class $class $JARFILE $SF"
+    $CMD 2>&1 | tee spark_results/$class\_result; 
   done;
 done
 
