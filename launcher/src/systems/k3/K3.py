@@ -20,17 +20,25 @@ class K3:
   webServer = '/build'
   queryMap = {'tpch': os.path.join(k3Dir, 'examples/sql/tpch/queries/k3'),
               'amplab': os.path.join(k3Dir, 'examples/distributed/amplab'),
-              'scalability': os.path.join(k3Dir, 'examples/sql/tpch/queries/k3')}
+              'scalability': os.path.join(k3Dir, 'examples/sql/tpch/queries/k3'),
+              'ml': os.path.join(k3Dir, 'examples/distributed/ml')}
 
   def getBinaryName(self, e):
-    if e.workload == 'scalability':
+    if e.workload == "tpch" or e.workload == 'scalability':
       return 'tpch' + 'q' + e.query
+    elif e.workload == "amplab":
+      return "amplabq" + e.query
+    elif e.workload == "ml":
+      return e.query
     else:
-      return e.workload + 'q' + e.query
+      return None
 
   def getYamlPath(self, e):
     if e.workload == 'scalability':
-      return os.path.join('./systems/k3/scalability_yaml', self.getBinaryName(e) + '.yaml')
+        if e.dataset == "256":
+          return os.path.join('./systems/k3/scalability_256_yaml', self.getBinaryName(e) + '.yaml')
+        else:
+          return os.path.join('./systems/k3/scalability_yaml', self.getBinaryName(e) + '.yaml')
     else:
       return os.path.join('./systems/k3/yaml', self.getBinaryName(e) + '.yaml')
 
@@ -38,10 +46,12 @@ class K3:
   # Return true on success, false otherwise
   def compileProgram(self, e):
     sourceName = 'q' + e.query + '.k3'
-    if e.query == "5" and e.workload == "tpch":
+    if e.query == "5" and (e.workload == "scalability" or e.workload == "tpch"):
         sourceName = "barrier-queries/q5_bushy.k3"
     elif (e.workload == "scalability" or e.workload == "tpch") and (e.query == "3" or e.query == "18" or e.query == "22"):
         sourceName = "barrier-queries/q" + e.query + ".k3"
+    elif e.workload == "ml":
+        sourceName = e.query + ".k3"
 
     sourcePath = os.path.join(self.queryMap[e.workload], sourceName)
     if not os.path.isfile(sourcePath):
@@ -57,7 +67,7 @@ class K3:
     except Exception:
       pass
 
-    compileCmd = os.path.join(self.k3Dir, 'tools/scripts/run/compile.sh') + " " + sourcePath
+    compileCmd = os.path.join(self.k3Dir, 'tools/scripts/run/compile_prof.sh') + " " + sourcePath
     utils.runCommand('cd ' + self.k3Dir + ' && ' + compileCmd)
 
     binaryName = self.getBinaryName(e)
@@ -106,9 +116,11 @@ class K3:
     tmp = "/tmp/k3.yaml"
 
     precmd = ""
-    # hack, replace 10g with 100g for tpch
+    # hack, replace 10g with 100g for tpch and ML
     if e.dataset == "tpch100g":
       precmd = "sed s/10g/100g/g " + yaml
+    elif e.dataset == "sgd100g":
+      precmd = "sed s/sgd/sgd_100G/g " + yaml
     else:
       precmd = "cat " + yaml
 
@@ -141,6 +153,9 @@ class K3:
     for line in lines:
       if "Time Query:" in line:
         elapsedTime = int(line.split(":")[-1].strip())
+        r = Result(trial_id, "Success", elapsedTime, "")
+      elif "Avg time per iteration:" in line:
+        elapsedTime = int(float(line.split(":")[-1].strip()))
         r = Result(trial_id, "Success", elapsedTime, "")
       if "GROUPBY" in line:
         time = int(line.split(":")[-1].strip())
