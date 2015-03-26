@@ -52,6 +52,69 @@ CREATE TABLE IF NOT EXISTS metric_plots (
   trial_id     int
 );
 
+
+CREATE TABLE IF NOT EXISTS llexperiments (
+  llexp_id      serial primary key,
+  llexp_name    text
+);
+
+CREATE TABLE IF NOT EXISTS lltrials (
+  lltrial_id      serial primary key,
+  llexp_id        integer,
+  variant         text,
+  query           text
+);
+
+CREATE TABLE IF NOT EXISTS lltime (
+  lltrial_id      integer,
+  elapsed         double precision
+);
+
+CREATE TABLE IF NOT EXISTS llheap (
+  lltrial_id      integer,
+  alloc           double precision
+);
+
+CREATE TABLE IF NOT EXISTS llcache (
+  lltrial_id      integer,
+  cache_L2        double precision,
+  cache_L3        double precision,
+  ipc             double precision,
+  qpi             double precision
+);
+
+
+DROP VIEW IF EXISTS llresults CASCADE;
+CREATE VIEW llresults AS
+SELECT E.llexp_name
+  , T.variant
+  , T.query
+  , avg(R.elapsed) AS Elapsed
+  , avg(alloc) as Heap
+  , avg(cache_l2) as Cache_L2
+  , avg(cache_l3) as Cache_L3
+  , avg(ipc) as IPC
+  , avg(qpi) as QPI
+FROM 
+  lltrials AS T
+  , llexperiments AS E
+  , (SELECT lltrial_id, elapsed, null as alloc, null::double precision as cache_L2, null::double precision as cache_L3, null::double precision as ipc, null::double precision as qpi from lltime
+    UNION
+    SELECT lltrial_id, null as elapsed, alloc, null as cache_L2, null as cache_L3, null as ipc, null as qpi from llheap
+    UNION
+    SELECT lltrial_id, null as elapsed, null as alloc, cache_L2, cache_L3, ipc, qpi from llcache
+  ) AS R
+WHERE 
+  E.llexp_id = T.llexp_id 
+  AND T.lltrial_id = R.lltrial_id
+GROUP BY
+  E.llexp_name, T.variant, T.query;
+
+
+
+
+
+
 -- Results of all trials
 DROP VIEW IF EXISTS trial_results CASCADE;
 CREATE VIEW trial_results AS
