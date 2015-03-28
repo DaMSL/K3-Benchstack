@@ -13,7 +13,7 @@ class K3:
   def name(self):
     return "K3"
   
-  webAddress = "http://qp2:8202"
+  webAddress = "http://qp2:8302"
   k3Dir = '/k3/K3'
   schedulerDir = '/k3/K3/tools/scheduler/scheduler/'
   schedulerPath = os.path.join(schedulerDir, 'dispatcher.py')
@@ -47,7 +47,7 @@ class K3:
   def compileProgram(self, e):
     sourceName = 'q' + e.query + '.k3'
     if e.query == "5" and (e.workload == "scalability" or e.workload == "tpch"):
-        sourceName = "barrier-queries/q5_bushy.k3"
+        sourceName = "barrier-queries/q5_bushy_broadcast_broj2.k3"
     elif (e.workload == "scalability" or e.workload == "tpch") and (e.query == "3" or e.query == "18" or e.query == "22"):
         sourceName = "barrier-queries/q" + e.query + ".k3"
     elif e.workload == "ml":

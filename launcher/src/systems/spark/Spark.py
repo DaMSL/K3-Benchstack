@@ -23,7 +23,7 @@ rddLoadingStage = {'tpch': {1:1, 3:5, 5:12, 6:1, 11:2, 18:5, 22:5},
 
 
 class Spark:
-  scaleFactorMap  = {'tpch10g': '10g', 'tpch100g': '100g', 'amplab': 'amplab'}
+  scaleFactorMap  = {'tpch10g': '10g', 'tpch100g': '100g', 'amplab': 'amplab', "sgd10g": "10g", "sgd100g": "100g"}
   buildDir = 'systems/spark/'
   jarFile  = os.path.join(buildDir, 'target/scala-2.10/spark-benchmarks_2.10-1.0.jar')
   
@@ -41,6 +41,13 @@ class Spark:
  
     elif e.workload == 'amplab':
       return "AmplabQuery%s" % (e.query)
+
+    elif e.workload == 'ml' and e.query == 'k_means':
+      return "KMeans"
+    
+    elif e.workload == 'ml' and e.query == 'sgd':
+      return "SGD"
+
 
     else:
       print("Unknown workload for Spark %s" % (e.workload) )
@@ -76,13 +83,18 @@ class Spark:
     command = "systems/spark/run_spark.sh %s %s %s" % (self.jarFile, sf, className) 
 
     output = utils.runCommand_stderr(command)
+    #output = utils.runCommand(command)
 
     #  Extract Query Plan from output, parse & convert to set of operation tuples
     elapsed = 0
     for l in output.split('\n'):
       if l.startswith('Elapsed:'):
-        elapsed =  int(l[8:].strip())
+        elapsed =  int(float(l[8:].strip()))
         break
+
+    # TODO we skip operator profiling on ML for now
+    if e.workload == "ml":
+      return Result(trial_id, "Success", elapsed, "")
 
     #  Find the JSON formatted event log (should be first line of output
     out_lines = output.split('\n')

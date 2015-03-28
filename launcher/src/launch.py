@@ -155,9 +155,9 @@ def parseScalabilityExperiments(lst, dataset):
     result.append(Experiment("scalability", query, dataset))
   return result
 
-def parseMLExperiments(dataset):
+def parseMLExperiments(query, dataset):
   result = []
-  result.append(Experiment("ml", "k_means", dataset))
+  result.append(Experiment("ml", query, dataset))
   return result
  
 def parseArgs():
@@ -174,6 +174,8 @@ def parseArgs():
   parser.add_argument('--scalability256g', nargs='*',  help='Run the TPCH workload on the 256G dataset. Provide a space seperated list of queries to run.')
   parser.add_argument('--k_means10g', action="store_true",  help='Run kmeans 10g. No arguments.')
   parser.add_argument('--k_means100g', action="store_true", help='Run kmeans 100g. No arguments.')
+  parser.add_argument('--sgd10g', action="store_true",  help='Run sgd 10g. No arguments.')
+  parser.add_argument('--sgd100g', action="store_true", help='Run sgd 100g. No arguments.')
   args = parser.parse_args()
 
   log.logHeader("Parsing Arguments: ")
@@ -202,9 +204,13 @@ def parseArgs():
   if args.amplab:
     experiments.extend(parseAmplabExperiments(args.amplab))
   if args.k_means10g:
-    experiments.extend(parseMLExperiments("sgd10g"))
+    experiments.extend(parseMLExperiments("k_means","sgd10g"))
   if args.k_means100g:
-    experiments.extend(parseMLExperiments("sgd100g"))
+    experiments.extend(parseMLExperiments("k_means","sgd100g"))
+  if args.sgd10g:
+    experiments.extend(parseMLExperiments("sgd", "sgd10g"))
+  if args.sgd100g:
+    experiments.extend(parseMLExperiments("sgd", "sgd100g"))
   
   if len(experiments) == 0:
     log.logEvent(1, "No Experiments Specified: Exiting.")
