@@ -346,3 +346,24 @@ CREATE VIEW cadvisor_baselined AS
 	WHERE 
 	  C.experiment_id = B.experiment_id 
 	  AND C.system = B.system);
+
+
+drop view if exists mostRecentK3;
+create view mostRecentK3 as
+select max(experiment_id) as experiment_id, workload, dataset, query from experiments natural join trials where system='K3' group by workload, dataset, query order by workload, dataset, query;
+
+drop view if exists mostRecentK3Results;
+create view mostRecentK3Results as
+select experiment_id, trial_id, workload, query, dataset, elapsed_ms, ts from mostRecentK3 natural join trials natural join results order by workload, query ,dataset, trial_id;
+
+drop view if exists mostRecentK3Averages;
+create view mostRecentK3Averages as
+select experiment_id, workload, query, dataset, avg(elapsed_ms) as avg_time, stddev(elapsed_ms) as stddev_time, stddev(elapsed_ms)/avg(elapsed_ms) as stddev_avg_ratio, max(ts) as ts from mostRecentK3Results group by experiment_id, workload, query, dataset order by workload, dataset, query;
+
+drop view if exists mostRecentK3Scalability;
+create view mostRecentK3Scalability as
+select *, avg_time / cast(dataset as int) as time_per_core from mostRecentK3Averages where workload ='scalability' order by cast(query as int), cast(dataset as int);
+
+drop view if exists highDeiations;
+create view highDeviations as
+select * from mostRecentK3Averages where stddev_avg_ratio > .1;
