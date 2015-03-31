@@ -19,14 +19,16 @@ VAL_LABEL_SIZE  = 'medium'
 systems         = ['Spark', 'Impala', 'K3']
 
 system_labels   = {'Vertica': 'DB X', 'Oracle':'DB Y', 'Spark': 'Spark', 
-                        'Impala': 'Impala', 'K3': 'K3', 'Impala-p': 'Impala (P)'}
+        'Impala': 'Impala', 'K3': 'K3', 'Impala-p': 'Impala (P)', 'K3-Fusion':'K3-Fusion', 'K3-NoFusion':'K3-NoFusion'}
 
-sys_colors      = {'Vertica':'lightcoral', 'Oracle':'goldenrod', 'Spark':'salmon', 'Impala':'yellowgreen', 'Impala-p':'cyan', 'K3':'cornflowerblue'}
-sys_greyscale   = {'Vertica':'dimgrey', 'Oracle':'darkgrey', 'Spark':'whitesmoke', 'Impala':'darkgrey', 'Impala-p':'silver', 'K3':'black'}
-sys_pattern     = {'Vertica':'', 'Oracle':'', 'Spark':'', 'Impala':'', 'Impala-p':'--', 'K3':''}
+sys_colors      = {'Vertica':'lightcoral', 'Oracle':'goldenrod', 'Spark':'tomato', 'Impala':'yellowgreen', 
+                    'Impala-p':'cyan', 'K3':'cornflowerblue',  'K3-Fusion':'cyan', 'K3-NoFusion':'cornflowerblue'}
+sys_greyscale   = {'Vertica':'dimgrey', 'Oracle':'darkgrey', 'Spark':'whitesmoke', 'Impala':'darkgrey', 
+        'Impala-p':'silver', 'K3':'black', 'K3-Fusion':'silver', 'K3-NoFusion':'black'}
+sys_pattern     = {'Vertica':'', 'Oracle':'', 'Spark':'', 'Impala':'', 'Impala-p':'--', 'K3':'', 'K3-Fusion':'--', 'K3-NoFusion':''}
 
 operations      = ['Planning','TableScan','Join','GroupBy','Exchange', 'FilterProject']
-op_colors       = ['firebrick', 'coral', 'khaki', 'thistle', 'turquoise', 'olivedrab']
+op_colors       = ['saddlebrown', 'firebrick', 'goldenrod', 'seagreen', 'slateblue', 'midnightblue']
 op_greyscale    = {'Planning':'black','TableScan':'whitesmoke','Join':'dimgrey','GroupBy':'silver','Exchange':'darkgrey', 'FilterProject':'gainsboro'}
 op_pattern      = {'Planning':'','TableScan':'','Join':'','GroupBy':'','Exchange':'xxx', 'FilterProject':'|||'}
 
@@ -51,9 +53,9 @@ mem_usage = metric.Metric(label="memory_usage", convert=(lambda m: m / (1024. * 
 timeM = metric.Metric(title='Execution Time', convert=(lambda t: t/1000.), label='time', axis='Time (sec)', query=time_query)
 memoryM = metric.Metric(title='Peak Memory', convert=(lambda m: m/1024.), label='memory', axis='Mem (GB)', query=mem_query)
 
-p_metric= {'title':'Percent Time by Operation', 'label':'Percent Time', 'fileprefix': 'percent_'}
-t_metric= {'title':'Time by Operation', 'label':'Time (sec)', 'fileprefix': 'time_'}
-m_metric= {'title':'Peak Memory Allocated by Operation', 'label':'Mem (GB)', 'fileprefix': 'memory_'}
+p_metric= {'title':'Percent Time by Operation', 'label':'Percent Time', 'fileprefix': 'percent_', 'type': 'percent'}
+t_metric= {'title':'Time by Operation', 'label':'Time (sec)', 'fileprefix': 'time_', 'type': 'time'}
+m_metric= {'title':'Peak Memory Allocated by Operation', 'label':'Mem (GB)', 'fileprefix': 'memory_', 'type': 'mem'}
 
 def normalizeData(data, norm_from=0, norm_to=100):
     to = np.linspace(norm_from, norm_to, len(data))
@@ -80,8 +82,8 @@ def plotAllOperationMetrics(ds, isColor=True):
     print (ex)
     sys.exit(0)
 
-  plotBigOpGraph(ds, memory, m_metric, None, isColor)
-  plotBigOpGraph(ds, time, t_metric, error, isColor)
+  plotDatasetOpGraph(ds, memory, m_metric, None, isColor)
+  plotDatasetOpGraph(ds, time, t_metric, error, isColor)
 
 
 #---------------------------------------------------------------------------------
@@ -136,10 +138,10 @@ def plotDatasetOpGraph(ds, data, metric, error=None, isColor=True):
   plt.tick_params(axis='y', which='both', left='on', right='on')
 
   plt.xlim(xmax=(width*(len(systems)+spacing)*len(qlist)))
-  syslabels = ['S', 'I', 'K', ''] * len(qlist)  
+  syslabels = ['S', 'I', 'K3', ''] * len(qlist)  
   inds = np.array(range((+spacing)*len(syslabels)))
 
-  plt.xticks(inds+spacing, syslabels)
+  plt.xticks(inds+spacing, syslabels, fontsize='medium')
   plt.tick_params(axis='x', which='both', bottom='off', top='off')
   ax.xaxis.set_minor_locator(plt.MultipleLocator(width*len(systems)+spacing))
   plt.grid(which='minor', axis='x', linewidth=0.75, linestyle='-', color='0.75')
@@ -158,6 +160,12 @@ def plotDatasetOpGraph(ds, data, metric, error=None, isColor=True):
 #--------------------------------------------------------------------------------
 def plotAllOperationsAllDatasets(metric, error=None, isColor=True):
 #  qlabel = query_labels[workload[ds]]
+  syslabels = ['S', 'I', 'K3', ''] * 15  
+  systems = ['Spark', 'Impala', 'K3']
+  if metric['type'] == 'memory':
+      systems = ['Spark', 'Impala', 'K3-Fusion', 'K3-NoFusion']
+      syslabels = ['S', 'I', 'K3-F', 'K3-NF']
+
   inds = np.array(range(len(systems)))
   width = 1
   spacing = 1
@@ -208,10 +216,9 @@ def plotAllOperationsAllDatasets(metric, error=None, isColor=True):
   plt.tick_params(axis='y', which='both', left='on', right='on')
 
   plt.xlim(xmax=(width*(len(systems)+spacing)*15))
-  syslabels = ['S', 'I', 'K', ''] * 15  
   inds = np.array(range((+spacing)*len(syslabels)))
 
-  plt.xticks(inds+spacing, syslabels)
+  plt.xticks(inds+spacing, syslabels, fontsize='small')
   plt.tick_params(axis='x', which='both', bottom='off', top='off')
   ax.xaxis.set_minor_locator(plt.MultipleLocator(width*len(systems)+spacing))
   plt.grid(which='minor', axis='x', linewidth=0.75, linestyle='-', color='0.75')
@@ -234,6 +241,8 @@ def plotAllDatasets(metric, isColor=True):
 
   xlabels = [q for q in query_labels['tpch']]*2
   xlabels.extend([q for q in query_labels['amplab']])
+
+  systems =['Spark', 'Impala', 'K3-Fusion', 'K3-NoFusion']  if metric.label == 'memory' else ['Spark', 'Impala', 'K3'] 
 
   width = 1./(len(systems) + 1)
   spacing = width
@@ -582,7 +591,9 @@ def parseArgs():
 
   if args.allinone:
     plotAllDatasets(timeM, isColor)
+    plotAllDatasets(memoryM, isColor)
     plotAllOperationsAllDatasets(t_metric, isColor)
+    plotAllOperationsAllDatasets(m_metric, isColor)
 
   if args.cadvisor:
     for d in ds:

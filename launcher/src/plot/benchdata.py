@@ -15,8 +15,11 @@ FROM trials T,
   (SELECT trial_id, sum(time) AS time, sum(percent_time) AS percent_time, sum(memory) AS sum_mem, max(memory) AS max_mem FROM operator_stats GROUP BY trial_id) O
   WHERE E.experiment_id = T.experiment_id AND T.trial_id = O.trial_id AND T.system = '%s' 
   GROUP BY E.experiment_id, E.query
-  ORDER BY query::int;
-''' % (ds, sys)
+UNION
+SELECT query, memory, error
+FROM k3memory
+WHERE dataset='%s' AND system='%s';
+''' % (ds, sys, ds, sys)
   return query
 
 def time_query (ds, sys):
@@ -45,6 +48,7 @@ def getOperationStats(ds, qry, systems, operations):
           continue
       total_time[sys] = float(time)
       err_time[systems.index(sys)] = float(err)
+      print result
   except Exception as (ex):
     print (ex)
     print "Error processing the following query: \n\n%s\n" % query
@@ -77,6 +81,13 @@ def getOperationStats(ds, qry, systems, operations):
   if 'Oracle' in systems:
     oracle_memory = Oracle_comprmem[ds]
     memory[operations.index('TableScan')][systems.index('Oracle')] += oracle_memory[int(qry)] 
+
+  if 'K3' in systems:
+    query = "SELECT mem FROM something"
+#    cur.execute(query)
+#    result = sum ([float(r[0]) for r in cur.fetchall])
+#    k3_memory = result
+#    mem[operations.index('GroupBy')][system.index('K3')] = 
 
   return memory, percent_time, abs_time, err_time
 
