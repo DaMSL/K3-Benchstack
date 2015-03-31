@@ -144,7 +144,7 @@ def plotDatasetOpGraph(ds, data, metric, error=None, isColor=True):
   ax.xaxis.set_minor_locator(plt.MultipleLocator(width*len(systems)+spacing))
   plt.grid(which='minor', axis='x', linewidth=0.75, linestyle='-', color='0.75')
 
-  plt.title("%s for all Queries, %s" % (metric['title'], ds.upper()))
+  plt.jitle("%s for all Queries, %s" % (metric['title'], ds.upper()))
   plt.legend(bars[::-1], operations[::-1], loc='upper left', fontsize='small')
 #  plt.show()
   plt.tight_layout()
@@ -442,6 +442,66 @@ def plotQueryResults(ds, metric, isColor=True):
 
 
 #---------------------------------------------------------------------------------
+#  plotScalability
+#--------------------------------------------------------------------------------
+def plotScalability(isColor=True):
+  conn = db.getConnection()
+  cur = conn.cursor()
+  query = "SELECT query, dataset, avg_time, time_per_core from mostRecentK3Scalability order by cast(query as int), cast(dataset as int)"
+  cur.execute(query)
+
+  #Map query to list of times (that form a line)
+  xs = [16, 32, 64, 128, 256]
+  time_per_cores = {}
+  avg_times = {}
+
+  for row in cur.fetchall():
+    query = row[0]
+    dataset = int(row[1])
+    avg_time = row[2]
+    time_per_core = row[3]
+
+    if query not in time_per_cores:
+      time_per_cores[query] = []
+    time_per_cores[query].append(time_per_core)
+    
+    if query not in avg_times:
+      avg_times[query] = []
+    avg_times[query].append(avg_time)
+
+  # Plot time per core
+  fig  = plt.figure()
+  plt.ylabel('Time per Core (ms)')
+  plt.xlabel('Number of Cores')
+  plt.grid(which='major', axis='y', linewidth=0.75, linestyle='--', color='0.75')
+  plt.grid(which='major', axis='x', linewidth=0.75, linestyle='--', color='0.75')
+  bars = []
+
+  i = 0
+  for query in time_per_cores:
+    plt.plot(xs, time_per_cores[query], linewidth=4.25, marker=markers[i], markersize=20, mew=5, label="Q" + query)
+    i = i + 1 
+  plt.ylim(ymin=0, ymax=350)
+  plt.legend(loc='upper right', fontsize='small')
+  plt.savefig("../web/scalability_per_core.jpg") 
+  plt.close()
+ 
+  # Plot raw times
+  fig  = plt.figure()
+  plt.ylabel('Time (ms)')
+  plt.xlabel('Number of Cores')
+  plt.grid(which='major', axis='y', linewidth=0.75, linestyle='--', color='0.75')
+  plt.grid(which='major', axis='x', linewidth=0.75, linestyle='--', color='0.75')
+  bars = []
+  for query in avg_times:
+    plt.plot(xs, avg_times[query], linewidth=5.0, marker='x', label="Q" + query)
+  plt.legend(loc='upper left', fontsize='small')
+  plt.savefig("../web/scalability.jpg") 
+  plt.close()
+
+  conn.close()
+
+#---------------------------------------------------------------------------------
 #  plotExernalMetrics --  wrapper call to draw cadvisor graphs
 #--------------------------------------------------------------------------------
 def draw_cadvisor_graph(ds, qry, data, metric):
@@ -516,6 +576,8 @@ def plotSmallOpGraph(metric, vals, filename, percent=False, isColor=True):
   plt.savefig(filename + ".jpg", bbox_extra_artists=(lgd,), bbox_inches='tight')
   plt.close()
 
+
+
 #---------------------------------------------------------------------------------
 #  plotQueryOpGraph -- draws all the operation graphs for each query
 #--------------------------------------------------------------------------------
@@ -555,6 +617,7 @@ def parseArgs():
   parser.add_argument('-c', '--cadvisor', help='Plot individual line graphs of externally collected cadvisor metrics', action='store_true')
   parser.add_argument('-o', '--operations', help='Plot bar graphs of per-operation metrics ', action='store_true')
   parser.add_argument('-b', '--blackwhite', help='Plot graphs for non-color (black & white) display', action='store_true')
+  parser.add_argument('-s', '--scalability', help='Plot graphs for Scalability on K3', action='store_true')
   args = parser.parse_args()
 
   ds = ['tpch10g', 'tpch100g', 'amplab']
@@ -595,7 +658,8 @@ def parseArgs():
       for qry in query_list[workload[d]]:
         plotQueryOperationsGraph(d, qry)
 
-
+  if args.scalability:
+    plotScalability()
 
 
 if __name__ == "__main__":
