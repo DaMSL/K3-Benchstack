@@ -460,6 +460,7 @@ def plotScalability(isColor=True):
   cur.execute(query)
 
   #Map query to list of times (that form a line)
+  markers = ["^", "v", "o", "d", "s", "p"]
   xs = [16, 32, 64, 128, 256]
   time_per_cores = {}
   avg_times = {}
@@ -484,14 +485,11 @@ def plotScalability(isColor=True):
   plt.xlabel('Number of Cores')
   plt.grid(which='major', axis='y', linewidth=0.75, linestyle='--', color='0.75')
   plt.grid(which='major', axis='x', linewidth=0.75, linestyle='--', color='0.75')
-  bars = []
 
-  i = 0
-  for query in time_per_cores:
-    plt.plot(xs, time_per_cores[query], linewidth=4.25, marker=markers[i], markersize=20, mew=5, label="Q" + query)
-    i = i + 1 
+  scalabilityHelper(time_per_cores)
+  
   plt.ylim(ymin=0, ymax=350)
-  plt.legend(loc='upper right', fontsize='small')
+  plt.legend(loc='upper right', fontsize='small', markerscale=.6)
   plt.savefig("../web/scalability_per_core.jpg") 
   plt.close()
  
@@ -501,14 +499,24 @@ def plotScalability(isColor=True):
   plt.xlabel('Number of Cores')
   plt.grid(which='major', axis='y', linewidth=0.75, linestyle='--', color='0.75')
   plt.grid(which='major', axis='x', linewidth=0.75, linestyle='--', color='0.75')
-  bars = []
-  for query in avg_times:
-    plt.plot(xs, avg_times[query], linewidth=5.0, marker='x', label="Q" + query)
-  plt.legend(loc='upper left', fontsize='small')
+
+  scalabilityHelper(avg_times)
+
+  plt.legend(loc='upper right', fontsize='small', markerscale=.6)
   plt.savefig("../web/scalability.jpg") 
   plt.close()
 
   conn.close()
+
+def scalabilityHelper(dic):
+  xs = [16, 32, 64, 128, 256]
+  markers = ["^", "v", "o", "d", "s", "p"]
+  i = 0
+  for q in sorted([int(x) for x in dic.keys()]):
+    query = str(q)
+    plt.plot(xs, dic[query], color=op_colors[i], linewidth=4.25, marker=markers[i], markersize=13, mew=.5, label="Q" + query)
+    i = i + 1 
+
 
 #---------------------------------------------------------------------------------
 #  plotExernalMetrics --  wrapper call to draw cadvisor graphs
