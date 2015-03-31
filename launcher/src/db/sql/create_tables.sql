@@ -52,6 +52,69 @@ CREATE TABLE IF NOT EXISTS metric_plots (
   trial_id     int
 );
 
+
+CREATE TABLE IF NOT EXISTS llexperiments (
+  llexp_id      serial primary key,
+  llexp_name    text
+);
+
+CREATE TABLE IF NOT EXISTS lltrials (
+  lltrial_id      serial primary key,
+  llexp_id        integer,
+  variant         text,
+  query           text
+);
+
+CREATE TABLE IF NOT EXISTS lltime (
+  lltrial_id      integer,
+  elapsed         double precision
+);
+
+CREATE TABLE IF NOT EXISTS llheap (
+  lltrial_id      integer,
+  alloc           double precision
+);
+
+CREATE TABLE IF NOT EXISTS llcache (
+  lltrial_id      integer,
+  cache_L2        double precision,
+  cache_L3        double precision,
+  ipc             double precision,
+  qpi             double precision
+);
+
+
+DROP VIEW IF EXISTS llresults CASCADE;
+CREATE VIEW llresults AS
+SELECT E.llexp_name
+  , T.variant
+  , T.query
+  , avg(R.elapsed) AS Elapsed
+  , avg(alloc) as Heap
+  , avg(cache_l2) as Cache_L2
+  , avg(cache_l3) as Cache_L3
+  , avg(ipc) as IPC
+  , avg(qpi) as QPI
+FROM 
+  lltrials AS T
+  , llexperiments AS E
+  , (SELECT lltrial_id, elapsed, null as alloc, null::double precision as cache_L2, null::double precision as cache_L3, null::double precision as ipc, null::double precision as qpi from lltime
+    UNION
+    SELECT lltrial_id, null as elapsed, alloc, null as cache_L2, null as cache_L3, null as ipc, null as qpi from llheap
+    UNION
+    SELECT lltrial_id, null as elapsed, null as alloc, cache_L2, cache_L3, ipc, qpi from llcache
+  ) AS R
+WHERE 
+  E.llexp_id = T.llexp_id 
+  AND T.lltrial_id = R.lltrial_id
+GROUP BY
+  E.llexp_name, T.variant, T.query;
+
+
+
+
+
+
 -- Results of all trials
 DROP VIEW IF EXISTS trial_results CASCADE;
 CREATE VIEW trial_results AS
@@ -283,3 +346,24 @@ CREATE VIEW cadvisor_baselined AS
 	WHERE 
 	  C.experiment_id = B.experiment_id 
 	  AND C.system = B.system);
+
+
+drop view if exists mostRecentK3;
+create view mostRecentK3 as
+select max(experiment_id) as experiment_id, workload, dataset, query from experiments natural join trials where system='K3' group by workload, dataset, query order by workload, dataset, query;
+
+drop view if exists mostRecentK3Results;
+create view mostRecentK3Results as
+select experiment_id, trial_id, workload, query, dataset, elapsed_ms, ts from mostRecentK3 natural join trials natural join results order by workload, query ,dataset, trial_id;
+
+drop view if exists mostRecentK3Averages;
+create view mostRecentK3Averages as
+select experiment_id, workload, query, dataset, avg(elapsed_ms) as avg_time, stddev(elapsed_ms) as stddev_time, stddev(elapsed_ms)/avg(elapsed_ms) as stddev_avg_ratio, max(ts) as ts from mostRecentK3Results group by experiment_id, workload, query, dataset order by workload, dataset, query;
+
+drop view if exists mostRecentK3Scalability;
+create view mostRecentK3Scalability as
+select *, avg_time / cast(dataset as int) as time_per_core from mostRecentK3Averages where workload ='scalability' order by cast(query as int), cast(dataset as int);
+
+drop view if exists highDeiations;
+create view highDeviations as
+select * from mostRecentK3Averages where stddev_avg_ratio > .1;

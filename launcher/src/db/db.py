@@ -1,11 +1,17 @@
 import psycopg2
 import sys
 
+dbDisabled = False
+
 def getConnection():
+  if dbDisabled:
+      return
   conn = psycopg2.connect("dbname=postgres password=password")
   return conn
 
 def createTables(conn):
+  if dbDisabled:
+      return
   with open("db/sql/create_tables.sql","r") as f:
     try:
       query = f.read()
@@ -18,6 +24,8 @@ def createTables(conn):
       sys.exit(1)
 
 def dropTables(conn):
+  if dbDisabled:
+      return
   with open("db/sql/drop_tables.sql","r") as f:
     try:
       query = f.read()
@@ -31,6 +39,8 @@ def dropTables(conn):
 
 # Insert an experiment and return the experiment_id associated with it
 def insertExperiment(conn, exp):
+  if dbDisabled:
+      return
   try:
     query = "INSERT INTO experiments (workload, query, dataset) VALUES (%s, %s, %s) RETURNING experiment_id"
     cur = conn.cursor()
@@ -47,6 +57,8 @@ def insertExperiment(conn, exp):
 
 # Insert a trial and return the trial_id associated with it.
 def insertTrial(conn, trial):
+  if dbDisabled:
+      return
   try:
     query = "INSERT INTO trials (experiment_id, trial_num, system, ts) VALUES (%s, %s, %s, %s) RETURNING trial_id"
     cur = conn.cursor()
@@ -61,6 +73,8 @@ def insertTrial(conn, trial):
       sys.exit(1)
 
 def insertResult(conn, result):
+  if dbDisabled:
+      return
   try:
     query = "INSERT INTO results (trial_id, status, elapsed_ms, notes) VALUES (%s, %s, %s, %s)"
     cur = conn.cursor()
@@ -72,6 +86,8 @@ def insertResult(conn, result):
       sys.exit(1)
 
 def insertOperator(conn, operator):
+  if dbDisabled:
+      return
   try:
     query = "INSERT INTO operator_metrics VALUES (%s, %s, %s, %s, %s, %s, %s)"
     cur = conn.cursor()
@@ -83,6 +99,8 @@ def insertOperator(conn, operator):
       sys.exit(1)
 
 def getPlotData(conn):
+  if dbDisabled:
+      return
   try:
     query = "select * from experiment_stats e where not exists (select * from plots where experiment_id = e.experiment_id);"
     cur = conn.cursor()
@@ -95,6 +113,8 @@ def getPlotData(conn):
       sys.exit(1)
 
 def getMetricPlotData(conn):
+  if dbDisabled:
+      return
   try:
     query = "SELECT T.experiment_id,trial_id, trial_num, system, query, dataset, workload FROM trials as T, experiments AS E WHERE T.experiment_id = E.experiment_id and NOT EXISTS (select * from metric_plots where trial_id = T.trial_id);"
     cur = conn.cursor()
@@ -107,6 +127,8 @@ def getMetricPlotData(conn):
       sys.exit(1)
 
 def registerPlot(conn, exp_id):
+  if dbDisabled:
+      return
   try:
     query = "INSERT INTO plots VALUES (%s);"
     cur = conn.cursor()
@@ -118,6 +140,8 @@ def registerPlot(conn, exp_id):
       sys.exit(1)
 
 def registerMetricPlot(conn, trial_id):
+  if dbDisabled:
+      return
   try:
     query = "INSERT INTO metric_plots VALUES (%s);"
     cur = conn.cursor()

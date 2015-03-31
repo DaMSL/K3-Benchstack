@@ -1,0 +1,16 @@
+---
+name: role 1
+peers: %(peers)s
+max_peers_per_host: %(peers_per_host)s        
+hostmask: ".*qp-h.*"
+k3_globals:
+  role: rows
+  master: auto
+  profilingEnabled: True
+k3_data:
+  - {var: lineitemFiles, path: /data/scalability/%(sf)s/tables/lineitem, policy: global}
+  - {var: ordersFiles, path: /data/scalability/%(sf)s/tables/orders, policy: global}
+  - {var: customerFiles, path: /data/scalability/%(sf)s/tables/customer, policy: global}
+  - {var: supplierFiles, path: /data/scalability/%(sf)s/tables/supplier, policy: global}
+  - {var: nationFiles, path: /data/scalability/%(sf)s/tables/nation, policy: replicate}
+  - {var: regionFiles, path: /data/scalability/%(sf)s/tables/region, policy: replicate}

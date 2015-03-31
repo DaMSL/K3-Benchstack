@@ -74,6 +74,9 @@ class Profiler(threading.Thread):
       return True
 
     def run(self):
+        if self.engine == "K3":
+            return
+
         # For K3: poll docker to find the mesos container. 
         while not self.containersKnown() and not self.finished:
           for m in self.machines:

@@ -100,7 +100,14 @@ object SGD {
     }
 
       var s = 0.0
-      (0 until iters).foreach(i => s += times(i))
+      var skip = true
+      (0 until iters).foreach(i => 
+        if (skip) {
+          skip = false
+        } else {
+          s += times(i)
+        }
+      )
       val avg = s / iters
       println("Elapsed: " + avg.toString)
 

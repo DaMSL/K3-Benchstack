@@ -15,7 +15,7 @@ object KMeans {
     // Common
     val sc = Common.sc
     val sf = args(0)
-    val path = s"hdfs://qp-hm1.damsl.cs.jhu.edu:54310/kmeans/$sf/"
+    val path = s"hdfs://qp-hm1.damsl.cs.jhu.edu:54310/sgd_single_file/$sf/sgd$sf"
     val rawData = sc.textFile(path)
     val parsedData = rawData.map(s => s.split(',').map(_.toDouble) ).cache()
     println(parsedData.count().toString + " Points Cached")

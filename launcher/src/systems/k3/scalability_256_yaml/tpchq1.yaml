@@ -1,0 +1,12 @@
+---
+name: role 1
+peers: %(peers)s
+max_peers_per_host: %(peers_per_host)s        
+hostmask: ".*qp-h.*"
+k3_globals:
+  role: rows
+  master: auto
+  profilingEnabled: True
+k3_data:
+  - {var: dataLineCountFiles, path: /data/scalability/%(sf)s/linecounts/lineitem, policy: sharded}
+  - {var: dataFiles, path: /data/scalability/%(sf)s/tables/lineitem, policy: sharded}

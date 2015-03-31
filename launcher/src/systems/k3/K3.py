@@ -13,25 +13,46 @@ class K3:
   def name(self):
     return "K3"
   
-  webAddress = "http://192.168.0.11:8002"
-  k3Dir = '/K3'
-  schedulerDir = '/K3/tools/scheduler/scheduler/'
+  webAddress = "http://qp2:8302"
+  k3Dir = '/k3/K3'
+  schedulerDir = '/k3/K3/tools/scheduler/scheduler/'
   schedulerPath = os.path.join(schedulerDir, 'dispatcher.py')
   webServer = '/build'
   queryMap = {'tpch': os.path.join(k3Dir, 'examples/sql/tpch/queries/k3'),
-              'amplab': os.path.join(k3Dir, 'examples/distributed/amplab')}
+              'amplab': os.path.join(k3Dir, 'examples/distributed/amplab'),
+              'scalability': os.path.join(k3Dir, 'examples/sql/tpch/queries/k3'),
+              'ml': os.path.join(k3Dir, 'examples/distributed/ml')}
 
   def getBinaryName(self, e):
-    return e.workload + 'q' + e.query
+    if e.workload == "tpch" or e.workload == 'scalability':
+      return 'tpch' + 'q' + e.query
+    elif e.workload == "amplab":
+      return "amplabq" + e.query
+    elif e.workload == "ml":
+      return e.query
+    else:
+      return None
 
   def getYamlPath(self, e):
-    return os.path.join('./systems/k3/yaml', self.getBinaryName(e) + '.yaml')
-
+    if e.workload == 'scalability':
+        if e.dataset == "256":
+          return os.path.join('./systems/k3/scalability_256_yaml', self.getBinaryName(e) + '.yaml')
+        else:
+          return os.path.join('./systems/k3/scalability_yaml', self.getBinaryName(e) + '.yaml')
+    else:
+      return os.path.join('./systems/k3/yaml', self.getBinaryName(e) + '.yaml')
 
   # Compile program, place it in web server folder
   # Return true on success, false otherwise
   def compileProgram(self, e):
     sourceName = 'q' + e.query + '.k3'
+    if e.query == "5" and (e.workload == "scalability" or e.workload == "tpch"):
+        sourceName = "barrier-queries/q5_bushy_broadcast_broj2.k3"
+    elif (e.workload == "scalability" or e.workload == "tpch") and (e.query == "3" or e.query == "18" or e.query == "22"):
+        sourceName = "barrier-queries/q" + e.query + ".k3"
+    elif e.workload == "ml":
+        sourceName = e.query + ".k3"
+
     sourcePath = os.path.join(self.queryMap[e.workload], sourceName)
     if not os.path.isfile(sourcePath):
       print("Could not find k3 source: %s" % sourcePath)
@@ -46,7 +67,7 @@ class K3:
     except Exception:
       pass
 
-    compileCmd = os.path.join(self.k3Dir, 'tools/scripts/run/compile.sh') + " " + sourcePath
+    compileCmd = os.path.join(self.k3Dir, 'tools/scripts/run/compile_prof.sh') + " " + sourcePath
     utils.runCommand('cd ' + self.k3Dir + ' && ' + compileCmd)
 
     binaryName = self.getBinaryName(e)
@@ -95,16 +116,33 @@ class K3:
     tmp = "/tmp/k3.yaml"
 
     precmd = ""
-    # hack, replace 10g with 100g for tpch
+    # hack, replace 10g with 100g for tpch and ML
     if e.dataset == "tpch100g":
       precmd = "sed s/10g/100g/g " + yaml
+    elif e.dataset == "sgd100g":
+      precmd = "sed s/sgd/sgd_100G/g " + yaml
     else:
       precmd = "cat " + yaml
-      
-    
+
+    # for scalability experiments, need to fill in a query template
+    if e.workload == "scalability":
+      totalMachines = 16
+      result = ""
+      with open(yaml, "r") as f:
+        s = f.read()
+        sf = int(e.dataset)
+        peers = sf
+        peers_per_host = sf / totalMachines
+        result = s % {'peers': peers, 'sf': sf, 'peers_per_host': peers_per_host}
+      tmpfile = "/tmp/scalability.txt"
+      with open(tmpfile, 'w') as f:
+        f.write(result)
+      precmd = "cat %s" % (tmpfile,)
+        
     cmd = "%s > %s && PYTHONPATH=%s python %s --binary %s --roles %s 2>&1"  % (precmd, tmp, self.schedulerDir, self.schedulerPath, binary, tmp)
 
     output = utils.runCommand(cmd)
+    print(output)
     lines = output.split('\n')
 
     elapsedTime = 0
@@ -115,6 +153,9 @@ class K3:
     for line in lines:
       if "Time Query:" in line:
         elapsedTime = int(line.split(":")[-1].strip())
+        r = Result(trial_id, "Success", elapsedTime, "")
+      elif "Avg time per iteration:" in line:
+        elapsedTime = int(float(line.split(":")[-1].strip()))
         r = Result(trial_id, "Success", elapsedTime, "")
       if "GROUPBY" in line:
         time = int(line.split(":")[-1].strip())
