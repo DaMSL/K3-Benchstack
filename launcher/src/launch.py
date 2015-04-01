@@ -34,12 +34,12 @@ def initDatabase(shouldDrop):
   log.logHeader("Initializing the database")
   conn = db.getConnection()
 
-  if shouldDrop:
-    log.logEvent(1, "Dropping Tables")
-    db.dropTables(conn)
-  
-  log.logEvent(1, "Creating Tables") 
-  db.createTables(conn)
+  #if shouldDrop:
+  #  log.logEvent(1, "Dropping Tables")
+  #  db.dropTables(conn)
+  #
+  #log.logEvent(1, "Creating Tables") 
+  #db.createTables(conn)
 
   log.logEvent(1, "SUCCESS")
   log.endSection()
@@ -159,6 +159,12 @@ def parseMLExperiments(query, dataset):
   result = []
   result.append(Experiment("ml", query, dataset))
   return result
+
+def parseMLScalabilityExperiments(lst, query):
+  result = []
+  for dataset in lst:
+    result.append(Experiment("ml_scalability", query, dataset))
+  return result
  
 def parseArgs():
   parser = argparse.ArgumentParser() 
@@ -176,6 +182,7 @@ def parseArgs():
   parser.add_argument('--k_means100g', action="store_true", help='Run kmeans 100g. No arguments.')
   parser.add_argument('--sgd10g', action="store_true",  help='Run sgd 10g. No arguments.')
   parser.add_argument('--sgd100g', action="store_true", help='Run sgd 100g. No arguments.')
+  parser.add_argument('--scalability_k_means', nargs='*',  help='Run kmeans scalability. Provide a space seperated list of datasets (16,32,64,128,256)')
   args = parser.parse_args()
 
   log.logHeader("Parsing Arguments: ")
@@ -211,6 +218,8 @@ def parseArgs():
     experiments.extend(parseMLExperiments("sgd", "sgd10g"))
   if args.sgd100g:
     experiments.extend(parseMLExperiments("sgd", "sgd100g"))
+  if args.scalability_k_means:
+    experiments.extend(parseMLScalabilityExperiments(args.scalability_k_means, "k_means"))
   
   if len(experiments) == 0:
     log.logEvent(1, "No Experiments Specified: Exiting.")
