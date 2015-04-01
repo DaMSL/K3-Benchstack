@@ -36,7 +36,7 @@ class K3:
 
   def getYamlPath(self, e):
     if e.workload == 'scalability' or e.workload == "ml_scalability":
-        if e.dataset == "256":
+        if e.workload == "scalability" and e.dataset == "256":
           return os.path.join('./systems/k3/scalability_256_yaml', self.getBinaryName(e) + '.yaml')
         else:
           return os.path.join('./systems/k3/scalability_yaml', self.getBinaryName(e) + '.yaml')

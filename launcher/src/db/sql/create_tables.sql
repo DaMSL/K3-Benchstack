@@ -383,6 +383,10 @@ drop view if exists mostRecentK3Scalability;
 create view mostRecentK3Scalability as
 select *, avg_time / cast(dataset as int) as time_per_core from mostRecentK3Averages where workload ='scalability' order by cast(query as int), cast(dataset as int);
 
+drop view if exists mostRecentK3MLScalability;
+create view mostRecentK3MLScalability as
+select *, avg_time / cast(dataset as int) as time_per_core from mostRecentK3Averages where workload ='ml_scalability' order by cast(query as int), cast(dataset as int);
+
 drop view if exists highDeiations;
 create view highDeviations as
 select * from mostRecentK3Averages where stddev_avg_ratio > .1;

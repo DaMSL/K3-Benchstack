@@ -493,12 +493,10 @@ def plotQueryResults(ds, metric, isColor=True):
 def plotScalability(isColor=True):
   conn = db.getConnection()
   cur = conn.cursor()
-  query = "SELECT query, dataset, avg_time, time_per_core from mostRecentK3Scalability order by cast(query as int), cast(dataset as int)"
+  query = "SELECT query, dataset, avg_time, time_per_core from mostRecentK3Scalability "
   cur.execute(query)
 
   #Map query to list of times (that form a line)
-  markers = ["^", "v", "o", "d", "s", "p"]
-  xs = [16, 32, 64, 128, 256]
   time_per_cores = {}
   avg_times = {}
 
@@ -515,7 +513,27 @@ def plotScalability(isColor=True):
     if query not in avg_times:
       avg_times[query] = []
     avg_times[query].append(avg_time)
+  
+  query2 = "select query, dataset, avg_time, time_per_core from mostRecentK3MLScalability "
+  cur.execute(query2)
+  ml_time_per_cores = {}
+  ml_avg_times = {}
+  for row in cur.fetchall():
+    query = row[0]
+    dataset = int(row[1])
+    avg_time = row[2]
+    ml_time_per_core = row[3]
 
+    if query not in ml_time_per_cores:
+      ml_time_per_cores[query] = []
+    ml_time_per_cores[query].append(ml_time_per_core)
+    
+    if query not in ml_avg_times:
+      ml_avg_times[query] = []
+    ml_avg_times[query].append(avg_time)
+
+  print(ml_time_per_cores)
+  print(ml_avg_times)
   # Plot time per core
   fig  = plt.figure()
   plt.ylabel('Time per Core (ms)')
@@ -523,8 +541,8 @@ def plotScalability(isColor=True):
   plt.grid(which='major', axis='y', linewidth=0.75, linestyle='--', color='0.75')
   plt.grid(which='major', axis='x', linewidth=0.75, linestyle='--', color='0.75')
 
-  scalabilityHelper(time_per_cores)
-  
+  scalabilityHelper(time_per_cores, ml_time_per_cores)
+   
   plt.ylim(ymin=0, ymax=350)
   plt.legend(loc='upper right', fontsize='small', markerscale=.6)
   plt.savefig("../web/scalability_per_core.jpg") 
@@ -537,21 +555,32 @@ def plotScalability(isColor=True):
   plt.grid(which='major', axis='y', linewidth=0.75, linestyle='--', color='0.75')
   plt.grid(which='major', axis='x', linewidth=0.75, linestyle='--', color='0.75')
 
-  scalabilityHelper(avg_times)
+  scalabilityHelper(avg_times, ml_avg_times)
 
-  plt.legend(loc='upper right', fontsize='small', markerscale=.6)
+  plt.legend(loc='upper left', fontsize='small', markerscale=.6)
   plt.savefig("../web/scalability.jpg") 
   plt.close()
 
   conn.close()
 
-def scalabilityHelper(dic):
+def scalabilityHelper(dic, mldic):
   xs = [16, 32, 64, 128, 256]
-  markers = ["^", "v", "o", "d", "s", "p"]
+  markers = ["^", "v", "o", "d", "s", "p", "8", "h"]
+  colors = ['saddlebrown', 'firebrick', 'goldenrod', 'seagreen', 'slateblue', 'midnightblue', 'orangered', 'yellowgreen']
   i = 0
   for q in sorted([int(x) for x in dic.keys()]):
     query = str(q)
-    plt.plot(xs, dic[query], color=op_colors[i], linewidth=4.25, marker=markers[i], markersize=13, mew=.5, label="Q" + query)
+    plt.plot(xs, dic[query], color=colors[i], linewidth=4.25, marker=markers[i], markersize=13, mew=.5, label="Q" + query)
+    i = i + 1 
+  
+  for q in mldic:
+    query = str(q)
+    queryStr = ""
+    if query == "k_means":
+      queryStr = "K Means"
+    elif query == "sgd":
+      queryStr = "SGD"
+    plt.plot(xs, mldic[query], color=colors[i], linewidth=4.25, marker=markers[i], markersize=13, mew=.5, label=queryStr)
     i = i + 1 
 
 
