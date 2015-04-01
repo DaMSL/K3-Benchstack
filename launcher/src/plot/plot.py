@@ -17,12 +17,13 @@ VAL_LABEL_SIZE  = 'medium'
 
 #systems         = ['Vertica', 'Oracle', 'Spark', 'Impala', 'K3']
 systems         = ['Spark', 'Impala', 'K3']
+systems_mem     = ['Spark', 'Impala', 'K3-NoFusion', 'K3-Fusion']
 
 system_labels   = {'Vertica': 'DB X', 'Oracle':'DB Y', 'Spark': 'Spark', 
         'Impala': 'Impala', 'K3': 'K3', 'Impala-p': 'Impala (P)', 'K3-Fusion':'K3-Fusion', 'K3-NoFusion':'K3-NoFusion'}
 
-sys_colors      = {'Vertica':'lightcoral', 'Oracle':'goldenrod', 'Spark':'tomato', 'Impala':'yellowgreen', 
-                    'Impala-p':'cyan', 'K3':'cornflowerblue',  'K3-Fusion':'cyan', 'K3-NoFusion':'cornflowerblue'}
+sys_colors      = {'Vertica':'lightcoral', 'Oracle':'goldenrod', 'Spark':'orangered', 'Impala':'yellowgreen', 
+                    'Impala-p':'cyan', 'K3':'cornflowerblue',  'K3-Fusion':'gold', 'K3-NoFusion':'cornflowerblue'}
 sys_greyscale   = {'Vertica':'dimgrey', 'Oracle':'darkgrey', 'Spark':'whitesmoke', 'Impala':'darkgrey', 
         'Impala-p':'silver', 'K3':'black', 'K3-Fusion':'silver', 'K3-NoFusion':'black'}
 sys_pattern     = {'Vertica':'', 'Oracle':'', 'Spark':'', 'Impala':'', 'Impala-p':'--', 'K3':'', 'K3-Fusion':'--', 'K3-NoFusion':''}
@@ -44,14 +45,14 @@ query_labels    = {'tpch':   ['Q1', 'Q3', 'Q5', 'Q6', 'Q18', 'Q22'],
 query_list      = {'tpch':[1, 3, 5, 6, 18, 22], 'amplab': [1,2,3]}
 
 
-manual_ymax     = {'tpch10g': 40, 'tpch100g': 250, 'amplab': 100}
+manual_ymax     = {'tpch10g': 40, 'tpch100g': 250, 'amplab': 100, 'time':100, 'memory': 40}
 
 cpu_total = metric.Metric(label="cpu_usage_total", convert=(lambda t: t/1000000.), title="CPU_Total", axis="Time (ms)", delta=True)
 #cpu_system = Metric(label="cpu_usage_system", convert=conv_cpu, title="CPU_System", axis="Time (ms)", delta=True)
 mem_usage = metric.Metric(label="memory_usage", convert=(lambda m: m / (1024. * 1024. * 1024)), title="MEM_Usage", axis="Mem (GB)")
 
-timeM = metric.Metric(title='Execution Time', convert=(lambda t: t/1000.), label='time', axis='Time (sec)', query=time_query)
-memoryM = metric.Metric(title='Peak Memory', convert=(lambda m: m/1024.), label='memory', axis='Mem (GB)', query=mem_query)
+timeM = metric.Metric(title='Execution Time', convert=(lambda t: t/1000.), label='time', axis='Time (sec)', query=time_query, systems=systems)
+memoryM = metric.Metric(title='Peak Memory', convert=(lambda m: m/1024.), label='memory', axis='Mem (GB)', query=mem_query, systems=systems_mem)
 
 p_metric= {'title':'Percent Time by Operation', 'label':'Percent Time', 'fileprefix': 'percent_', 'type': 'percent'}
 t_metric= {'title':'Time by Operation', 'label':'Time (sec)', 'fileprefix': 'time_', 'type': 'time'}
@@ -63,6 +64,10 @@ def normalizeData(data, norm_from=0, norm_to=100):
     dn = np.interp(tn, to, data)
     return dn
 
+def normalizeVector(data, norm_to=1):
+    vect = np.array(data)
+    norm=np.linalg.norm(vect)
+    return (vect/norm) * norm_to
 
 #---------------------------------------------------------------------------------
 #  plotQueryOpGraph -- wrapper call to draw  operation graphs for ALL queries for both metrics
@@ -163,7 +168,7 @@ def plotAllOperationsAllDatasets(metric, error=None, isColor=True):
   syslabels = ['S', 'I', 'K3', ''] * 15  
   systems = ['Spark', 'Impala', 'K3']
   if metric['type'] == 'memory':
-      systems = ['Spark', 'Impala', 'K3-Fusion', 'K3-NoFusion']
+      systems = systems_mem #['Spark', 'Impala', 'K3-Fusion', 'K3-NoFusion']
       syslabels = ['S', 'I', 'K3-F', 'K3-NF']
 
   inds = np.array(range(len(systems)))
@@ -236,25 +241,30 @@ def plotAllOperationsAllDatasets(metric, error=None, isColor=True):
 #---------------------------------------------------------------------------------
 #  plotAlldataSets -- draws all the operation graphs for each query
 #--------------------------------------------------------------------------------
-def plotAllDatasets(metric, isColor=True):
+def plotAllDatasets(metric, isColor=True, norm=False, logscale=False):
   print "Drawing %s condolidated for all datasets..." % (metric.title), 
 
   xlabels = [q for q in query_labels['tpch']]*2
   xlabels.extend([q for q in query_labels['amplab']])
 
-  systems =['Spark', 'Impala', 'K3-Fusion', 'K3-NoFusion']  if metric.label == 'memory' else ['Spark', 'Impala', 'K3'] 
+  systems = systems_mem  if metric.label == 'memory' else ['Spark', 'Impala', 'K3'] 
 
-  width = 1./(len(systems) + 1)
-  spacing = width
-  offset = width / 2.
+  num_queries = len(xlabels)
+
+  width = 1./(len(systems) + 2)
+  spacing = width*2
+  offset = width
   conn = db.getConnection()
   cur = conn.cursor()
 
-  index = np.arange(15)
+  index = np.arange(num_queries)
   fig = plt.figure(figsize=(12, 4))
 
-  for i, sys in enumerate(systems):
+  data = {}
+  vals = {}
+  errs = {}
 
+  for i, sys in enumerate(systems):
     results = []
 
     for ds in datasets:
@@ -269,26 +279,47 @@ def plotAllDatasets(metric, isColor=True):
         if int(qry) not in queries:
             continue
         ds_results[qry] = (val, err)
+
+      for q in queries:
+        if str(q) not in ds_results:
+          ds_results[str(q)] = (0, 0)
       
       results.extend([ds_results[str(q)] for q in queries])
       # Unzip date into plot-able vectors & draw each bar
 
-    data = zip(*[ (metric.convert(v[0]), metric.convert(v[1])) for v in results] ) # in cur.fetchall() ])
+    vals[sys] = [ metric.convert(v[0]) for v in results]
+    errs[sys] = [ metric.convert(v[1]) for v in results]
+#    data[sys] = [ (metric.convert(v[0]), metric.convert(v[1])) for v in results]  # in cur.fetchall() ])
+    #data[sys] = zip(*[ (metric.convert(v[0]), metric.convert(v[1])) for v in results] ) # in cur.fetchall() ])
+    print sys, vals[sys]
 
+  # Check if data needs to be normalized  TODO: move to function
+  if norm:
+    for i in range(num_queries):
+        maxval = float(max([vals[sys][i] for sys in systems]))
+        for sys in systems:
+            vals[sys][i] /= maxval
+
+  for i, sys in enumerate(systems):
     pattern = None if isColor else sys_pattern[sys]
     barcolor = sys_colors[sys] if isColor else sys_greyscale[sys]
-
-    plt.bar(offset + index + (width)*i, data[0], width, color=barcolor, yerr=data[1], label=system_labels[sys], hatch=pattern)
+    plt.bar((len(systems)*width + spacing)*index + offset + (width)*i, vals[sys], width, color=barcolor, label=system_labels[sys], hatch=pattern)
 
   ax = plt.gca()
   ax.xaxis.set_major_locator(plt.MultipleLocator(1.0 - width/2.))
   ax.xaxis.set_minor_locator(plt.MultipleLocator(width))
   ax.get_xaxis().set_tick_params(pad=2)
-  plt.xlim(xmax=15)
+  plt.xlim(xmax=num_queries)
 
   plt.ylabel(metric.axis)
-  plt.ylim(ymin=0, ymax=manual_ymax[ds])
   plt.grid(which='major', axis='y', linewidth=0.75, linestyle='--', color='0.75')
+  if logscale:
+    ax.set_yscale('log')
+    plt.yscale('log', nonposy='clip')
+  else:
+    ymax = 1.0 if norm else manual_ymax[metric.label]
+    plt.ylim(ymin=0, ymax=ymax)
+
   ax.xaxis.set_minor_locator(plt.MultipleLocator(width*len(systems)+spacing))
   plt.grid(which='minor', axis='x', linewidth=0.75, linestyle='-', color='0.75')
   plt.xticks(index + .5, xlabels, va='top')
@@ -299,7 +330,11 @@ def plotAllDatasets(metric, isColor=True):
   plt.legend(loc='upper left', fontsize='medium')
   plt.tight_layout()
   path = utils.checkDir("../web/%s_graphs/" % metric.label)
-  filename = path + "uber_%s_graph.jpg" % (metric.label)
+
+  flabel = "graph_normal" if norm else "graph"
+  if logscale:
+      flabel += "_log"
+  filename = path + "uber_%s_%s.jpg" % (flabel, metric.label)
   plt.savefig(filename)
   plt.close()
   utils.buildIndex(path, "Consoildated Graphs, %s" % metric.axis)
@@ -312,6 +347,8 @@ def plotAllDatasets(metric, isColor=True):
 #--------------------------------------------------------------------------------
 def plotConsolidated(ds, metric, isColor=True):
   print "Drawing %s for %s..." % (metric.title, ds), 
+
+  systems = metric.systems
   queries = query_list[workload[ds]]
   qlabels = query_labels[workload[ds]]
   width = 1./(len(systems) + 1)
@@ -662,7 +699,10 @@ def parseArgs():
 
   if args.allinone:
     plotAllDatasets(timeM, isColor)
+    plotAllDatasets(timeM, isColor, logscale=True)
     plotAllDatasets(memoryM, isColor)
+    plotAllDatasets(memoryM, isColor, norm=True)
+    plotAllDatasets(memoryM, isColor, logscale=True)
     plotAllOperationsAllDatasets(t_metric, isColor)
     plotAllOperationsAllDatasets(m_metric, isColor)
 

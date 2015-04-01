@@ -48,7 +48,6 @@ def getOperationStats(ds, qry, systems, operations):
           continue
       total_time[sys] = float(time)
       err_time[systems.index(sys)] = float(err)
-      print result
   except Exception as (ex):
     print (ex)
     print "Error processing the following query: \n\n%s\n" % query

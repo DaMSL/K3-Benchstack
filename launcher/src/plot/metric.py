@@ -10,6 +10,7 @@ class Metric:
         self.axis       = kwargs.get('axis', None)
         self.delta      = kwargs.get('delta', False)
         self.query      = kwargs.get('query', None)
+        self.systems    = kwargs.get('systems', None)
 
 # Conversion function retained for reference
 def conv_ts(ts):    
