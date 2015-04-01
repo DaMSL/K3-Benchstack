@@ -84,6 +84,25 @@ CREATE TABLE IF NOT EXISTS llcache (
 );
 
 
+
+CREATE TABLE IF NOT EXISTS k3cache (
+  system  text,
+  dataset text,
+  query   text,
+  cache_L2        double precision,
+  cache_L3        double precision,
+  ipc             double precision,
+  qpi             double precision);
+
+
+CREATE TABLE IF NOT EXISTS k3memory (
+  system  text,
+  dataset text,
+  query   text,
+  memory  double precision,
+  error   double precision DEFAULT 0.0);
+
+
 DROP VIEW IF EXISTS llresults CASCADE;
 CREATE VIEW llresults AS
 SELECT E.llexp_name
