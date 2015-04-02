@@ -26,6 +26,22 @@ def time_query (ds, sys):
     query = "SELECT query, avg_time, error from summary_by_system where dataset='%s' and system='%s';" % (ds, sys)
     return query
 
+
+def ipc_query (ds, sys):
+    query = "SELECT query, ipc, 0 as error FROM k3cache where dataset='%s' AND system='%s';" % (ds, sys)
+    return query
+
+def cache_l2_query (ds, sys):
+    query = "SELECT query, cache_l2, 0 as error FROM k3cache where dataset='%s' AND system='%s';" % (ds, sys)
+    return query
+
+def cache_l3_query (ds, sys):
+    query = "SELECT query, cache_l3, 0 as error FROM k3cache where dataset='%s' AND system='%s';" % (ds, sys)
+    return query
+
+
+
+
 #---------------------------------------------------------------------------------
 #  getOperationStats -- Returns mem, percent, time per op as matrix of values for each system
 #--------------------------------------------------------------------------------
