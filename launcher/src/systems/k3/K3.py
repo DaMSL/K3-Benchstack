@@ -21,21 +21,22 @@ class K3:
   queryMap = {'tpch': os.path.join(k3Dir, 'examples/sql/tpch/queries/k3'),
               'amplab': os.path.join(k3Dir, 'examples/distributed/amplab'),
               'scalability': os.path.join(k3Dir, 'examples/sql/tpch/queries/k3'),
-              'ml': os.path.join(k3Dir, 'examples/distributed/ml')}
+              'ml': os.path.join(k3Dir, 'examples/distributed/ml'),
+              'ml_scalability': os.path.join(k3Dir, 'examples/sql/tpch/queries/k3')}
 
   def getBinaryName(self, e):
     if e.workload == "tpch" or e.workload == 'scalability':
       return 'tpch' + 'q' + e.query
     elif e.workload == "amplab":
       return "amplabq" + e.query
-    elif e.workload == "ml":
+    elif e.workload == "ml" or e.workload == "ml_scalability":
       return e.query
     else:
       return None
 
   def getYamlPath(self, e):
-    if e.workload == 'scalability':
-        if e.dataset == "256":
+    if e.workload == 'scalability' or e.workload == "ml_scalability":
+        if e.workload == "scalability" and e.dataset == "256":
           return os.path.join('./systems/k3/scalability_256_yaml', self.getBinaryName(e) + '.yaml')
         else:
           return os.path.join('./systems/k3/scalability_yaml', self.getBinaryName(e) + '.yaml')
@@ -50,7 +51,7 @@ class K3:
         sourceName = "barrier-queries/q5_bushy_broadcast_broj2.k3"
     elif (e.workload == "scalability" or e.workload == "tpch") and (e.query == "3" or e.query == "18" or e.query == "22"):
         sourceName = "barrier-queries/q" + e.query + ".k3"
-    elif e.workload == "ml":
+    elif e.workload == "ml" or e.worklaod == "ml_scalability":
         sourceName = e.query + ".k3"
 
     sourcePath = os.path.join(self.queryMap[e.workload], sourceName)
@@ -125,7 +126,8 @@ class K3:
       precmd = "cat " + yaml
 
     # for scalability experiments, need to fill in a query template
-    if e.workload == "scalability":
+    if e.workload == "scalability" or e.workload == "ml_scalability":
+      print(e.workload + "!!")
       totalMachines = 16
       result = ""
       with open(yaml, "r") as f:

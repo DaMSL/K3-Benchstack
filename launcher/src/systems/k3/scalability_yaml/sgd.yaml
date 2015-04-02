@@ -1,0 +1,11 @@
+---
+name: role 1
+peers: %(peers)s
+max_peers_per_host: %(peers_per_host)s        
+hostmask: ".*qp-h.*"
+k3_globals:
+  role: points
+  master: auto
+  dimensionality: 32
+  iterations_remaining: 10
+  dataFiles: [{path: /data/scalability/sgd_1G.txt}]
