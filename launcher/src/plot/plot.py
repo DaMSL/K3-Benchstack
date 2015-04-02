@@ -12,8 +12,15 @@ from matplotlib.ticker import FuncFormatter
 from benchdata import *
 import metric
 
+FIGURE_SIZE_PAPER = (12, 3.5)
+FIGURE_SIZE_LG  = (12,4)
 FIGURE_SIZE     = (8, 4)
+
+DEFAULT_FIGURE_SIZE = FIGURE_SIZE_PAPER
+
 VAL_LABEL_SIZE  = 'medium'
+
+
 
 #systems         = ['Vertica', 'Oracle', 'Spark', 'Impala', 'K3']
 systems         = ['Spark', 'Impala', 'K3']
@@ -33,7 +40,7 @@ op_colors       = ['saddlebrown', 'firebrick', 'goldenrod', 'seagreen', 'slatebl
 op_greyscale    = {'Planning':'black','TableScan':'whitesmoke','Join':'dimgrey','GroupBy':'silver','Exchange':'darkgrey', 'FilterProject':'gainsboro'}
 op_pattern      = {'Planning':'','TableScan':'','Join':'','GroupBy':'','Exchange':'xxx', 'FilterProject':'|||'}
 
-datasets        = ['tpch10g', 'tpch100g', 'amplab']
+all_datasets        = ['tpch10g', 'tpch100g', 'amplab']
 workload        = {'tpch10g':'tpch', 'tpch100g':'tpch', 'amplab':'amplab'}
 
 #query_labels    = {'tpch':   {1:'Q1', 3:'Q3', 5:'Q5', 6:'Q6', 11:'Q11', 18:'Q18', 22:'Q22'},
@@ -53,6 +60,9 @@ mem_usage = metric.Metric(label="memory_usage", convert=(lambda m: m / (1024. * 
 
 timeM = metric.Metric(title='Execution Time', convert=(lambda t: t/1000.), label='time', axis='Time (sec)', query=time_query, systems=systems)
 memoryM = metric.Metric(title='Peak Memory', convert=(lambda m: m/1024.), label='memory', axis='Mem (GB)', query=mem_query, systems=systems_mem)
+ipcM = metric.Metric(title='IPC', convert=(lambda m: m), label='ipc', axis='IPC', query=ipc_query, systems=['K3-NoFusion', 'K3-Fusion'])
+cachel2M = metric.Metric(title='L2 Cache', convert=(lambda m: m), label='L2-Cache', axis='L2 Cache', query=cache_l2_query, systems=['K3-NoFusion', 'K3-Fusion'])
+cachel3M = metric.Metric(title='L3 Cache', convert=(lambda m: m), label='L3-Cache', axis='L3 Cache', query=cache_l3_query, systems=['K3-NoFusion', 'K3-Fusion'])
 
 p_metric= {'title':'Percent Time by Operation', 'label':'Percent Time', 'fileprefix': 'percent_', 'type': 'percent'}
 t_metric= {'title':'Time by Operation', 'label':'Time (sec)', 'fileprefix': 'time_', 'type': 'time'}
@@ -64,190 +74,27 @@ def normalizeData(data, norm_from=0, norm_to=100):
     dn = np.interp(tn, to, data)
     return dn
 
-def normalizeVector(data, norm_to=1):
-    vect = np.array(data)
-    norm=np.linalg.norm(vect)
-    return (vect/norm) * norm_to
-
-#---------------------------------------------------------------------------------
-#  plotQueryOpGraph -- wrapper call to draw  operation graphs for ALL queries for both metrics
-#--------------------------------------------------------------------------------
-def plotAllOperationMetrics(ds, isColor=True):
-  qlist = query_list[workload[ds]]
-  qlabel = query_labels[workload[ds]]
-
-  time = {}
-  memory = {}
-  error = {}
-  try:
-    for qry in qlist:
-      memory[qry], p, time[qry], error[qry] = getOperationStats(ds, qry, systems, operations)
-  except Exception as ex:
-    print "Failed to process all data for dataset, %s" % ds
-    print (ex)
-    sys.exit(0)
-
-  plotDatasetOpGraph(ds, memory, m_metric, None, isColor)
-  plotDatasetOpGraph(ds, time, t_metric, error, isColor)
-
-
-#---------------------------------------------------------------------------------
-#  plotBigOpGraph -- plotting call to draw large graph for given metric & data
-#--------------------------------------------------------------------------------
-def plotDatasetOpGraph(ds, data, metric, error=None, isColor=True):
-  qlist = query_list[workload[ds]]
-  qlabel = query_labels[workload[ds]]
-
-  inds = np.array(range(len(systems)))
-  width = 1
-  spacing = 1
-  fig = plt.figure(figsize=FIGURE_SIZE)
-  offset = spacing / 2.
-  bars = [None] * len(operations)
-  val_labels = []
-  
-
-  # Plot graph bars
-  for qry in qlist:
-    if qry not in data:
-        continue
-    bottom = [0]*len(systems)
-    bars = [None] * len(operations)
-    for i, op in enumerate(operations):
-      barcolor = op_colors[i] if isColor else op_greyscale[op]
-      pattern = None if isColor else op_pattern[op]
-      bars[i] = plt.bar(inds+offset, data[qry][i], width, color=barcolor, bottom=bottom, hatch=pattern) 
-      bottom = [sum(x) for x in zip(data[qry][i], bottom)]
-      if i == len(operations)-1 and error!=None:
-        plt.errorbar(inds+offset+width/2., bottom, linestyle='None', color='black', yerr=error[qry])
-
-    for x, y in zip (inds, bottom):
-      if y == 0:
-        plt.text(x + offset + width/2., 0, 'X', ha='center', size='large', color='darkred')
-#      elif y < (manual_ymax[ds] / 10):
-#        plt.text(x + offset + width/2., y, '%.1f' % y, size=VAL_LABEL_SIZE, ha='center', va='bottom')
-      elif y > manual_ymax[ds]:  
-        plt.text(x + offset + 1.125*width, manual_ymax[ds] - min(manual_ymax[ds]-5, manual_ymax[ds]/12.), '%.0f' % y, size=VAL_LABEL_SIZE, ha='left', va='bottom')
-#      elif y < 100:
-#        label_align = 'center' if error == None or error[qry][x] < .03*y else 'left'
-#        plt.text(x + offset + width/2., y, ' %.0f' % y, size='xx-small', ha=label_align, va='bottom')
-    val_labels.extend([str(b) for b in bottom])
-    offset += len(systems) + spacing
-
-  ax = plt.gca()
-  ax.set_axisbelow(True)
-
-  plt.ylabel(metric['label'])
-  plt.ylim(ymin=0, ymax=manual_ymax[ds])
-  plt.grid(which='major', axis='y', linewidth=0.75, linestyle='--', color='0.75')
-  plt.tick_params(axis='y', which='both', left='on', right='on')
-
-  plt.xlim(xmax=(width*(len(systems)+spacing)*len(qlist)))
-  syslabels = ['S', 'I', 'K3', ''] * len(qlist)  
-  inds = np.array(range((+spacing)*len(syslabels)))
-
-  plt.xticks(inds+spacing, syslabels, fontsize='medium')
-  plt.tick_params(axis='x', which='both', bottom='off', top='off')
-  ax.xaxis.set_minor_locator(plt.MultipleLocator(width*len(systems)+spacing))
-  plt.grid(which='minor', axis='x', linewidth=0.75, linestyle='-', color='0.75')
-
-  plt.jitle("%s for all Queries, %s" % (metric['title'], ds.upper()))
-  plt.legend(bars[::-1], operations[::-1], loc='upper left', fontsize='small')
-#  plt.show()
-  plt.tight_layout()
-  path = utils.checkDir('../web/%sgraphs' % metric['fileprefix'])
-  fig.savefig(path + '/%sper_operation_%s.jpg' % (metric['fileprefix'], ds))
-  plt.close()
-
-
-#---------------------------------------------------------------------------------
-#  plotBigOpGraph -- plotting call to draw large graph for given metric & data
-#--------------------------------------------------------------------------------
-def plotAllOperationsAllDatasets(metric, error=None, isColor=True):
-#  qlabel = query_labels[workload[ds]]
-  syslabels = ['S', 'I', 'K3', ''] * 15  
-  systems = ['Spark', 'Impala', 'K3']
-  if metric['type'] == 'memory':
-      systems = systems_mem #['Spark', 'Impala', 'K3-Fusion', 'K3-NoFusion']
-      syslabels = ['S', 'I', 'K3-F', 'K3-NF']
-
-  inds = np.array(range(len(systems)))
-  width = 1
-  spacing = 1
-  fig = plt.figure(figsize=(12, 4))
-  offset = spacing / 2.
-  time = {}
-  memory = {}
-  error = {}
-
-  for ds in datasets:
-    qlist = query_list[workload[ds]]
-    try:
-      for qry in qlist:
-        memory[(ds,qry)], p, time[(ds,qry)], error[(ds,qry)] = getOperationStats(ds, qry, systems, operations)
-    except Exception as ex:
-      print "Failed to process all data for dataset, %s" % ds
-      print (ex)
-      sys.exit(0)
-
-  bars = [None] * len(operations)
- 
-  data_list = []
-  for ds in datasets:
-    qlist = query_list[workload[ds]]
-    data_list.extend ([time[(ds,q)] for q in qlist])
-
-
-  # Plot graph bars
-  for data in data_list:
-    bottom = [0]*len(systems)
-#      bars = [None] * len(operations)
-    for i, op in enumerate(operations):
-      barcolor = op_colors[i] if isColor else op_greyscale[op]
-      pattern = None if isColor else op_pattern[op]
-      bars[i] = plt.bar(inds+offset, data[i], width, color=barcolor, bottom=bottom, hatch=pattern) 
-      bottom = [sum(x) for x in zip(data[i], bottom)]
-#      if i == len(operations)-1 and error!=None:
-#        plt.errorbar(inds+offset+width/2., bottom, linestyle='None', color='black', yerr=error[qry])
-
-    offset += len(systems) + spacing
-
-  ax = plt.gca()
-  ax.set_axisbelow(True)
-
-  plt.ylabel(metric['label'])
-  plt.ylim(ymin=0, ymax=100)
-  plt.grid(which='major', axis='y', linewidth=0.75, linestyle='--', color='0.75')
-  plt.tick_params(axis='y', which='both', left='on', right='on')
-
-  plt.xlim(xmax=(width*(len(systems)+spacing)*15))
-  inds = np.array(range((+spacing)*len(syslabels)))
-
-  plt.xticks(inds+spacing, syslabels, fontsize='small')
-  plt.tick_params(axis='x', which='both', bottom='off', top='off')
-  ax.xaxis.set_minor_locator(plt.MultipleLocator(width*len(systems)+spacing))
-  plt.grid(which='minor', axis='x', linewidth=0.75, linestyle='-', color='0.75')
-
-#  plt.title("%s for all Queries, %s" % (metric['title'], ds.upper()))
-  plt.legend(bars[::-1], operations[::-1], loc='upper left', fontsize='medium')
-#  plt.show()
-  plt.tight_layout()
-  path = utils.checkDir('../web/%sgraphs' % metric['fileprefix'])
-  fig.savefig(path + '/uber_%sper_operation_%s.jpg' % (metric['fileprefix'], ds))
-  utils.buildIndex(path, "Consoildated Graphs")
-  plt.close()
-
-
 #---------------------------------------------------------------------------------
 #  plotAlldataSets -- draws all the operation graphs for each query
 #--------------------------------------------------------------------------------
-def plotAllDatasets(metric, isColor=True, norm=False, logscale=False):
-  print "Drawing %s condolidated for all datasets..." % (metric.title), 
+def plotLargeBarGraph(metric, **kwargs):
 
-  xlabels = [q for q in query_labels['tpch']]*2
-  xlabels.extend([q for q in query_labels['amplab']])
+  isColor   = kwargs.get('isColor', True)
+  norm      = kwargs.get('norm', False)
+  logscale  = kwargs.get('logscale', False)
+  datasets  = kwargs.get('datasets', all_datasets)
+  fileprefix = kwargs.get('fileprefix', '')
+  systems   = kwargs.get('systems', None)
 
-  systems = systems_mem  if metric.label == 'memory' else ['Spark', 'Impala', 'K3'] 
+
+  print "Drawing %s bar graph for following datasets: " % (metric.title), datasets
+
+  xlabels = []
+  for ds in datasets:
+      xlabels.extend(query_labels[workload[ds]])
+
+  if systems == None:
+    systems = metric.systems #systems_mem  if metric.label == 'memory' else ['Spark', 'Impala', 'K3'] 
 
   num_queries = len(xlabels)
 
@@ -258,9 +105,8 @@ def plotAllDatasets(metric, isColor=True, norm=False, logscale=False):
   cur = conn.cursor()
 
   index = np.arange(num_queries)
-  fig = plt.figure(figsize=(12, 4))
+  fig = plt.figure(figsize=DEFAULT_FIGURE_SIZE)
 
-  data = {}
   vals = {}
   errs = {}
 
@@ -285,12 +131,9 @@ def plotAllDatasets(metric, isColor=True, norm=False, logscale=False):
           ds_results[str(q)] = (0, 0)
       
       results.extend([ds_results[str(q)] for q in queries])
-      # Unzip date into plot-able vectors & draw each bar
 
     vals[sys] = [ metric.convert(v[0]) for v in results]
     errs[sys] = [ metric.convert(v[1]) for v in results]
-#    data[sys] = [ (metric.convert(v[0]), metric.convert(v[1])) for v in results]  # in cur.fetchall() ])
-    #data[sys] = zip(*[ (metric.convert(v[0]), metric.convert(v[1])) for v in results] ) # in cur.fetchall() ])
     print sys, vals[sys]
 
   # Check if data needs to be normalized  TODO: move to function
@@ -317,108 +160,123 @@ def plotAllDatasets(metric, isColor=True, norm=False, logscale=False):
     ax.set_yscale('log')
     plt.yscale('log', nonposy='clip')
   else:
-    ymax = 1.0 if norm else manual_ymax[metric.label]
-    plt.ylim(ymin=0, ymax=ymax)
+
+    if metric.label in manual_ymax or norm:
+      ymax = 1.0 if norm else manual_ymax[metric.label]
+      plt.ylim(ymin=0, ymax=ymax)
 
   ax.xaxis.set_minor_locator(plt.MultipleLocator(width*len(systems)+spacing))
   plt.grid(which='minor', axis='x', linewidth=0.75, linestyle='-', color='0.75')
   plt.xticks(index + .5, xlabels, va='top')
   plt.tick_params(axis='x', which='both', top='off', bottom='off')
-  #plt.xlabel('%50s %60s %20s' % ('TPCH, 10 GB', 'TPCH, 100 GB', 'AMPLAB, SF 5'))
 
   plt.gca().set_axisbelow(True)
   plt.legend(loc='upper left', fontsize='medium')
   plt.tight_layout()
   path = utils.checkDir("../web/%s_graphs/" % metric.label)
 
-  flabel = "graph_normal" if norm else "graph"
+  flabel = "%sgraph" % fileprefix
+  if norm:
+      flabel += "_norm"
   if logscale:
       flabel += "_log"
-  filename = path + "uber_%s_%s.jpg" % (flabel, metric.label)
+  filename = path + "%s_%s.jpg" % (flabel, metric.label)
   plt.savefig(filename)
   plt.close()
   utils.buildIndex(path, "Consoildated Graphs, %s" % metric.axis)
   print ' Saved to %s' % filename
 
 
-
 #---------------------------------------------------------------------------------
-#  plotAllTimes -- draws all the operation graphs for each query
+#  plotBigOpGraph -- plotting call to draw large graph for given metric & data
 #--------------------------------------------------------------------------------
-def plotConsolidated(ds, metric, isColor=True):
-  print "Drawing %s for %s..." % (metric.title, ds), 
+def plotStackedOperationGraph(metric, **kwargs):
 
-  systems = metric.systems
-  queries = query_list[workload[ds]]
-  qlabels = query_labels[workload[ds]]
-  width = 1./(len(systems) + 1)
-  spacing = width
-  offset = width / 2.
-  results = {}
-  conn = db.getConnection()
-  cur = conn.cursor()
+  isColor   = kwargs.get('isColor', True)
+  datasets  = kwargs.get('datasets', all_datasets)
+  error     = kwargs.get('error', None)
+  fileprefix = kwargs.get('fileprefix', '')
 
-  index = np.arange(len(queries))
 
-  fig = plt.figure(figsize=FIGURE_SIZE)
-  for i, sys in enumerate(systems):
+  print "Drawing %s stack per-operations graph datasets: " % (metric.title), datasets
 
-    # Initialize data to 0
-    for q in queries:
-        results[q] = (0.,0.)
+  xlabels = []
+  for ds in datasets:
+      xlabels.extend(query_labels[workload[ds]])
 
-    # Get data
-    query = metric.query(ds, sys)
-    cur.execute(query)
-    for row in cur.fetchall():
-      qry, val, err = row
-      if int(qry) not in queries:
-          continue
+  systems = systems_mem  if metric.label == 'memory' else ['Spark', 'Impala', 'K3'] 
 
-      #if metric.label == 'memory' and sys == 'Oracle':
-      #  val += Oracle_comprmem[ds][int(qry)] * 1024
-      results[int(qry)] = (val, err)
+  num_queries = len(xlabels)
 
-    # Unzip date into plot-able vectors & draw each bar
-    data = zip(*[ (metric.convert(v[0]), metric.convert(v[1])) for k, v in results.items()] ) # in cur.fetchall() ])
-    pattern = None if isColor else sys_pattern[sys]
-    barcolor = sys_colors[sys] if isColor else sys_greyscale[sys]
-    plt.bar(offset + index + (width)*i, data[0], width, color=barcolor, yerr=data[1], label=system_labels[sys], hatch=pattern)
+  syslabels = ['S', 'I', 'K3', ''] * num_queries  
+  if metric.label == 'memory':
+      syslabels = ['S', 'I', 'K3-F', 'K3-NF']
 
-    # Check for annotations 
-    for x, y in zip (index, data[0]):
-      if y == 0:
-        plt.text(offset + x + (width)*i + width/4., 0, 'X', ha='center', size='large', color='darkred')
-#      elif y < 10:
-#        plt.text(offset + x + (width)*i + width/2., y, '%.1f' % y, size=VAL_LABEL_SIZE, ha='center', va='bottom')
-#      elif y < manual_ymax[ds]:
-#        label_align = 'center' if data[1][x] < .03*y else 'left'
-#        plt.text(offset + x + (width)*i + width/2., y, '%.0f' % y, size=VAL_LABEL_SIZE, ha=label_align, va='bottom')
-      elif y > manual_ymax[ds]:
-        plt.text(offset + x + (width)*i + 1.125*width, manual_ymax[ds] - min(manual_ymax[ds]-5, manual_ymax[ds]/12.), '%.0f' % y, size=VAL_LABEL_SIZE, ha='left', va='bottom')
+  inds = np.array(range(len(systems)))
+  width = 1
+  spacing = 1
+  fig = plt.figure(figsize=DEFAULT_FIGURE_SIZE)
+  offset = spacing / 2.
+  time = {}
+  memory = {}
+  error = {}
+
+  for ds in datasets:
+    qlist = query_list[workload[ds]]
+    try:
+      for qry in qlist:
+        memory[(ds,qry)], p, time[(ds,qry)], error[(ds,qry)] = getOperationStats(ds, qry, systems, operations)
+    except Exception as ex:
+      print "Failed to process all data for dataset, %s" % ds
+      print (ex)
+      sys.exit(0)
+
+  bars = [None] * len(operations)
+ 
+  data_list = []
+  for ds in datasets:
+    qlist = query_list[workload[ds]]
+    data_list.extend ([time[(ds,q)] for q in qlist])
+
+
+  # Plot graph bars
+  for data in data_list:
+    bottom = [0]*len(systems)
+    for i, op in enumerate(operations):
+      barcolor = op_colors[i] if isColor else op_greyscale[op]
+      pattern = None if isColor else op_pattern[op]
+      bars[i] = plt.bar(inds+offset, data[i], width, color=barcolor, bottom=bottom, hatch=pattern) 
+      bottom = [sum(x) for x in zip(data[i], bottom)]
+
+    offset += len(systems) + spacing
 
   ax = plt.gca()
-  ax.xaxis.set_major_locator(plt.MultipleLocator(1.0 - width/2.))
-  ax.xaxis.set_minor_locator(plt.MultipleLocator(width))
-  ax.get_xaxis().set_tick_params(pad=2)
+  ax.set_axisbelow(True)
 
-  plt.ylabel(metric.axis)
-  plt.ylim(ymin=0, ymax=manual_ymax[ds])
+  plt.ylabel(metric.label) #['label'])
+  plt.ylim(ymin=0, ymax=100)
   plt.grid(which='major', axis='y', linewidth=0.75, linestyle='--', color='0.75')
+  plt.tick_params(axis='y', which='both', left='on', right='on')
+
+  plt.xlim(xmax=(width*(len(systems)+spacing)*num_queries))
+  inds = np.array(range((+spacing)*len(syslabels)))
+
+  plt.xticks(inds+spacing, syslabels, fontsize='small')
+  plt.tick_params(axis='x', which='both', bottom='off', top='off')
   ax.xaxis.set_minor_locator(plt.MultipleLocator(width*len(systems)+spacing))
   plt.grid(which='minor', axis='x', linewidth=0.75, linestyle='-', color='0.75')
-  plt.xticks(index + .5, qlabels, va='top')
 
-  plt.title("%s, %s" % (metric.title, ds.upper()))
-  plt.gca().set_axisbelow(True)
-  plt.legend(loc='upper left', fontsize='small')
+  plt.legend(bars[::-1], operations[::-1], loc='upper left', fontsize='medium')
   plt.tight_layout()
   path = utils.checkDir("../web/%s_graphs/" % metric.label)
-  filename = path + "%s_graph_%s.jpg" % (metric.label, ds)
-  plt.savefig(path + "%s_graph_%s.jpg" % (metric.label, ds))
+  flabel = "%sop_graph" % fileprefix
+  filename = path + "%s_%s.jpg" % (flabel, metric.label)
+  fig.savefig(filename)
+  utils.buildIndex(path, "Consoildated Graphs")
   plt.close()
-  utils.buildIndex(path, "Consoildated Graphs, %s" % metric.axis)
-  print ' Saved to %s' % filename
+
+
+
 
 
 #---------------------------------------------------------------------------------
@@ -694,57 +552,53 @@ def plotQueryOperationsGraph(ds, qry):
 def parseArgs():
   parser = argparse.ArgumentParser()
   parser.add_argument('-d', '--dataset', nargs='+', help='Plot specific dataset (amplab, tpch10g, tpch100g)', required=False)
-  parser.add_argument('-g', '--graphs', help='Plot individual bar graphs for each query for given dataset', action='store_true')
+ # parser.add_argument('-g', '--graphs', help='Plot individual bar graphs for each query for given dataset', action='store_true')
   parser.add_argument('-r', '--results', help='Plot consolidated results for all queries for given dataset', action='store_true')
   parser.add_argument('-a', '--allinone', help='Plot all results in one big Uber Graph', action='store_true')
   parser.add_argument('-c', '--cadvisor', help='Plot individual line graphs of externally collected cadvisor metrics', action='store_true')
-  parser.add_argument('-o', '--operations', help='Plot bar graphs of per-operation metrics ', action='store_true')
+#  parser.add_argument('-o', '--operations', help='Plot bar graphs of per-operation metrics ', action='store_true')
   parser.add_argument('-b', '--blackwhite', help='Plot graphs for non-color (black & white) display', action='store_true')
   parser.add_argument('-s', '--scalability', help='Plot graphs for Scalability on K3', action='store_true')
   args = parser.parse_args()
 
-  ds = ['tpch10g', 'tpch100g', 'amplab']
+  ds = all_datasets
   if args.dataset:
     ds = []
     for d in args.dataset:
+      if d not in all_datasets:
+          print "UNKOWN DATASET: %s" % d
+          continue
       ds.append(d)
 
   isColor = False if args.blackwhite else True
 
   if args.results:
-    print 'Plotting Consolidated Uber Graphs'
+    print 'Plotting Dataset-Consolidated Graphs'
     for d in ds:
-      plotAllOperationMetrics(d, isColor)
-      plotConsolidated(d, timeM, isColor)
-      plotConsolidated(d, memoryM, isColor)
-#      plotAllMemory(d)
+      plotLargeBarGraph(timeM, datasets=[d], fileprefix='set_%s'%d)
+      plotLargeBarGraph(memoryM, datasets=[d], fileprefix='set_%s'%d)
+      plotStackedOperationGraph(timeM, isColor=isColor, datasets=[d], fileprefix='set_%s'%d)
   
-  if args.graphs:
-    print 'Plotting Consolidated Uber Graphs'
-    for d in ds:
-      plotQueryResults(d, timeM, isColor)
-      plotQueryResults(d, memoryM, isColor)
-#      plotAllMemory(d)
 
   if args.allinone:
-    plotAllDatasets(timeM, isColor)
-    plotAllDatasets(timeM, isColor, logscale=True)
-    plotAllDatasets(memoryM, isColor)
-    plotAllDatasets(memoryM, isColor, norm=True)
-    plotAllDatasets(memoryM, isColor, logscale=True)
-    plotAllOperationsAllDatasets(t_metric, isColor)
-    plotAllOperationsAllDatasets(m_metric, isColor)
+    print 'Plotting All-Dataset-In-One t-Consolidated Uber Graphs'
+    plotLargeBarGraph(timeM)
+    plotLargeBarGraph(timeM, logscale=True)
+    plotLargeBarGraph(memoryM)
+    plotLargeBarGraph(memoryM, norm=True)
+    plotLargeBarGraph(memoryM, logscale=True)
+    plotStackedOperationGraph(timeM, isColor=isColor)
+
+    plotLargeBarGraph(ipcM, fileprefix='ipc_')
+    plotLargeBarGraph(cachel2M, fileprefix='cachel2_')
+    plotLargeBarGraph(cachel3M, fileprefix='cachel3_')
+ #   plotStackedOperationGraph(m_metric, isColor)
 
   if args.cadvisor:
     for d in ds:
       print "Plot cadvisor metrics for %s"  % d
       plotExternalMetrics(d)
 
-  if args.operations:
-    print "Plot Operator metrics"
-    for d in ds:
-      for qry in query_list[workload[d]]:
-        plotQueryOperationsGraph(d, qry)
 
   if args.scalability:
     plotScalability()
