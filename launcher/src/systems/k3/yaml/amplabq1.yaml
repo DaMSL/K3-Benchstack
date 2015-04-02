@@ -14,3 +14,4 @@ k3_globals:
   profilingEnabled: True
 k3_data:
   - {var: dataFiles, path: /local/data/amplab/1024/rankings, policy: global}
+  - {var: rankingsFiles, path: /local/data/amplab/1024/rankings, policy: global}

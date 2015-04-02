@@ -15,12 +15,15 @@ object PageRank {
     val graph = GraphLoader.edgeListFile(sc, "hdfs://qp-hm1.damsl.cs.jhu.edu:54310/twitter_edgelist").cache()
     val endLoad = System.currentTimeMillis
     print("Load: " + (endLoad - startLoad).toString)
-
+   
+    val numIter = 10
     print("Starting pagerank")
     val start = System.currentTimeMillis
-    graph.staticPageRank(1, .15)
+    graph.staticPageRank(numIter, .15)
     val end = System.currentTimeMillis
-    print("Elapsed: " + (end - start).toString)
+    val avg = (1.0 * end - start) / numIter
+    println("Total: " + (end-start).toString)
+    println("Elapsed: " + (avg).toString)
 
   }
 

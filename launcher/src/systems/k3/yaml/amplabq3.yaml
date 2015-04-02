@@ -13,5 +13,5 @@ k3_globals:
   x: 8
   profilingEnabled: True
 k3_data:
-  - {var: uvFiles, path: /local/data/amplab/1024/uservisits, policy: global}
-  - {var: rkFiles, path: /local/data/amplab/1024/rankings, policy: pinned}
+  - {var: uservisitsFiles, path: /local/data/amplab/1024/uservisits, policy: global}
+  - {var: rankingsFiles, path: /local/data/amplab/1024/rankings, policy: pinned}

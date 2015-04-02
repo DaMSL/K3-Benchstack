@@ -182,6 +182,7 @@ def parseArgs():
   parser.add_argument('--k_means100g', action="store_true", help='Run kmeans 100g. No arguments.')
   parser.add_argument('--sgd10g', action="store_true",  help='Run sgd 10g. No arguments.')
   parser.add_argument('--sgd100g', action="store_true", help='Run sgd 100g. No arguments.')
+  parser.add_argument('--pagerank', action="store_true", help='Run pagerank. No arguments.')
   parser.add_argument('--scalability_k_means', nargs='*',  help='Run kmeans scalability. Provide a space seperated list of datasets (16,32,64,128,256)')
   parser.add_argument('--scalability_sgd', nargs='*',  help='Run kmeans scalability. Provide a space seperated list of datasets (16,32,64,128,256)')
   args = parser.parse_args()
@@ -223,6 +224,9 @@ def parseArgs():
     experiments.extend(parseMLScalabilityExperiments(args.scalability_k_means, "k_means"))
   if args.scalability_sgd:
     experiments.extend(parseMLScalabilityExperiments(args.scalability_sgd, "sgd"))
+  if args.pagerank:
+    experiments.extend([Experiment("graph", "pagerank", "twitter")])
+
   
   if len(experiments) == 0:
     log.logEvent(1, "No Experiments Specified: Exiting.")

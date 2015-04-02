@@ -19,17 +19,18 @@ class K3:
   schedulerPath = os.path.join(schedulerDir, 'dispatcher.py')
   webServer = '/build'
   queryMap = {'tpch': os.path.join(k3Dir, 'examples/sql/tpch/queries/k3'),
-              'amplab': os.path.join(k3Dir, 'examples/distributed/amplab'),
+              'amplab': os.path.join(k3Dir, 'examples/distributed/amplab/compact'),
               'scalability': os.path.join(k3Dir, 'examples/sql/tpch/queries/k3'),
               'ml': os.path.join(k3Dir, 'examples/distributed/ml'),
-              'ml_scalability': os.path.join(k3Dir, 'examples/sql/tpch/queries/k3')}
+              'ml_scalability': os.path.join(k3Dir, 'examples/sql/tpch/queries/k3'),
+              'graph': os.path.join(k3Dir, 'examples/sql/distributed/graph')}
 
   def getBinaryName(self, e):
     if e.workload == "tpch" or e.workload == 'scalability':
       return 'tpch' + 'q' + e.query
     elif e.workload == "amplab":
       return "amplabq" + e.query
-    elif e.workload == "ml" or e.workload == "ml_scalability":
+    elif e.workload == "ml" or e.workload == "ml_scalability" or e.workload == "graph":
       return e.query
     else:
       return None
@@ -51,7 +52,7 @@ class K3:
         sourceName = "barrier-queries/q5_bushy_broadcast_broj2.k3"
     elif (e.workload == "scalability" or e.workload == "tpch") and (e.query == "3" or e.query == "18" or e.query == "22"):
         sourceName = "barrier-queries/q" + e.query + ".k3"
-    elif e.workload == "ml" or e.worklaod == "ml_scalability":
+    elif e.workload == "ml" or e.worklaod == "ml_scalability" or e.workload == "graph":
         sourceName = e.query + ".k3"
 
     sourcePath = os.path.join(self.queryMap[e.workload], sourceName)
