@@ -21,7 +21,6 @@ DEFAULT_FIGURE_SIZE = FIGURE_SIZE_PAPER
 VAL_LABEL_SIZE  = 'medium'
 
 WEB_DIR = '/web/graphs/'
-
 #systems         = ['Vertica', 'Oracle', 'Spark', 'Impala', 'K3']
 systems         = ['Spark', 'Impala', 'K3']
 systems_mem     = ['Spark', 'Impala', 'K3-NoFusion', 'K3-Fusion']
@@ -40,16 +39,18 @@ op_colors       = ['saddlebrown', 'firebrick', 'goldenrod', 'seagreen', 'slatebl
 op_greyscale    = {'Planning':'black','TableScan':'whitesmoke','Join':'dimgrey','GroupBy':'silver','Exchange':'darkgrey', 'FilterProject':'gainsboro'}
 op_pattern      = {'Planning':'','TableScan':'','Join':'','GroupBy':'','Exchange':'xxx', 'FilterProject':'|||'}
 
-all_datasets        = ['tpch10g', 'tpch100g', 'amplab']
-workload        = {'tpch10g':'tpch', 'tpch100g':'tpch', 'amplab':'amplab'}
+all_datasets        = ['tpch10g', 'tpch100g', 'amplab', 'twitter', 'sgd10g', 'sgd100g']
+workload        = {'tpch10g':'tpch', 'tpch100g':'tpch', 'amplab':'amplab', 'sgd10g':'ml', 'sgd100g':'ml', 'sgd':'ml', 'twitter': 'graph'}
 
 #query_labels    = {'tpch':   {1:'Q1', 3:'Q3', 5:'Q5', 6:'Q6', 11:'Q11', 18:'Q18', 22:'Q22'},
 #                   'amplab': {1:'Q1', 2:'Q2', 3:'Q3'}}
 
 query_labels    = {'tpch':   ['Q1', 'Q3', 'Q5', 'Q6', 'Q18', 'Q22'],
-                   'amplab': ['Q1', 'Q2', 'Q3']}
+                   'amplab': ['Q1', 'Q2', 'Q3'],
+                   'ml': ['KM', 'SGD'],
+                   'graph': ['PR']}
 
-query_list      = {'tpch':[1, 3, 5, 6, 18, 22], 'amplab': [1,2,3]}
+query_list      = {'tpch':['1', '3', '5', '6', '18', '22'], 'amplab': ['1','2','3'], 'graph': ['pagerank'], 'ml': ['k_means','sgd']}
 
 
 manual_ymax     = {'tpch10g': 40, 'tpch100g': 250, 'amplab': 100, 'time':100, 'memory': 40}
@@ -85,11 +86,11 @@ def plotLargeBarGraph(metric, **kwargs):
   datasets  = kwargs.get('datasets', all_datasets)
   fileprefix = kwargs.get('fileprefix', '')
   systems   = kwargs.get('systems', None)
-
-
+  excludeWorkloads = kwargs.get('excludeWorkloads', [])
   print "Drawing %s bar graph for following datasets: " % (metric.title), datasets
 
-  xlabels = []
+  xlabels = [] 
+  datasets = [d for d in datasets if workload[d] not in excludeWorkloads]
   for ds in datasets:
       xlabels.extend(query_labels[workload[ds]])
 
@@ -122,7 +123,7 @@ def plotLargeBarGraph(metric, **kwargs):
       cur.execute(query)
       for row in cur.fetchall():
         qry, val, err = row
-        if int(qry) not in queries:
+        if qry not in queries:
             continue
         ds_results[qry] = (val, err)
 
@@ -141,8 +142,10 @@ def plotLargeBarGraph(metric, **kwargs):
     for i in range(num_queries):
         maxval = float(max([vals[sys][i] for sys in systems]))
         for sys in systems:
-            vals[sys][i] /= maxval
+            if maxval != 0:
+              vals[sys][i] /= maxval
 
+  
   for i, sys in enumerate(systems):
     pattern = None if isColor else sys_pattern[sys]
     barcolor = sys_colors[sys] if isColor else sys_greyscale[sys]
@@ -349,16 +352,49 @@ def plotQueryResults(ds, metric, isColor=True):
 #---------------------------------------------------------------------------------
 #  plotScalability
 #--------------------------------------------------------------------------------
-def plotScalability(isColor=True):
-  conn = db.getConnection()
-  cur = conn.cursor()
-  query = "SELECT query, dataset, avg_time, time_per_core from mostRecentK3Scalability "
-  cur.execute(query)
+def plotTimePerCore(dic,outfile, keyFn, displayFn):
+  fig, ax = plt.subplots()
+  locator = plt.MaxNLocator(nbins=4)
+  ax.yaxis.set_major_locator(locator)
+  plt.ylabel('Time per Core (ms)')
+  plt.xlabel('Number of Cores')
+  plt.grid(which='major', axis='y', linewidth=0.75, linestyle='--', color='0.75')
+  plt.grid(which='major', axis='x', linewidth=0.75, linestyle='--', color='0.75')
+  scalabilityLineGraph(dic, keyFn, displayFn)
+  m = max([max(dic[key]) for key in dic])
 
-  #Map query to list of times (that form a line)
+  plt.ylim(ymin=0, ymax=m+(m/15))
+  plt.xlim(xmin=0,xmax=272)
+  plt.legend(loc='upper right', fontsize='medium', markerscale=.8)
+  plt.savefig(outfile) 
+  plt.close()
+
+def plotRawTimes(dic,outfile,keyFn,displayFn):
+  # Plot raw times
+  fig, ax = plt.subplots()
+  locator = plt.MaxNLocator(nbins=4)
+  ax.yaxis.set_major_locator(locator)
+  plt.ylabel('Time (s)')
+  plt.xlabel('Number of Cores')
+
+  scalabilityLineGraph(dic, keyFn, displayFn)
+  
+  plt.grid(which='major', axis='y', linewidth=0.75, linestyle='--', color='0.75')
+  plt.grid(which='major', axis='x', linewidth=0.75, linestyle='--', color='0.75')
+
+  plt.xlim(xmin=0,xmax=272)
+  plt.legend(loc='upper left', fontsize='medium', markerscale=.8)
+  plt.savefig(outfile) 
+  plt.close()
+
+def getScalabilityData(tableName):
   time_per_cores = {}
   avg_times = {}
-
+  
+  conn = db.getConnection()
+  cur = conn.cursor()
+  query = "SELECT query, dataset, avg_time, time_per_core from %s" % (tableName,)
+  cur.execute(query)
   for row in cur.fetchall():
     query = row[0]
     dataset = int(row[1])
@@ -371,78 +407,40 @@ def plotScalability(isColor=True):
     
     if query not in avg_times:
       avg_times[query] = []
-    avg_times[query].append(avg_time)
-  
-  query2 = "select query, dataset, avg_time, time_per_core from mostRecentK3MLScalability "
-  cur.execute(query2)
-  ml_time_per_cores = {}
-  ml_avg_times = {}
-  for row in cur.fetchall():
-    query = row[0]
-    dataset = int(row[1])
-    avg_time = row[2]
-    ml_time_per_core = row[3]
-
-    if query not in ml_time_per_cores:
-      ml_time_per_cores[query] = []
-    ml_time_per_cores[query].append(ml_time_per_core)
-    
-    if query not in ml_avg_times:
-      ml_avg_times[query] = []
-    ml_avg_times[query].append(avg_time)
-
-  print(ml_time_per_cores)
-  print(ml_avg_times)
-  # Plot time per core
-  fig  = plt.figure()
-  plt.ylabel('Time per Core (ms)')
-  plt.xlabel('Number of Cores')
-  plt.grid(which='major', axis='y', linewidth=0.75, linestyle='--', color='0.75')
-  plt.grid(which='major', axis='x', linewidth=0.75, linestyle='--', color='0.75')
-
-  scalabilityHelper(time_per_cores, ml_time_per_cores)
-   
-  plt.ylim(ymin=0, ymax=350)
-  plt.legend(loc='upper right', fontsize='small', markerscale=.6)
-  path = utils.checkDir(WEB_DIR + "scalability/")
-  plt.savefig(path + "scalability_per_core.jpg")
-  plt.close()
- 
-  # Plot raw times
-  fig  = plt.figure()
-  plt.ylabel('Time (ms)')
-  plt.xlabel('Number of Cores')
-  plt.grid(which='major', axis='y', linewidth=0.75, linestyle='--', color='0.75')
-  plt.grid(which='major', axis='x', linewidth=0.75, linestyle='--', color='0.75')
-
-  scalabilityHelper(avg_times, ml_avg_times)
-
-  plt.legend(loc='upper left', fontsize='small', markerscale=.6)
-  plt.savefig(path + "scalability.jpg") 
-  plt.close()
+    avg_times[query].append(avg_time/1000.0)
 
   conn.close()
+  return time_per_cores, avg_times
 
-def scalabilityHelper(dic, mldic):
+def plotScalability(isColor=True):
+  utils.checkDir(WEB_DIR + 'scalability_graphs')
+  utils.buildIndex(WEB_DIR + 'scalability_graphs', 'Scalability')
+
+  # Plot TPCH Scalability
+  time_per_cores, avg_times = getScalabilityData("mostRecentK3Scalability")
+
+  keyFn = lambda x: int(x)
+  displayFn = lambda x: "TPCH Q" + str(x)
+  plotTimePerCore(time_per_cores, WEB_DIR + 'scalability_graphs/tpch_per_core.jpg', keyFn, displayFn)
+  plotRawTimes(avg_times, WEB_DIR + 'scalability_graphs/tpch.jpg', keyFn, displayFn)
+ 
+  # Plot ML Scalability
+  time_per_cores, avg_times = getScalabilityData("mostRecentK3MLScalability")
+
+  keyFn = lambda x: x
+  displayFn = lambda x: "SGD" if x == "sgd" else ("K Means" if x == "k_means" else x) 
+  plotTimePerCore(time_per_cores, WEB_DIR + 'scalability_graphs/ml_per_core.jpg', keyFn, displayFn)
+  plotRawTimes(avg_times, WEB_DIR + 'scalability_graphs/ml.jpg', keyFn, displayFn)
+  
+def scalabilityLineGraph(dic, sortKeyFn, displayFn):
   xs = [16, 32, 64, 128, 256]
-  markers = ["^", "v", "o", "d", "s", "p", "8", "h"]
+  markers = ["v", "^", "o", "d", "s", "p", "8", "h"]
   colors = ['saddlebrown', 'firebrick', 'goldenrod', 'seagreen', 'slateblue', 'midnightblue', 'orangered', 'yellowgreen']
   i = 0
-  for q in sorted([int(x) for x in dic.keys()]):
-    query = str(q)
-    plt.plot(xs, dic[query], color=colors[i], linewidth=4.25, marker=markers[i], markersize=13, mew=.5, label="Q" + query)
+  for (_,q) in sorted([(sortKeyFn(x), x) for x in dic.keys()]):
+    query = displayFn(q)
+    plt.plot(xs, dic[q], color=colors[i], linewidth=3.75, marker=markers[i], markersize=10, mew=1, label= query)
     i = i + 1 
-  
-  for q in mldic:
-    query = str(q)
-    queryStr = ""
-    if query == "k_means":
-      queryStr = "K Means"
-    elif query == "sgd":
-      queryStr = "SGD"
-    plt.plot(xs, mldic[query], color=colors[i], linewidth=4.25, marker=markers[i], markersize=13, mew=.5, label=queryStr)
-    i = i + 1 
-
 
 #---------------------------------------------------------------------------------
 #  plotExernalMetrics --  wrapper call to draw cadvisor graphs
@@ -586,14 +584,15 @@ def parseArgs():
     print 'Plotting All-Dataset-In-One t-Consolidated Uber Graphs'
     plotLargeBarGraph(timeM)
     plotLargeBarGraph(timeM, logscale=True)
-    plotLargeBarGraph(memoryM)
-    plotLargeBarGraph(memoryM, norm=True)
-    plotLargeBarGraph(memoryM, logscale=True)
+    plotLargeBarGraph(memoryM, excludeWorkloads=['ml'])
+    plotLargeBarGraph(memoryM, norm=True,excludeWorkloads=['ml'])
+    plotLargeBarGraph(memoryM, logscale=True, excludeWorkloads=['ml'])
     plotStackedOperationGraph(timeM, isColor=isColor)
 
     plotLargeBarGraph(ipcM, fileprefix='ipc_')
     plotLargeBarGraph(cachel2M, fileprefix='cachel2_')
     plotLargeBarGraph(cachel3M, fileprefix='cachel3_')
+    plotScalability()
  #   plotStackedOperationGraph(m_metric, isColor)
 
   if args.cadvisor:

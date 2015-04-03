@@ -12,13 +12,16 @@ def mem_query (ds, sys):
 SELECT E.query, avg(max_mem) AS memory, COALESCE(stddev(max_mem), 0) AS error
 FROM trials T,
  (SELECT experiment_id, system, query FROM most_recent_by_system M WHERE M.dataset = '%s') E,
-  (SELECT trial_id, sum(time) AS time, sum(percent_time) AS percent_time, sum(memory) AS sum_mem, max(memory) AS max_mem FROM operator_stats GROUP BY trial_id) O
-  WHERE E.experiment_id = T.experiment_id AND T.trial_id = O.trial_id AND T.system = '%s' 
+  (SELECT trial_id, sum(time) AS time, sum(percent_time) AS percent_time, sum(memory) AS sum_mem, max(memory) AS max_mem 
+   FROM operator_stats
+   GROUP BY trial_id
+  ) O
+  WHERE E.experiment_id = T.experiment_id AND T.trial_id = O.trial_id AND T.system = '%s' and query <> 'sgd' and query <> 'k_means'
   GROUP BY E.experiment_id, E.query
 UNION
 SELECT query, memory, error
 FROM k3memory
-WHERE dataset='%s' AND system='%s';
+WHERE dataset='%s' AND system='%s' and query <> 'sgd' and query <> 'k_means';
 ''' % (ds, sys, ds, sys)
   return query
 
