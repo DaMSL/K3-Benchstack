@@ -20,7 +20,7 @@ DEFAULT_FIGURE_SIZE = FIGURE_SIZE_PAPER
 
 VAL_LABEL_SIZE  = 'medium'
 
-
+WEB_DIR = '/web/graphs/'
 
 #systems         = ['Vertica', 'Oracle', 'Spark', 'Impala', 'K3']
 systems         = ['Spark', 'Impala', 'K3']
@@ -173,7 +173,8 @@ def plotLargeBarGraph(metric, **kwargs):
   plt.gca().set_axisbelow(True)
   plt.legend(loc='upper left', fontsize='medium')
   plt.tight_layout()
-  path = utils.checkDir("../web/%s_graphs/" % metric.label)
+  path = utils.checkDir(WEB_DIR + '%s_graphs/' % metric.label)
+#  path = utils.checkDir("../web/%s_graphs/" % metric.label)
 
   flabel = "%sgraph" % fileprefix
   if norm:
@@ -268,7 +269,7 @@ def plotStackedOperationGraph(metric, **kwargs):
 
   plt.legend(bars[::-1], operations[::-1], loc='upper left', fontsize='medium')
   plt.tight_layout()
-  path = utils.checkDir("../web/%s_graphs/" % metric.label)
+  path = utils.checkDir(WEB_DIR + "%s_graphs/" % metric.label)
   flabel = "%sop_graph" % fileprefix
   filename = path + "%s_%s.jpg" % (flabel, metric.label)
   fig.savefig(filename)
@@ -336,7 +337,7 @@ def plotQueryResults(ds, metric, isColor=True):
     plt.gca().set_axisbelow(True)
     plt.legend(loc='upper left', fontsize='small')
     plt.tight_layout()
-    path = utils.checkDir("../web/small_%s_graphs/" % metric.label)
+    path = utils.checkDir(WEB_DIR + "small_%s_graphs/" % metric.label)
     filename = path + "%s_graph_%s_q%s.jpg" % (metric.label, ds, qry)
     plt.savefig(filename) 
     plt.close()
@@ -403,7 +404,8 @@ def plotScalability(isColor=True):
    
   plt.ylim(ymin=0, ymax=350)
   plt.legend(loc='upper right', fontsize='small', markerscale=.6)
-  plt.savefig("../web/scalability_per_core.jpg") 
+  path = utils.checkDir(WEB_DIR + "scalability/")
+  plt.savefig(path + "scalability_per_core.jpg")
   plt.close()
  
   # Plot raw times
@@ -416,7 +418,7 @@ def plotScalability(isColor=True):
   scalabilityHelper(avg_times, ml_avg_times)
 
   plt.legend(loc='upper left', fontsize='small', markerscale=.6)
-  plt.savefig("../web/scalability.jpg") 
+  plt.savefig(path + "scalability.jpg") 
   plt.close()
 
   conn.close()
@@ -473,7 +475,7 @@ def draw_cadvisor_graph(ds, qry, data, metric):
   plt.gca().xaxis.set_major_formatter(percent_formatter)
   plt.ylabel(metric.axis)
   plt.ylim(ymin=0)
-  path = utils.checkDir("../web/cadvisor/%s_%s" % (metric.title, ds))
+  path = utils.checkDir(WEB_DIR + "cadvisor/%s_%s" % (metric.title, ds))
   filename = path + '/%s_%s_%s' %(metric.title, ds, qry)
   plt.savefig(filename)
   print "Saving file to %s" % (filename)
