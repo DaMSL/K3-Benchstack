@@ -18,8 +18,11 @@ class sparkStage(object):
 
 # Mapping for each query to the highest stage included for RDD chaching from HDFS
 #  -- all stages upto & including it are caching and omitted from metric
-rddLoadingStage = {'tpch': {1:1, 3:5, 5:12, 6:1, 11:2, 18:5, 22:5},
-                   'amplab': {1:1, 2:1, 3:3}  }
+rddLoadingStage = {'tpch': {'1':1, '3':5, '5':12, '6':1, '11':2, '18':5, '22':5},
+                   'amplab': {'1':1, '2':1, '3':3},
+                   'graph': {'pagerank':1},
+                   'ml': {'k_means':1, 'sgd':1}
+                  }
 
 
 class Spark:
@@ -96,8 +99,8 @@ class Spark:
         break
 
     # TODO we skip operator profiling on ML for now
-    if e.workload == "ml" or e.workload == "graph":
-      return Result(trial_id, "Success", elapsed, "")
+    #if e.workload == "ml" or e.workload == "graph":
+    #  return Result(trial_id, "Success", elapsed, "")
 
     #  Find the JSON formatted event log (should be first line of output
     out_lines = output.split('\n')
@@ -129,7 +132,7 @@ class Spark:
             #  2. Any collection operation is an Exchange (shuffle) op
             #  3. Any call to HashJoin on the call stack is a Join Op
             #  4. Everything else is deemed a GroupBy or pipeline of it (filter, project, etc...)
-      operation = ('TableScan' if s['Stage ID'] <= rddLoadingStage[e.workload][int(e.query)] 
+      operation = ('TableScan' if s['Stage ID'] <= rddLoadingStage[e.workload][e.query] 
         else 'Exchange' if s['Stage Name'].startswith('collect') 
           else 'Join' if 'HashJoin' in s['Details'] 
             else 'GroupBy' )
@@ -138,6 +141,7 @@ class Spark:
       time = (0 if operation == 'TableScan'
                 else int(s['Completion Time']) - int(s['Submission Time']) )
       total_time += time
+      print("Operation: " + operation + " mem: " + str(mem))
       ops.append(sparkStage(sid, operation, time, mem))
 
     operations = []
