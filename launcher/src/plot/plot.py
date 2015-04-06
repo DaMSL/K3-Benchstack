@@ -17,10 +17,13 @@ FIGURE_SIZE_LG  = (12,4)
 FIGURE_SIZE     = (8, 4)
 
 DEFAULT_FIGURE_SIZE = FIGURE_SIZE_PAPER
+DEFAULT_BAR_WIDTH   = 0.2
+DEFAULT_SPACING     = 0.2
 
 VAL_LABEL_SIZE  = 'medium'
 
-WEB_DIR = '../web/'
+WEB_DIR = '/web/graphs/'
+
 #systems         = ['Vertica', 'Oracle', 'Spark', 'Impala', 'K3']
 systems         = ['Spark', 'Impala', 'K3']
 systems_mem     = ['Spark', 'Impala', 'K3-NoFusion', 'K3-Fusion']
@@ -99,9 +102,10 @@ def plotLargeBarGraph(metric, **kwargs):
 
   num_queries = len(xlabels)
 
-  width = 1./(len(systems) + 2)
-  spacing = width*2
-  offset = width
+  bar_width = DEFAULT_BAR_WIDTH
+  spacing   = DEFAULT_SPACING
+  qry_width = bar_width * len(systems) + 2*spacing
+
   conn = db.getConnection()
   cur = conn.cursor()
 
@@ -135,7 +139,7 @@ def plotLargeBarGraph(metric, **kwargs):
 
     vals[sys] = [ metric.convert(v[0]) for v in results]
     errs[sys] = [ metric.convert(v[1]) for v in results]
-    print sys, vals[sys]
+    print sys, "LEN=%d" % len(vals[sys]), vals[sys]
 
   # Check if data needs to be normalized  TODO: move to function
   if norm:
@@ -145,17 +149,25 @@ def plotLargeBarGraph(metric, **kwargs):
             if maxval != 0:
               vals[sys][i] /= maxval
 
+  offset   = [spacing * len(systems)/len([1 for sys in systems if vals[sys][i] > 0.0]) for i in range(num_queries)]
+  showBar = lambda v: bar_width if v > 0.0 else 0.0
+  bar_loc = []
+  for k, sys in enumerate(systems):
+      if k == 0:
+          bar_loc.append(offset)
+      else:
+          bar_loc.append([bar_loc[k-1][i]+showBar(vals[sys][i]) for i in range(num_queries)])
   
   for i, sys in enumerate(systems):
     pattern = None if isColor else sys_pattern[sys]
     barcolor = sys_colors[sys] if isColor else sys_greyscale[sys]
-    plt.bar((len(systems)*width + spacing)*index + offset + (width)*i, vals[sys], width, color=barcolor, label=system_labels[sys], hatch=pattern)
+    #plt.bar(index*qry_width + spacing + i*bar_width, vals[sys], bar_width, color=barcolor, label=system_labels[sys], hatch=pattern)
+    plt.bar(index*qry_width + bar_loc[i], vals[sys], bar_width, color=barcolor, label=system_labels[sys], hatch=pattern)
 
   ax = plt.gca()
-  ax.xaxis.set_major_locator(plt.MultipleLocator(1.0 - width/2.))
-  ax.xaxis.set_minor_locator(plt.MultipleLocator(width))
+  ax.xaxis.set_major_locator(plt.MultipleLocator(qry_width/2.))
   ax.get_xaxis().set_tick_params(pad=2)
-  plt.xlim(xmax=num_queries)
+  plt.xlim(xmax=num_queries*qry_width)
 
   plt.ylabel(metric.axis)
   plt.grid(which='major', axis='y', linewidth=0.75, linestyle='--', color='0.75')
@@ -168,24 +180,25 @@ def plotLargeBarGraph(metric, **kwargs):
       ymax = 1.0 if norm else manual_ymax[metric.label]
       plt.ylim(ymin=0, ymax=ymax)
 
-  ax.xaxis.set_minor_locator(plt.MultipleLocator(width*len(systems)+spacing))
+  ax.xaxis.set_minor_locator(plt.MultipleLocator(qry_width))
   plt.grid(which='minor', axis='x', linewidth=0.75, linestyle='-', color='0.75')
-  plt.xticks(index + .5, xlabels, va='top')
+  plt.xticks(index*qry_width + (qry_width/2.), xlabels, va='top')
   plt.tick_params(axis='x', which='both', top='off', bottom='off')
 
   plt.gca().set_axisbelow(True)
-  plt.legend(loc='upper left', fontsize='medium')
+  #plt.legend(loc='upper left', fontsize='medium')
+  lgd = plt.legend(bbox_to_anchor=(0.3, 1.06, 0.4, .05), loc='upper center', ncol=len(systems), mode="expand", borderaxespad=0.)
   plt.tight_layout()
-  path = utils.checkDir(WEB_DIR + '%s_graphs/' % metric.label)
-#  path = utils.checkDir("../web/%s_graphs/" % metric.label)
 
+  # Save File
+  path = utils.checkDir(WEB_DIR + '%s_graphs/' % metric.label)
   flabel = "%sgraph" % fileprefix
   if norm:
       flabel += "_norm"
   if logscale:
       flabel += "_log"
   filename = path + "%s_%s.jpg" % (flabel, metric.label)
-  plt.savefig(filename)
+  plt.savefig(filename, bbox_extra_artists=(lgd,))
   plt.close()
   utils.buildIndex(path, "Consoildated Graphs, %s" % metric.axis)
   print ' Saved to %s' % filename
@@ -582,18 +595,20 @@ def parseArgs():
 
   if args.allinone:
     print 'Plotting All-Dataset-In-One t-Consolidated Uber Graphs'
-    plotLargeBarGraph(timeM)
+#    plotLargeBarGraph(timeM)
     plotLargeBarGraph(timeM, logscale=True)
-    plotLargeBarGraph(memoryM, excludeWorkloads=['ml', 'graph'])
-    plotLargeBarGraph(memoryM, norm=True,excludeWorkloads=['ml', 'graph'])
-    plotLargeBarGraph(memoryM, logscale=True, excludeWorkloads=['ml', 'graph'])
-    plotStackedOperationGraph(timeM, isColor=isColor)
+#    plotLargeBarGraph(memoryM, excludeWorkloads=['ml', 'graph'])
+#    plotLargeBarGraph(memoryM, norm=True,excludeWorkloads=['ml', 'graph'])
+#    plotLargeBarGraph(memoryM, logscale=True, excludeWorkloads=['ml', 'graph'])
+#    plotStackedOperationGraph(timeM, isColor=isColor)
 
-    plotLargeBarGraph(ipcM, fileprefix='ipc_', excludeWorkloads=['ml','graph'])
-    plotLargeBarGraph(cachel2M, fileprefix='cachel2_', excludeWorkloads=['ml','graph'])
-    plotLargeBarGraph(cachel3M, fileprefix='cachel3_', excludeWorkloads=['ml','graph'])
-    plotScalability()
- #   plotStackedOperationGraph(m_metric, isColor)
+#    plotLargeBarGraph(ipcM, fileprefix='ipc_', excludeWorkloads=['ml','graph'])
+#    plotLargeBarGraph(cachel2M, fileprefix='cachel2_', excludeWorkloads=['ml','graph'])
+#    plotLargeBarGraph(cachel3M, fileprefix='cachel3_', excludeWorkloads=['ml','graph'])
+#    plotScalability()
+
+
+#   plotStackedOperationGraph(m_metric, isColor)
 
   if args.cadvisor:
     for d in ds:
