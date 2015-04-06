@@ -20,7 +20,7 @@ DEFAULT_FIGURE_SIZE = FIGURE_SIZE_PAPER
 
 VAL_LABEL_SIZE  = 'medium'
 
-WEB_DIR = '/web/graphs/'
+WEB_DIR = '../web/'
 #systems         = ['Vertica', 'Oracle', 'Spark', 'Impala', 'K3']
 systems         = ['Spark', 'Impala', 'K3']
 systems_mem     = ['Spark', 'Impala', 'K3-NoFusion', 'K3-Fusion']
@@ -584,14 +584,14 @@ def parseArgs():
     print 'Plotting All-Dataset-In-One t-Consolidated Uber Graphs'
     plotLargeBarGraph(timeM)
     plotLargeBarGraph(timeM, logscale=True)
-    plotLargeBarGraph(memoryM, excludeWorkloads=['ml'])
-    plotLargeBarGraph(memoryM, norm=True,excludeWorkloads=['ml'])
-    plotLargeBarGraph(memoryM, logscale=True, excludeWorkloads=['ml'])
+    plotLargeBarGraph(memoryM, excludeWorkloads=['ml', 'graph'])
+    plotLargeBarGraph(memoryM, norm=True,excludeWorkloads=['ml', 'graph'])
+    plotLargeBarGraph(memoryM, logscale=True, excludeWorkloads=['ml', 'graph'])
     plotStackedOperationGraph(timeM, isColor=isColor)
 
-    plotLargeBarGraph(ipcM, fileprefix='ipc_')
-    plotLargeBarGraph(cachel2M, fileprefix='cachel2_')
-    plotLargeBarGraph(cachel3M, fileprefix='cachel3_')
+    plotLargeBarGraph(ipcM, fileprefix='ipc_', excludeWorkloads=['ml','graph'])
+    plotLargeBarGraph(cachel2M, fileprefix='cachel2_', excludeWorkloads=['ml','graph'])
+    plotLargeBarGraph(cachel3M, fileprefix='cachel3_', excludeWorkloads=['ml','graph'])
     plotScalability()
  #   plotStackedOperationGraph(m_metric, isColor)
 
