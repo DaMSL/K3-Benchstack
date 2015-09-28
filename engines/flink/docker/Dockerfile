@@ -5,10 +5,10 @@ RUN apt-get install -y wget default-jdk
 
 # Flink
 WORKDIR /software
-RUN wget http://mirror.reverse.net/pub/apache/incubator/flink/flink-0.7.0-incubating/flink-0.7.0-incubating-bin-hadoop2.tgz
-RUN tar -xvzf flink-0.7.0-incubating-bin-hadoop2.tgz
-ADD jobmanager.sh /software/flink-0.7.0-incubating/bin/
-ADD taskmanager.sh /software/flink-0.7.0-incubating/bin/
+RUN wget http://apache.cs.utah.edu/flink/flink-0.9.1/flink-0.9.1-bin-hadoop24.tgz
+RUN tar -xvzf flink-0.9.1-bin-hadoop24.tgz
+ADD jobmanager.sh /software/flink-0.9.1/bin/
+ADD taskmanager.sh /software/flink-0.9.1/bin/
 
 # Startup Scripts
 ADD master_startup.sh /sbin/
