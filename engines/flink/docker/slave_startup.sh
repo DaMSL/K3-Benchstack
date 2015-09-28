@@ -1,4 +1,4 @@
 #!/bin/bash
-cp /flink/config/flink-conf.yaml /software/flink-0.7.0-incubating/conf/
-/software/flink-0.7.0-incubating/bin/taskmanager.sh start 
+cp /flink/config/flink-conf.yaml /software/flink-0.9.1/conf/
+/software/flink-0.9.1/bin/taskmanager.sh start batch
 
