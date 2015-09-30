@@ -29,9 +29,9 @@ jobmanager.heap.mb: 256
 
 taskmanager.heap.mb: 512
 
-taskmanager.numberOfTaskSlots: 1
+taskmanager.numberOfTaskSlots: -1
 
-parallelism.default: 1
+parallelism.default: -1
 
 #==============================================================================
 # Web Frontend
