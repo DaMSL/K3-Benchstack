@@ -110,7 +110,7 @@ object TPCHQuery3 {
     result.writeAsCsv(outputPath, "\n", "|")
     
     // execute program
-    env.execute("Scala TPCH Query 3 Example")
+    env.execute("Scala TPCH Q3")
   }
   
   // *************************************************************************
