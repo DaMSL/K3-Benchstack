@@ -25,9 +25,9 @@ jobmanager.rpc.address: {{groups['jobmanager'][0]}}
 
 jobmanager.rpc.port: 6123
 
-jobmanager.heap.mb: 256
+jobmanager.heap.mb: 512
 
-taskmanager.heap.mb: 512
+taskmanager.heap.mb: 65,536
 
 taskmanager.numberOfTaskSlots: 16
 
