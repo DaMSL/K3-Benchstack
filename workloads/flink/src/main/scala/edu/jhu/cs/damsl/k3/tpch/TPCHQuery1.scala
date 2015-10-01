@@ -20,9 +20,9 @@ object TPCHQuery1 {
     val env = ExecutionEnvironment.getExecutionEnvironment
 
     // scan lineitems, eval l_shipdate <= date '1998-09-02'
-    val lineitems = getLineitemDataSet(env).filter(
-        l => dateFormat.parse(l.l_shipdate).before(date)
-              || dateFormat.parse(l.l_shipdate).before(date) )
+    val lineitems = getLineitemDataSet(env).filter(l => {
+      val d = dateFormat.parse(l.l_shipdate)
+      d.before(date) || d.equals(date) })
 
     // group by order and aggregate revenue
     val result : DataSet[Q1Result] = lineitems.groupBy("l_returnflag", "l_linestatus")
