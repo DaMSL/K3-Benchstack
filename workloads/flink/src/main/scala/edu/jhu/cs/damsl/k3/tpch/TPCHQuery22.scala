@@ -18,7 +18,7 @@ object TPCHQuery22 {
     // Compute average c_acctbal for broadcasting.
     val custSumCnt = getCustomerDataSet(env).filter( (c:Customer) => {
         val codes = List("13", "31", "23", "29", "30", "18", "17") 
-        c.c_acctbal > 0.0 && codes.contains(c.c_phone.substring(1, 3)) 
+        c.c_acctbal > 0.0 && codes.contains(c.c_phone.substring(0, 2)) 
       }).reduceGroup(new GroupReduceFunction[Customer,(Double,Long)] {
         override def reduce(in: java.lang.Iterable[Customer], out:Collector[(Double,Long)]) = {
           var sum_ab : Double = 0.0
@@ -36,24 +36,27 @@ object TPCHQuery22 {
     val avgBroadcast = env.fromElements(avgBal)
 
     // Filter customers (using broadcasted c_acctbal and orderkeys) and aggregate.
-    val result = getCustomerDataSet(env).filter(new RichFilterFunction[Customer]() {
-        var orderKeys : Traversable[Long] = null
+    val result = getCustomerDataSet(env)
+      .filter(new RichFilterFunction[Customer]() {
         var globalAvg : Traversable[Double] = null
         var avgAccBal : Double = 0.0
               
         override def open(config: Configuration) = {
-          orderKeys = getRuntimeContext().getBroadcastVariable[Long]("oCustKeys").asScala
           globalAvg = getRuntimeContext().getBroadcastVariable[Double]("avgCAcctbal").asScala
           avgAccBal = globalAvg.head
         }
         
         override def filter(c:Customer) = {
           val codes = List("13", "31", "23", "29", "30", "18", "17")
-          val c_phone_sub = c.c_phone.substring(1,3)
-          c.c_acctbal > avgAccBal && codes.contains(c.c_phone.substring(1, 3)) && !orderKeys.exists(_.equals(c.c_custkey)) 
+          c.c_acctbal > avgAccBal && codes.contains(c.c_phone.substring(0,2)) 
         }
       })
-      .map(c => (c.c_phone.substring(1,3), c.c_acctbal))
+      .withBroadcastSet(avgBroadcast, "avgCAcctbal")
+      .coGroup(getOrdersDataSet(env)).where(0).equalTo(0)
+      .apply( (cs,os,out:Collector[Customer]) => {
+        if ( os.isEmpty ) { for (c <- cs) { out.collect(c) } }  
+      })
+      .map(c => (c.c_phone.substring(0,2), c.c_acctbal))
       .groupBy(0)
       .reduceGroup(new GroupReduceFunction[(String, Double), (String, Double, Long)] {
         override def reduce(in: java.lang.Iterable[(String, Double)], out: Collector[(String, Double, Long)]) = {
@@ -68,8 +71,6 @@ object TPCHQuery22 {
           if ( key.isDefined ) { out.collect( (key.get, sum_bal, cnt) ) }
         }
       })
-      .withBroadcastSet(avgBroadcast, "avgCAcctbal")
-      .withBroadcastSet(getOrdersDataSet(env).distinct(0), "oCustKeys")
     
     result.writeAsText(outputPath, WriteMode.OVERWRITE)
     env.execute("Scala TPCH Q22")
