@@ -9,7 +9,8 @@ import org.apache.flink.core.fs.FileSystem.WriteMode
 
 object TPCHQuery5 {
   type Q5Result = (String, Double)
-  type LSCO = ((Long,Long,Double),(Long,Long))
+  type RN = (Region, Nation)
+  type LS = (Long, Long, Double)
   
   def main(args: Array[String]) {
     if (!parseParameters(args)) {
@@ -22,17 +23,18 @@ object TPCHQuery5 {
 
     val env = ExecutionEnvironment.getExecutionEnvironment
     
-    val nr = getRegionDataSet(env).filter(r => r.r_name == "ASIA")
+    val rn = getRegionDataSet(env)
+                .filter(r => r.r_name == "ASIA")
                 .join(getNationDataSet(env)).where("r_regionkey").equalTo("n_regionkey")
 
+    val suppliersInAsia = getSupplierDataSet(env).filter(new SupplierFilter()).withBroadcastSet(rn, "RNJoin")
+    
     // TODO: broadcast supplier into lineitem as with K3?
     val ls = getLineitemDataSet(env)
               .map(l => (l.l_orderkey, l.l_suppkey, l.l_extendedprice * (1 - l.l_discount)) )
-              .join(getSupplierDataSet(env).filter(new SupplierFilter()))
-              .where(1).equalTo("s_suppkey")
-              .map(ls => (ls._1._1, ls._2.s_nationkey, ls._1._3))
+              .join(suppliersInAsia).where(1).equalTo(0)
+              .apply((l,s,out:Collector[LS]) => out.collect((l._1, s.s_nationkey, l._3)))
                 // l_orderkey, l_nationkey, l_epd triples
-              .withBroadcastSet(nr, "NRJoin")
               
     val orderCustKeys = getOrdersDataSet(env).filter(o => {
           val d = dateFormat.parse(o.o_orderdate) 
@@ -41,67 +43,65 @@ object TPCHQuery5 {
          .map(o => (o.o_custkey, o.o_orderkey))
 
     val co = getCustomerDataSet(env)
-              .filter(new CustomerFilter())
-              .join(orderCustKeys)
-              .where("c_custkey").equalTo(0)
+              .filter(new CustomerFilter()).withBroadcastSet(rn, "RNJoin")
+              .join(orderCustKeys).where(0).equalTo(0)
               .map(co => (co._2._2, co._1.c_nationkey))
                 // o_orderkey, c_nationkey pairs
-              .withBroadcastSet(nr, "NRJoin")
 
-    val lsco = ls.join(co).where(ls => (ls._1, ls._2)).equalTo(co => (co._1, co._2))
+    val lsco = ls.join(co).where(0,1).equalTo(0,1)
+                 .apply((ls,co,out:Collector[LS]) => out.collect(ls))
                  .groupBy(1)
-                 .reduceGroup(new LSCOReducer())
-                 .withBroadcastSet(nr, "NRJoin")
+                 .reduceGroup(new LSCOReducer()).withBroadcastSet(rn, "RNJoin")
       
     lsco.writeAsText(outputPath, WriteMode.OVERWRITE)
     env.execute("Scala TPCH Q5")
   }
   
   class CustomerFilter extends RichFilterFunction[Customer]() {
-    var nationRegion : Traversable[(Nation, Region)] = null
+    var rn : Traversable[RN] = null
           
     override def open(config: Configuration) = {
-      nationRegion = getRuntimeContext().getBroadcastVariable[(Nation, Region)]("NRJoin").asScala
+      rn = getRuntimeContext().getBroadcastVariable[RN]("RNJoin").asScala
     }
     
     override def filter(c:Customer) = {
-      nationRegion.exists( nr => nr._1.n_nationkey == c.c_nationkey)
+      rn.exists( x => x._2.n_nationkey == c.c_nationkey)
     }
   }
 
   class SupplierFilter extends RichFilterFunction[Supplier]() {
-    var nationRegion : Traversable[(Nation, Region)] = null
+    var rn : Traversable[RN] = null
           
     override def open(config: Configuration) = {
-      nationRegion = getRuntimeContext().getBroadcastVariable[(Nation, Region)]("NRJoin").asScala
+      rn = getRuntimeContext().getBroadcastVariable[RN]("RNJoin").asScala
     }
     
     override def filter(s:Supplier) = {
-      nationRegion.exists( nr => nr._1.n_nationkey == s.s_nationkey)
+      rn.exists( x => x._2.n_nationkey == s.s_nationkey)
     }
   }
 
-  class LSCOReducer extends RichGroupReduceFunction[LSCO, Q5Result]() {
-     var nationRegion : Traversable[(Nation, Region)] = null
+  class LSCOReducer extends RichGroupReduceFunction[LS, Q5Result]() {
+     var rn : Traversable[RN] = null
 
      override def open(config: Configuration) = {
-       nationRegion = getRuntimeContext().getBroadcastVariable[(Nation, Region)]("NRJoin").asScala 
+       rn = getRuntimeContext().getBroadcastVariable[RN]("RNJoin").asScala 
      }
      
-     override def reduce(in: java.lang.Iterable[LSCO], out: Collector[Q5Result]) = {
+     override def reduce(in: java.lang.Iterable[LS], out: Collector[Q5Result]) = {
        var n_name : Option[String] = None
        var sum_epd : Double = 0.0
 
        for (r <- in.asScala) {
          if ( n_name.isEmpty ) {
-           n_name = nationRegion.find(nr => nr._1.n_nationkey == r._2._2) match {
-             case Some(x) => Some(x._1.n_name)
+           n_name = rn.find(x => x._2.n_nationkey == r._2) match {
+             case Some(x) => Some(x._2.n_name)
              case None => None 
            }
          }
-         sum_epd += r._1._3
+         sum_epd += r._3
        }
-       if ( n_name.isDefined) { out.collect( (n_name.get, sum_epd) ) }
+       if ( n_name.isDefined ) { out.collect( (n_name.get, sum_epd) ) }
      }
    }
 
@@ -147,8 +147,7 @@ object TPCHQuery5 {
       true
     } else {
       System.err.println(
-          " Usage: TPCHQuery18 <lineitem-csv path> <customer-csv path>" + 
-                              "<orders-csv path> <result path>")
+          " Usage: TPCHQuery5 <lineitem-csv path> <customer-csv path> <orders-csv path> <supplier-csv path> <nation-csv path> <region-csv path> <result path>")
       false
     }
   }
