@@ -1,9 +1,17 @@
 package edu.jhu.cs.damsl.k3.amplab
 
 import org.apache.flink.api.scala._
+import org.apache.flink.util._
+import org.apache.flink.api.common.functions._
+import scala.collection.JavaConverters._
 import org.apache.flink.core.fs.FileSystem.WriteMode
 
 object AmplabQ2 {
+  def safesub(s : String) : String = {
+    if ( s.length() < substrlen ) { s }
+    else { s.substring(0,substrlen) }
+  }
+  
   def main(args: Array[String]) {
     if (!parseParameters(args)) {
       return
@@ -11,9 +19,18 @@ object AmplabQ2 {
     
     val env = ExecutionEnvironment.getExecutionEnvironment
     val results = getUserVisitsDataSet(env)
-                    .groupBy(u => u.sourceIP.substring(0,substrlen))
-                    .sum(1)
-                    .map(u => (u.sourceIP.substring(0,substrlen), u.adRevenue))
+                    .groupBy(u => safesub(u.sourceIP))
+                    .reduceGroup(new GroupReduceFunction[UserVisits, (String, Double)]() {
+                      override def reduce(in: java.lang.Iterable[UserVisits], out: Collector[(String,Double)]) = {
+                        var sub : Option[String] = None
+                        var sum : Double = 0.0
+                        for (r <- in.asScala) {
+                          if ( sub.isEmpty ) { sub = Some(safesub(r.sourceIP)) }
+                          sum += r.adRevenue
+                        }
+                        if ( sub.isDefined ) { out.collect((sub.get,sum)) }
+                      }
+                    })
 
     results.writeAsText(outputPath, WriteMode.OVERWRITE)
     env.execute("Scala Amplab Q2")

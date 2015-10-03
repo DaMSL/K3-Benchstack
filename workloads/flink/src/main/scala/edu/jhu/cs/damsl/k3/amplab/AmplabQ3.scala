@@ -22,7 +22,7 @@ object AmplabQ3 {
        val d = dateFormat.parse(v.visitDate)
        d.equals(dateLB) || d.equals(dateUB) || d.after(dateLB) && d.before(dateUB)
      })
-     .join(getRankingsDataSet(env)).where(0).equalTo(1)
+     .join(getRankingsDataSet(env)).where(1).equalTo(0)
      .apply((v:UserVisits,r:Rankings,out:Collector[(String,Int,Double)]) => out.collect((v.sourceIP, r.pageRank, v.adRevenue)))
      .groupBy(0)
      .reduceGroup(new GroupReduceFunction[(String, Int, Double), (String, Long, Double, Long)]() {
@@ -67,7 +67,7 @@ object AmplabQ3 {
       if ( args.length == 4 ) { dateUpper = args(3) }
       true
     } else {
-      System.err.println("Usage: AmplabQ2 <rankings-csv path> <uservisits-csv path> <result path> [date-upper]")
+      System.err.println("Usage: AmplabQ3 <rankings-csv path> <uservisits-csv path> <result path> [date-upper]")
       false
     }
   }
