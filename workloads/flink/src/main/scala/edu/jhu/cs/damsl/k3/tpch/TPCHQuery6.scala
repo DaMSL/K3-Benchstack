@@ -21,7 +21,7 @@ object TPCHQuery6 {
     val lineitems = getLineitemDataSet(env).filter(l => {
       val d = dateFormat.parse(l.l_shipdate) 
       val datePred = (d.after(dateGEQ) || d.equals(dateGEQ)) && d.before(dateLT)
-      val discPred = (0.06 - 0.01) <= l.l_discount && l.l_discount <= (0.06 + 0.01)
+      val discPred = 0.05 <= l.l_discount && l.l_discount <= 0.07
       datePred && discPred && l.l_quantity < 24 })
 
     // sum(l_extendedprice * l_discount)
@@ -49,7 +49,7 @@ object TPCHQuery6 {
       outputPath = args(1)
       true
     } else {
-      System.err.println("Usage: TPCHQuery1 <lineitem-csv path> <result path>")
+      System.err.println("Usage: TPCHQuery6 <lineitem-csv path> <result path>")
       false
     }
   }
