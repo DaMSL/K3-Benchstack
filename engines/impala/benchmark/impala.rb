@@ -6,44 +6,26 @@ require 'optparse'
 QUERIES = {
   "tpch" => {
     :roles => {
-      "10g" => true,
-      "100g" => true
+      "10g" => "sql/tpch/create_load_tpch.sql",
+      "100g" => "sql/tpch/create_load_tpch.sql"
     },
     :queries => {
-      "1" => "TPCHQuery1",
-      "3" => "TPCHQuery3",
-      "5" => "TPCHQuery5",
-      "6" => "TPCHQuery6",
-      "18" => "TPCHQuery18",
-      "22" => "TPCHQuery22"
+      "1" => "sql/tpch/1.sql",
+      "3" => "sql/tpch/3.sql",
+      "5" => "sql/tpch/5.sql",
+      "6" => "sql/tpch/6.sql",
+      "18" => "sql/tpch/18.sql",
+      "22" => "sql/tpch/22.sql"
     }
   },
   "amplab" => {
     :roles => {
-      "sf5" => true
+      "sf5" => "sql/amplab/create_load_amplab.sql"
     },
     :queries => {
-      "1" => "AmplabQuery1",
-      "2" => "AmplabQuery2",
-      "3" => "AmplanQuery3"
-    }
-  },
-  "ml" => {
-    :roles => {
-      "10g" => true,
-      "100g" => true
-    },
-    :queries => {
-      "kmeans" => "KMeans",
-      "sgd" => "SGD",
-    }
-  },
-  "graph" => {
-    :roles => {
-      "twitter" => true,
-    },
-    :queries => {
-      "pagerank" => "PageRank",
+      "1" => "sql/amplab/1.sql",
+      "2" => "sql/amplab/2.sql",
+      "3" => "sql/amplab/3.sql"
     }
   }
 }
@@ -70,9 +52,7 @@ end
 def main()
   STDOUT.sync = true
   $options = { 
-    :spark_home => "/software/spark-1.2.0/",
-    :spark_master => "spark://qp-hm1:7077",
-    :jar_file => "target/scala-2.10/spark-benchmarks_2.10-1.0.jar",
+    :impala_host => "qp-hm1.damsl.cs.jhu.edu",
     :includes => [],
     :excludes => [],
     :trials => 1
@@ -85,8 +65,8 @@ def main()
   
   parser = OptionParser.new do |opts|
     opts.banner = usage
-    opts.on("-1", "--build", "Build Spark Benchmark jar file")  { $options[:build] = true }
-    opts.on("-2", "--run", "Run Spark Benchmarks")  { $options[:run] = true }
+    opts.on("-1", "--load", "Create and Load Tables for Impala")  { $options[:load] = true }
+    opts.on("-2", "--run", "Run Impala Benchmarks")  { $options[:run] = true }
     
     opts.on("-t", "--trials num", Integer, "Number of trials per query") { |i| $options[:trials] = i }
 
@@ -95,8 +75,8 @@ def main()
   end
   parser.parse!
 
-  if $options[:build]
-    build()
+  if $options[:load]
+    load_tables()
   end
 
   if $options[:run]
@@ -104,36 +84,38 @@ def main()
   end
 end 
 
-# Build a Spark Jar in a docker container using sbt. Requires simple.sbt and src/ directory.
-def build()
-  cmd = "docker run -v #{Dir.pwd}:/build damsl/spark /build/sbin/package_jar.sh"
-  puts cmd
-  system cmd
+# Create and load Impala tables. Requrires the sbin/ sql/ directories.
+def load_tables()
+  for experiment, description in QUERIES do
+    for role,schema_file in description[:roles] do
+      cmd = "docker run -v #{Dir.pwd}:/build damsl/impala /build/sbin/create_tables.sh #{$options[:impala_host]} #{schema_file} #{role}"
+      puts cmd
+    end
+  end
 end
 
-# Run a Spark Jar in a docker container using spark-submit.
+# Run Impala queries in a docker container using impala-shell
 def run()
   for experiment, description in QUERIES do
-    for query, class_name in description[:queries] do
+    for query, query_file in description[:queries] do
       for role,_ in description[:roles] do
         if !select?(experiment, query, role)
           next
         end
         1.upto($options[:trials]) do |_|
-          run_cmd = "#{$options[:spark_home]}/bin/spark-submit --master #{$options[:spark_master]} --class #{class_name} /build/#{$options[:jar_file]} #{role}"
-          full_cmd = "docker run -v #{Dir.pwd}:/build --net=host damsl/spark #{run_cmd}"
-          puts full_cmd
+          cmd = "docker run -v #{Dir.pwd}:/build damsl/impala /build/sbin/run_query.sh #{$options[:impala_host]} #{query_file} #{role}"
+          puts cmd 
           #output = []
           #result = ""
           #r, io = IO.pipe
           #fork do
-          #  system(full_cmd, out: io, err: :out)
+          #  system(cmd, out: io, err: :out)
           #end
           #io.close
           #for l in r.each_line do
           #  puts l
           #  output << l.chomp
-          #  if l.chomp.start_with?('Elapsed:')
+          #  if l.chomp.start_with?('Fetched')
           #    result = l 
           #  end
           #end 

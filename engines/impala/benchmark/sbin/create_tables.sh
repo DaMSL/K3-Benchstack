@@ -1,13 +1,14 @@
 #!/bin/bash
 
-if [ $# -ne 2 ] 
+if [ $# -ne 3 ] 
 then
-  echo "Usage: $0 schema_dir scale_factor"
+  echo "Usage: $0 impala_host schema_file scale_factor"
   exit 1
 fi
 
-SCHEMA_DIR=$1
-SF=$2
+IMPALA_HOST=$1
+SCHEMA_FILE=$2
+SF=$3
 
 # Drop a database for this SF
 impala-shell -i $IMPALA_HOST -q "DROP DATABASE IF EXISTS $SF" 2>&1 >/dev/null
@@ -16,12 +17,9 @@ impala-shell -i $IMPALA_HOST -q "DROP DATABASE IF EXISTS $SF" 2>&1 >/dev/null
 impala-shell -i $IMPALA_HOST -q "CREATE DATABASE $SF" 2>&1 >/dev/null
 
 # Load the schema
-for f in $(ls $SCHEMA_DIR);
-do 
-  echo "Creating $SCHEMA_DIR/$f"
-  sed s/@@SCALE_FACTOR@@/$SF/g $SCHEMA_DIR/$f > /tmp/query.sql
-  impala-shell -d $SF -i $IMPALA_HOST -f /tmp/query.sql 2>&1 >/dev/null;
-done
+echo "Creating $SCHEMA_FILE"
+sed s/@@SCALE_FACTOR@@/$SF/g $SCHEMA_FILE > /tmp/query.sql
+impala-shell -d $SF -i $IMPALA_HOST -f /tmp/query.sql 2>&1 >/dev/null;
 rm /tmp/query.sql
 
 echo "Database $SF Created."

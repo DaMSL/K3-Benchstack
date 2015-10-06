@@ -1,34 +1,42 @@
-#Deploy an Impala cluster using a combination of Docker and Ansible:
-##Docker image:
-
-The docker folder contains a Dockerfile and some configuration files for building a simple Impala image.
-The image contains Java, Impala, and related services.
-
-It is currently hosted on the Docker registry at damsl/impala.
-
-You shouldn't need to edit any files in this folder, unless you need to make changes to the image.
-
-##Ansible deployment:
-
-The deploy folder contains files for deploying the Impala cluster via Ansible.
-
-To deploy a Impala cluster, you must first create a hosts file that lays out the topology of the cluster.
-
-An example is provided for an 8 node cluster on our local machines.
-
-There should be two groups: 
-  - master:  Single machine (for now) that should run the Impala catalog and statestore.
-  - slaves: List of multiple machines that should run an Impala daemon process.
-
-Be sure to use fully qualified domain names.
-
-To launch the cluster, run the following command inside the 'deploy' folder:
+#Docker image:
+Run all commands from within the 'docker' directory:
 ```
-ansible-playbook -i hosts.ini plays/deploy_impala.yml
+docker build -t damsl/impala .
+docker push damsl/impala
 ```
-You should be able to view the Impalad web interface at http://*slave*:25000
 
-Connect to the cluster by running impala-shell and executing:
+
+#Ansible deployment:
+Run all commands from within the 'deploy' directory:
+
+####Configuration:
+######hosts.ini:
+An example is provided for an 8 node cluster at *deploy/hosts.ini*.
+
+There should be two groups:
+  - master: A Single machine that runs the Impala catalog and statestore
+  - slaves: A List of machines to run the Impala daemon
+
+######Other files:
+See *deploy/files/* for other configuration files, to enable HDFS short circuit reads, and tweak other Impala configuration.
+
+####Info:
+Impala Web UI: http://*master_url*:25000
+
+#Benchmarks
+Run all commands from within the 'benchmark' directory. The *docker* command must be available.
+
+#### Create and Load Tables (Phase 1)
 ```
-connect *slave*;
+ruby impala.rb -1
+```
+
+#### Run Benchmarks (Phase 2)
+```
+ruby impala.rb -2
+```
+
+For additional options, run:
+```
+ruby impala.rb --help
 ```

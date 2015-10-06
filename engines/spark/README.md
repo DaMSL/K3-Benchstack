@@ -8,8 +8,10 @@ docker push damsl/spark
 #Ansible deployment:
 Run all commands from within the 'deploy' directory:
 
-####hosts.ini:
-An example is provided for an 8 node cluster: deploy/hosts.ini
+####Configuration:
+######hosts.ini:
+An example is provided for an 8 node cluster at *deploy/hosts.ini*.
+
 There should be two groups:
   - master: A single Spark Master
   - workers: A list of Spark Workers
