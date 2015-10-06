@@ -38,4 +38,3 @@ RUN tar -xvzf sbt-0.13.7.tgz
 RUN mv sbt/bin/sbt* /usr/bin
 RUN chmod +x /usr/bin/sbt
 RUN sbt
-
