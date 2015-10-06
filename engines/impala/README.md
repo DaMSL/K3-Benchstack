@@ -20,6 +20,16 @@ There should be two groups:
 ######Other files:
 See *deploy/files/* for other configuration files, to enable HDFS short circuit reads, and tweak other Impala configuration.
 
+####Launch:
+```
+ansible-playbook -i hosts.ini plays/deploy_impala.yml
+```
+
+####Teardown:
+```
+ansible-playbook -i hosts.ini plays/teardown_impala.yml
+```
+
 ####Info:
 Impala Web UI: http://*master_url*:25000
 
