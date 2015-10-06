@@ -8,30 +8,31 @@ docker push damsl/spark
 #Ansible deployment:
 Run all commands from within the 'deploy' directory:
 
-###hosts.ini:
+####hosts.ini:
 An example is provided for an 8 node cluster: deploy/hosts.ini
 There should be two groups:
   - master: A single Spark Master
   - workers: A list of Spark Workers
 
-###Launch:
+####Launch:
 ```
 ansible-playbook -i hosts.ini plays/deploy_spark.yml
 ```
 
-###Teardown:
+####Teardown:
 ```
 ansible-playbook -i hosts.ini plays/teardown_spark.yml
 ```
 
-###Info:
+####Info:
 Spark Web UI: http://*master_url*:8081
+
 Submit Spark jobs to the master at spark://*master_url*:7077
 
-# Benchmarks
-Run all commands from within the 'benchmark' directory:
+#Benchmarks
+Run all commands from within the 'benchmark' directory. The *docker* command must be available.
 
-### Build JAR (Phase 1)
+#### Build JAR (Phase 1)
 ```
 ruby spark.rb -1
 ```
