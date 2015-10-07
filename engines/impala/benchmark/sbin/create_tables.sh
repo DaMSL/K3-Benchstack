@@ -10,6 +10,8 @@ IMPALA_HOST=$1
 SCHEMA_FILE=$2
 SF=$3
 
+cd /build
+
 # Drop a database for this SF
 impala-shell -i $IMPALA_HOST -q "DROP DATABASE IF EXISTS $SF" 2>&1 >/dev/null
 

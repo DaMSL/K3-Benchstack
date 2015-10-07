@@ -10,6 +10,9 @@ IMPALA_HOST=$1
 QUERY_FILE=$2
 SF=$3
 
+cd /build
+echo "QUERY FILE: $QUERY_FILE"
+cat $QUERY_FILE
 cat $QUERY_FILE > /tmp/query.sql
 echo "SUMMARY;" >> /tmp/query.sql
 impala-shell -d $SF -i $IMPALA_HOST -f /tmp/query.sql 2>&1
