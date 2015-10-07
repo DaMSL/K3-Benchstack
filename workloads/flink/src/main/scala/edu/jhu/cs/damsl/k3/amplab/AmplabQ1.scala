@@ -12,7 +12,11 @@ object AmplabQ1 {
     val env = ExecutionEnvironment.getExecutionEnvironment
     val results = getRankingsDataSet(env).filter(r => r.pageRank > threshold)
     results.writeAsText(outputPath, WriteMode.OVERWRITE)
-    env.execute("Scala Amplab Q1")
+
+    val jobname = "Scala AmplabQ1"
+    val jobresult = env.execute(jobname)
+    print(jobname + " time: " + jobresult.getNetRuntime)
+    print(jobname + " plan:\n" + env.getExecutionPlan())
   }
   
   case class Rankings(pageURL  : String,

@@ -32,7 +32,10 @@ object TPCHQuery1 {
     result.writeAsText(outputPath, WriteMode.OVERWRITE)
 
     // execute program
-    env.execute("Scala TPCH Q1")
+    val jobname = "Scala TPCH Q1"
+    val jobresult = env.execute(jobname)
+    print(jobname + " time: " + jobresult.getNetRuntime)
+    print(jobname + " plan:\n" + env.getExecutionPlan())
   }
 
   class Q1GroupReduceFunction extends GroupReduceFunction[Lineitem,Q1Result] {

@@ -54,7 +54,11 @@ object TPCHQuery5 {
                  .reduceGroup(new LSCOReducer()).withBroadcastSet(rn, "RNJoin")
       
     lsco.writeAsText(outputPath, WriteMode.OVERWRITE)
-    env.execute("Scala TPCH Q5")
+
+    val jobname = "Scala TPCH Q5"
+    val jobresult = env.execute(jobname)
+    print(jobname + " time: " + jobresult.getNetRuntime)
+    print(jobname + " plan:\n" + env.getExecutionPlan())
   }
   
   class CustomerFilter extends RichFilterFunction[Customer]() {

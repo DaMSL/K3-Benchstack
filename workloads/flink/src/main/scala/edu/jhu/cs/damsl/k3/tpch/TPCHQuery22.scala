@@ -73,7 +73,11 @@ object TPCHQuery22 {
       })
     
     result.writeAsText(outputPath, WriteMode.OVERWRITE)
-    env.execute("Scala TPCH Q22")
+
+    val jobname = "Scala TPCH Q22"
+    val jobresult = env.execute(jobname)
+    print(jobname + " time: " + jobresult.getNetRuntime)
+    print(jobname + " plan:\n" + env.getExecutionPlan())
   }
 
   case class Customer( c_custkey : Long,

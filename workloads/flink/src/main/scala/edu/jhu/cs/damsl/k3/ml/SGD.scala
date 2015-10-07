@@ -25,7 +25,11 @@ object SGD {
     }
 
     finalParameters.writeAsText(outputPath, WriteMode.OVERWRITE)
-    env.execute("Scala SGD")
+
+    val jobname = "Scala SGD"
+    val jobresult = env.execute(jobname)
+    print(jobname + " time: " + jobresult.getNetRuntime)
+    print(jobname + " plan:\n" + env.getExecutionPlan())
   }
   
   private var dimensions: Int = 33

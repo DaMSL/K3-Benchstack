@@ -33,7 +33,11 @@ object AmplabQ2 {
                     })
 
     results.writeAsText(outputPath, WriteMode.OVERWRITE)
-    env.execute("Scala Amplab Q2")
+
+    val jobname = "Scala AmplabQ2"
+    val jobresult = env.execute(jobname)
+    print(jobname + " time: " + jobresult.getNetRuntime)
+    print(jobname + " plan:\n" + env.getExecutionPlan())
   }
   
   case class UserVisits(sourceIP  : String,

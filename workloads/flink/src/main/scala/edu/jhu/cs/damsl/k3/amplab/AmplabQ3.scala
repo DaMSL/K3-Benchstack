@@ -18,32 +18,36 @@ object AmplabQ3 {
 
     val env = ExecutionEnvironment.getExecutionEnvironment
     
-     val results = getUserVisitsDataSet(env).filter(v => {
-       val d = dateFormat.parse(v.visitDate)
-       d.equals(dateLB) || d.equals(dateUB) || d.after(dateLB) && d.before(dateUB)
-     })
-     .join(getRankingsDataSet(env)).where(1).equalTo(0)
-     .apply((v:UserVisits,r:Rankings,out:Collector[(String,Int,Double)]) => out.collect((v.sourceIP, r.pageRank, v.adRevenue)))
-     .groupBy(0)
-     .reduceGroup(new GroupReduceFunction[(String, Int, Double), (String, Long, Double, Long)]() {
-       override def reduce(in: java.lang.Iterable[(String, Int, Double)], out: Collector[(String, Long, Double, Long)]) = {
-         var group : Option[String] = None
-         var sum_pr : Long = 0
-         var sum_ar : Double = 0
-         var cnt : Long = 0
-         for (r <- in.asScala) {
-           if (group.isEmpty) { group = Some(r._1) } 
-           sum_pr += r._2
-           sum_ar += r._3
-           cnt += 1           
-         }
-         if ( group.isDefined ) { out.collect((group.get, sum_pr, sum_ar, cnt)) }
-       }
-     })
-     .map(x => (x._1, x._3, x._2/x._4))
+    val results = getUserVisitsDataSet(env).filter(v => {
+        val d = dateFormat.parse(v.visitDate)
+        d.equals(dateLB) || d.equals(dateUB) || d.after(dateLB) && d.before(dateUB)
+      })
+      .join(getRankingsDataSet(env)).where(1).equalTo(0)
+      .apply((v:UserVisits,r:Rankings,out:Collector[(String,Int,Double)]) => out.collect((v.sourceIP, r.pageRank, v.adRevenue)))
+      .groupBy(0)
+      .reduceGroup(new GroupReduceFunction[(String, Int, Double), (String, Long, Double, Long)]() {
+        override def reduce(in: java.lang.Iterable[(String, Int, Double)], out: Collector[(String, Long, Double, Long)]) = {
+          var group : Option[String] = None
+          var sum_pr : Long = 0
+          var sum_ar : Double = 0
+          var cnt : Long = 0
+          for (r <- in.asScala) {
+            if (group.isEmpty) { group = Some(r._1) } 
+            sum_pr += r._2
+            sum_ar += r._3
+            cnt += 1           
+          }
+          if ( group.isDefined ) { out.collect((group.get, sum_pr, sum_ar, cnt)) }
+        }
+      })
+      .map(x => (x._1, x._3, x._2/x._4))
      
-     results.writeAsText(outputPath, WriteMode.OVERWRITE)
-     env.execute("Scala AmplabQ3")
+    results.writeAsText(outputPath, WriteMode.OVERWRITE)
+
+    val jobname = "Scala AmplabQ3"
+    val jobresult = env.execute(jobname)
+    print(jobname + " time: " + jobresult.getNetRuntime)
+    print(jobname + " plan:\n" + env.getExecutionPlan())
   }
 
   case class Rankings(pageURL  : String,

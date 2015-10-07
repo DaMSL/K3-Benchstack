@@ -29,10 +29,11 @@ object TPCHQuery6 {
 
     // emit result at every taskmanager
     result.writeAsText(outputPath, WriteMode.OVERWRITE)
-    //result.print()
 
-    // execute program
-    env.execute("Scala TPCH Q6")
+    val jobname = "Scala TPCH Q6"
+    val jobresult = env.execute(jobname)
+    print(jobname + " time: " + jobresult.getNetRuntime)
+    print(jobname + " plan:\n" + env.getExecutionPlan())
   }
   
   case class Lineitem(l_quantity      : Double,

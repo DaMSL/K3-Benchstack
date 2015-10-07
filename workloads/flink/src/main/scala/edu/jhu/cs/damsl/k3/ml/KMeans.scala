@@ -38,7 +38,11 @@ object KMeans {
     }
 
     finalCentroids.writeAsText(outputPath, WriteMode.OVERWRITE)
-    env.execute("Scala KMeans")
+
+    val jobname = "Scala KMeans"
+    val jobresult = env.execute(jobname)
+    print(jobname + " time: " + jobresult.getNetRuntime)
+    print(jobname + " plan:\n" + env.getExecutionPlan())
   }
   
   private var dimensions: Int = 33
@@ -120,13 +124,17 @@ object KMeans {
    */
   class Centroid(var id: Int, elems: Array[Double]) extends Point(elems) {
     def this(dims : Int) {
-      this(0, new Array[Double](dims))
+      this(-1, new Array[Double](dims))
     }
 
     def this(id: Int, p: Point) {
       this(id, p.elems)
     }
 
+    def this() {
+      this(-1, new Array[Double](dimensions))
+    }
+    
     override def toString: String = {
       id + " " + super.toString
     }

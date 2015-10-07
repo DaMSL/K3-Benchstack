@@ -56,7 +56,10 @@ object TPCHQuery18 {
 
     lineitemOrdersCustomer.writeAsText(outputPath, WriteMode.OVERWRITE)
     
-    env.execute("Scala TPCH Q18")
+    val jobname = "Scala TPCH Q18"
+    val jobresult = env.execute(jobname)
+    print(jobname + " time: " + jobresult.getNetRuntime)
+    print(jobname + " plan:\n" + env.getExecutionPlan())
   }
   
   case class Lineitem(l_orderkey : Long,
