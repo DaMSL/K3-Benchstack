@@ -2,6 +2,8 @@ name := "Spark Benchmarks"
 
 version := "1.0"
 
+target:= file("/build/")
+
 scalaVersion := "2.10.4"
 
 libraryDependencies += "org.apache.spark" %% "spark-core" % "1.2.0"
