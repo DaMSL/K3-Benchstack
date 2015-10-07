@@ -1,8 +1,6 @@
 #!/usr/bin/env ruby
 require 'optparse'
 
-# TODO gather statistics over multiple trials
-
 QUERIES = {
   "tpch" => {
     :roles => {
@@ -48,6 +46,7 @@ QUERIES = {
   }
 }
 
+# Utils
 def select?(experiment, query, role = nil)
   excluded = $options[:excludes].any? do |pattern|
     check_filter(pattern, experiment, query, role)
@@ -77,6 +76,7 @@ def main()
     :excludes => [],
     :trials => 1
   }
+  $stats = {}
 
   usage = "Usage: #{$PROGRAM_NAME} options"
   if ARGF.argv.empty?
@@ -102,6 +102,8 @@ def main()
   if $options[:run]
     run()
   end
+
+  summary()
 end
 
 # Build a Spark Jar in a docker container using sbt. Requires simple.sbt and src/ directory. JAR is stashed in /tmp/scala...
@@ -124,7 +126,6 @@ def run()
           full_cmd = "docker run -v /tmp:/build --net=host damsl/spark #{run_cmd}"
           puts full_cmd
           # Run full_cmd, with output stored and printed in real time
-          output = []
           result = ""
           r, io = IO.pipe
           fork do
@@ -133,15 +134,32 @@ def run()
           io.close
           for l in r.each_line do
             puts l
-            output << l.chomp
             if l.chomp.start_with?('Elapsed:')
-              result = l
+              result = l.chomp.split(" ")[1].to_i
             end
           end
-          puts result
+          # Store time associated with this trial
+          key = {:role => role, :experiment => experiment, :query => query}
+          if not $stats.has_key? key
+            $stats[key] = [result]
+          else
+            $stats[key] << result
+          end
         end
       end
     end
+  end
+end
+
+def summary()
+  puts "Summary"
+  for key, val in $stats
+    sum = val.reduce(:+)
+    cnt = val.size
+    avg = 1.0 * sum / cnt
+    var = val.map{|x| (x - avg) * (x - avg)}.reduce(:+) / (1.0 * cnt)
+    dev = Math.sqrt(var)
+    puts "\t#{key} => Succesful Trials: #{cnt}/#{$options[:trials]}. Avg: #{avg}. StdDev: #{dev}"
   end
 end
 
