@@ -14,8 +14,5 @@ JARFILE=$1
 SF=$2
 CLASS=$3
 
-CMD="/software/spark-1.2.0/bin/spark-submit --master spark://$SPARK_HOME:$SPARK_PORT --class $CLASS $JARFILE $SF"
-#$CMD 2>&1 | grep -E "EventLoggingListener|Elapsed"
-
-#$CMD 3>&1 1>&2 2>&3 | grep "EventLoggingListener"
-$CMD 3>&1 1>&2 2>&3
+CMD="/software/spark-1.2.0/bin/spark-submit --master spark://qp-hm1.damsl.cs.jhu.edu:7077 --class $CLASS /build/$JARFILE $SF"
+docker run --net=host -v $(pwd):/build damsl/spark $CMD
