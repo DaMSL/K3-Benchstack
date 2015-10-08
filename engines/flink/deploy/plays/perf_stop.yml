@@ -1,0 +1,5 @@
+---
+- hosts: slaves
+  tasks:
+    - name: Stop perf profiling of a Flink worker
+      shell: docker exec flink_slave /sbin/flink_perf_stop.sh

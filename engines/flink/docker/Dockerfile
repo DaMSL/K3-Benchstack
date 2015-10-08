@@ -13,8 +13,12 @@ ADD taskmanager.sh /software/flink-0.9.1/bin/
 # Startup Scripts
 ADD master_startup.sh /sbin/
 ADD slave_startup.sh /sbin/
-RUN chmod +x /sbin/master_startup.sh
-RUN chmod +x /sbin/slave_startup.sh
+ADD flink_perf_start.sh /sbin/
+ADD flink_perf_stop.sh /sbin/
+RUN chmod +x /sbin/master_startup.sh \
+             /sbin/slave_startup.sh \
+             /sbin/flink_perf_start.sh \
+             /sbin/flink_perf_stop.sh
 
 # Replace nsswitch.conf: Prefer DNS over /etc/hosts
 ADD nsswitch.conf /etc/
