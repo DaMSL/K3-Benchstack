@@ -38,3 +38,10 @@ RUN tar -xvzf sbt-0.13.7.tgz
 RUN mv sbt/bin/sbt* /usr/bin
 RUN chmod +x /usr/bin/sbt
 RUN sbt
+
+ADD spark_master.sh /sbin/
+ADD spark_worker.sh /sbin/
+ADD spark_perf_start.sh /sbin/
+ADD spark_perf_stop.sh /sbin/
+RUN chmod +x /sbin/spark_master.sh /sbin/spark_worker.sh /sbin/spark_perf_start.sh /sbin/spark_perf_stop.sh
+

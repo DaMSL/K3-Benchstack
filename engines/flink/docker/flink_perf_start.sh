@@ -9,12 +9,16 @@ if [ "$FLINK_IDENT_STRING" = "" ]; then
 fi                                      
 
 pid=$FLINK_PID_DIR/flink-$FLINK_IDENT_STRING-taskmanager.pid
-perfpidfile=/tmp/flink-perf.pid
+perfpidfile=/tmp/flink_worker_perf.pid
 
 FREQ=$1
 SLEEP=$2
 
-/usr/bin/perfj record -F $FREQ -ag -p `cat $pid` -- sleep $SLEEP &
+test -f $pid && pgrep -F $pid && /usr/bin/perfj record -F $FREQ -ag -p `cat $pid` -- sleep $SLEEP &
 
-echo $! > $perfpidfile
-echo "Started Flink perf... `cat $perfpidfile`"
+if [ $? = 0 ]; then
+  echo $! > $perfpidfile
+  echo "Started Flink perf... `cat $perfpidfile`"
+else
+  echo "Failed to start Flink perf monitoring"
+fi

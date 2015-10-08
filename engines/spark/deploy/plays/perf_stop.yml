@@ -1,0 +1,5 @@
+---
+- hosts: workers
+  tasks:
+    - name: Stop perf profiling of a Spark worker
+      shell: docker exec sparkWorker /sbin/spark_perf_stop.sh
