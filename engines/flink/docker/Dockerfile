@@ -1,7 +1,10 @@
 FROM ubuntu:14.04
 RUN apt-get update
-# Java
+
+# Java and perfj
 RUN apt-get install -y wget default-jdk
+ADD assets/bin/perfj /usr/bin/
+ADD assets/lib/perfj-1.0.jar /usr/lib
 
 # Flink
 WORKDIR /software
@@ -18,7 +21,8 @@ ADD flink_perf_stop.sh /sbin/
 RUN chmod +x /sbin/master_startup.sh \
              /sbin/slave_startup.sh \
              /sbin/flink_perf_start.sh \
-             /sbin/flink_perf_stop.sh
+             /sbin/flink_perf_stop.sh \
+             /usr/bin/perfj
 
 # Replace nsswitch.conf: Prefer DNS over /etc/hosts
 ADD nsswitch.conf /etc/
