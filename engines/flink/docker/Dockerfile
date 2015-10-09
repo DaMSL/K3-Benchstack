@@ -4,7 +4,7 @@ RUN apt-get update
 # Java and perfj
 RUN apt-get install -y wget default-jdk
 ADD assets/bin/perfj /usr/bin/
-ADD assets/lib/perfj-1.0.jar /usr/lib
+ADD assets/lib/perfj-1.0.jar /usr/lib/
 
 # Flink
 WORKDIR /software

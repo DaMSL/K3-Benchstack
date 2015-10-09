@@ -44,6 +44,6 @@ ADD spark_worker.sh /sbin/
 ADD spark_perf_start.sh /sbin/
 ADD spark_perf_stop.sh /sbin/
 ADD assets/bin/perfj /usr/bin/
-ADD assets/lib/perfj-1.0.jar /usr/bin/
+ADD assets/lib/perfj-1.0.jar /usr/lib/
 RUN chmod +x /sbin/spark_master.sh /sbin/spark_worker.sh /sbin/spark_perf_start.sh /sbin/spark_perf_stop.sh /usr/bin/perfj
 
