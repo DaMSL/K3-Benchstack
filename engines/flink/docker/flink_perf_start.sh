@@ -12,9 +12,10 @@ pid=$FLINK_PID_DIR/flink-$FLINK_IDENT_STRING-taskmanager.pid
 perfpidfile=/tmp/flink_worker_perf.pid
 
 FREQ=$1
-SLEEP=$2
+OUTPUT=$2
+SLEEP=$3
 
-test -f $pid && pgrep -F $pid && /usr/bin/perfj record -F $FREQ -g -p `cat $pid` -- sleep $SLEEP &
+test -f $pid && pgrep -F $pid && /usr/bin/perfj record -F $FREQ -o $OUTPUT -g -p `cat $pid` -- sleep $SLEEP &
 
 if [ $? = 0 ]; then
   sleep 2
