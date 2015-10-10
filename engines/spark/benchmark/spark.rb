@@ -69,7 +69,7 @@ end
 def main()
   STDOUT.sync = true
   $options = {
-    :spark_home => "/software/spark-1.2.0/",
+    :spark_home => "/software/spark-1.2.1/",
     :spark_master => "spark://qp-hm1:7077",
     :jar_file => "scala-2.10/spark-benchmarks_2.10-1.0.jar",
     :includes => [],
