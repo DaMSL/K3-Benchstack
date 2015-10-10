@@ -1,5 +1,6 @@
 package edu.jhu.cs.damsl.k3.ml
 
+import edu.jhu.cs.damsl.k3.common.MLDeployment
 import scala.math._
 import org.apache.flink.api.common.functions._
 import org.apache.flink.api.scala._
@@ -7,6 +8,7 @@ import org.apache.flink.util._
 import scala.collection.JavaConverters._
 import org.apache.flink.configuration.Configuration
 import org.apache.flink.core.fs.FileSystem.WriteMode
+import edu.jhu.cs.damsl.k3.common.MLDeployment
 
 object SGD {
 
@@ -24,7 +26,7 @@ object SGD {
       points.reduceGroup(new ComputeGradient).withBroadcastSet(currentParams, "params")
     }
 
-    finalParameters.writeAsText(outputPath, WriteMode.OVERWRITE)
+    finalParameters.writeAsText(deployment.outputPath, WriteMode.OVERWRITE)
 
     val jobname = "Scala SGD"
     val jobresult = env.execute(jobname)
@@ -34,28 +36,26 @@ object SGD {
   
   private var dimensions: Int = 33
   private var stepSize : Double = 0.1
-  private var lambda : Double = 0.1
-  
-  private var pointsPath: String = null
-  private var outputPath: String = null
+  private var lambda : Double = 0.1  
   private var numIterations: Int = 10
+  
+  private var deployment : MLDeployment = null
 
   private def parseParameters(args: Array[String]): Boolean = {
     if (args.length >= 3) {
-      pointsPath    = args(0)
-      outputPath    = args(1)
+      deployment = new MLDeployment(args(0), args(1))
       numIterations = Integer.parseInt(args(2))
       if ( args.length == 4 ) { dimensions = Integer.parseInt(args(3)) }
       true
     }
     else {
-      System.out.println("  Usage: SGD <points path> <result path> <num iterations> [dimensionality]")
+      System.out.println("  Usage: SGD <scale factor> <result path> <num iterations> [dimensionality]")
       false
     }
   }
 
-  private def getPointDataSet(env: ExecutionEnvironment): DataSet[Point] = {
-    env.readCsvFile[Point](pointsPath, fieldDelimiter = " ")
+  def getPointDataSet(env: ExecutionEnvironment) : DataSet[Point] = {
+    env.readCsvFile(deployment.pointsPath(deployment.scaleFactor), fieldDelimiter = " ")
   }
 
   /**

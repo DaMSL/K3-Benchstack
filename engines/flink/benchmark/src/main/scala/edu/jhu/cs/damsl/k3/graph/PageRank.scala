@@ -110,19 +110,19 @@ object PageRank {
     }
   }
   
-  private var graphPath: String = null
+  private var graphPath: String = "hdfs://qp-hm1.damsl.cs.jhu.edu:54310/twitter_edgelist"
   private var outputPath: String = null
   private var numIterations: Int = 10
 
   private def parseParameters(args: Array[String]): Boolean = {
-    if (args.length == 3) {
-      graphPath     = args(0)
-      outputPath    = args(1)
-      numIterations = Integer.parseInt(args(2))
+    if (args.length >= 2) {
+      outputPath    = args(0)
+      numIterations = Integer.parseInt(args(1))
+      if ( args.length == 3 ) { graphPath = args(2) }
       true
     }
     else {
-      System.out.println("  Usage: PageRank <graph path> <result path> <num iterations>")
+      System.out.println("  Usage: PageRank <result path> <num iterations> [graph path]")
       false
     }
   }

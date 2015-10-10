@@ -1,5 +1,7 @@
 package edu.jhu.cs.damsl.k3.amplab
 
+import edu.jhu.cs.damsl.k3.common.AmplabDeployment
+
 import org.apache.flink.api.scala._
 import org.apache.flink.api.common.functions._
 import org.apache.flink.util._
@@ -18,11 +20,11 @@ object AmplabQ3 {
 
     val env = ExecutionEnvironment.getExecutionEnvironment
     
-    val results = getUserVisitsDataSet(env).filter(v => {
+    val results = getQ3UserVisitsDataSet(env).filter(v => {
         val d = dateFormat.parse(v.visitDate)
         d.equals(dateLB) || d.equals(dateUB) || d.after(dateLB) && d.before(dateUB)
       })
-      .join(getRankingsDataSet(env)).where(1).equalTo(0)
+      .join(getQ3RankingsDataSet(env)).where(1).equalTo(0)
       .apply((v:UserVisits,r:Rankings,out:Collector[(String,Int,Double)]) => out.collect((v.sourceIP, r.pageRank, v.adRevenue)))
       .groupBy(0)
       .reduceGroup(new GroupReduceFunction[(String, Int, Double), (String, Long, Double, Long)]() {
@@ -42,7 +44,7 @@ object AmplabQ3 {
       })
       .map(x => (x._1, x._3, x._2/x._4))
      
-    results.writeAsText(outputPath, WriteMode.OVERWRITE)
+    results.writeAsText(deployment.outputPath, WriteMode.OVERWRITE)
 
     val jobname = "Scala AmplabQ3"
     val jobresult = env.execute(jobname)
@@ -59,33 +61,30 @@ object AmplabQ3 {
                         adRevenue : Double)
   
   private var dateUpper: String = "1980-04-01"
-  private var rankingsPath: String = null
-  private var userVisitsPath: String = null
-  private var outputPath: String = null
+ 
+  private var deployment : AmplabDeployment = null
 
   private def parseParameters(args: Array[String]): Boolean = {
-    if (args.length >= 3 && args.length < 5) {
-      rankingsPath   = args(0)
-      userVisitsPath = args(1)
-      outputPath     = args(2)
-      if ( args.length == 4 ) { dateUpper = args(3) }
+    if (args.length >= 1 && args.length < 3) {
+      deployment = new AmplabDeployment(args(0))
+      if ( args.length == 2 ) { dateUpper = args(1) }
       true
     } else {
-      System.err.println("Usage: AmplabQ3 <rankings-csv path> <uservisits-csv path> <result path> [date-upper]")
+      System.err.println("Usage: AmplabQ3 <result path> [date-upper]")
       false
     }
   }
-  
-  private def getRankingsDataSet(env: ExecutionEnvironment): DataSet[Rankings] = {
+
+  def getQ3RankingsDataSet(env: ExecutionEnvironment) : DataSet[Rankings] = {
     env.readCsvFile[Rankings](
-        rankingsPath,
+        deployment.rankingsPath,
         fieldDelimiter = ",",
         includedFields = Array(0, 1) )
   }
 
-  private def getUserVisitsDataSet(env: ExecutionEnvironment): DataSet[UserVisits] = {
+  def getQ3UserVisitsDataSet(env: ExecutionEnvironment) : DataSet[UserVisits] = {
     env.readCsvFile[UserVisits](
-        userVisitsPath,
+        deployment.userVisitsPath,
         fieldDelimiter = ",",
         includedFields = Array(0, 1, 2, 3) )
   }

@@ -1,5 +1,7 @@
 package edu.jhu.cs.damsl.k3.tpch
 
+import edu.jhu.cs.damsl.k3.common.TPCHDeployment
+
 import org.apache.flink.api.scala._
 import org.apache.flink.api.common.functions._
 import org.apache.flink.util._
@@ -23,26 +25,26 @@ object TPCHQuery5 {
 
     val env = ExecutionEnvironment.getExecutionEnvironment
     
-    val rn = getRegionDataSet(env)
+    val rn = getQ5RegionDataSet(env)
                 .filter(r => r.r_name == "ASIA")
-                .join(getNationDataSet(env)).where("r_regionkey").equalTo("n_regionkey")
+                .join(getQ5NationDataSet(env)).where("r_regionkey").equalTo("n_regionkey")
 
-    val suppliersInAsia = getSupplierDataSet(env).filter(new SupplierFilter()).withBroadcastSet(rn, "RNJoin")
+    val suppliersInAsia = getQ5SupplierDataSet(env).filter(new SupplierFilter()).withBroadcastSet(rn, "RNJoin")
     
     // TODO: broadcast supplier into lineitem as with K3?
-    val ls = getLineitemDataSet(env)
+    val ls = getQ5LineitemDataSet(env)
               .map(l => (l.l_orderkey, l.l_suppkey, l.l_extendedprice * (1 - l.l_discount)) )
               .join(suppliersInAsia).where(1).equalTo(0)
               .apply((l,s,out:Collector[LS]) => out.collect((l._1, s.s_nationkey, l._3)))
                 // l_orderkey, l_nationkey, l_epd triples
               
-    val orderCustKeys = getOrdersDataSet(env).filter(o => {
+    val orderCustKeys = getQ5OrdersDataSet(env).filter(o => {
           val d = dateFormat.parse(o.o_orderdate) 
           (d.after(dateGEQ) || d.equals(dateGEQ)) && d.before(dateLT) 
          })
          .map(o => (o.o_custkey, o.o_orderkey))
 
-    val co = getCustomerDataSet(env)
+    val co = getQ5CustomerDataSet(env)
               .filter(new CustomerFilter()).withBroadcastSet(rn, "RNJoin")
               .join(orderCustKeys).where(0).equalTo(0)
               .map(co => (co._2._2, co._1.c_nationkey))
@@ -53,7 +55,7 @@ object TPCHQuery5 {
                  .groupBy(1)
                  .reduceGroup(new LSCOReducer()).withBroadcastSet(rn, "RNJoin")
       
-    lsco.writeAsText(outputPath, WriteMode.OVERWRITE)
+    lsco.writeAsText(deployment.outputPath, WriteMode.OVERWRITE)
 
     val jobname = "Scala TPCH Q5"
     val jobresult = env.execute(jobname)
@@ -131,69 +133,56 @@ object TPCHQuery5 {
   case class Region(r_regionkey : Long,
                     r_name      : String)
 
-  private var lineitemPath : String = null
-  private var customerPath : String = null
-  private var ordersPath   : String = null
-  private var supplierPath : String = null
-  private var nationPath   : String = null
-  private var regionPath   : String = null
-  private var outputPath   : String = null
-
+  private var deployment : TPCHDeployment = null
+  
   private def parseParameters(args: Array[String]): Boolean = {
-    if (args.length == 7) {
-      lineitemPath = args(0)
-      customerPath = args(1)
-      ordersPath   = args(2)
-      supplierPath = args(3)
-      nationPath   = args(4)
-      regionPath   = args(5)
-      outputPath   = args(6)
+    if (args.length == 2) {
+      deployment = new TPCHDeployment(args(0), args(1))
       true
     } else {
-      System.err.println(
-          " Usage: TPCHQuery5 <lineitem-csv path> <customer-csv path> <orders-csv path> <supplier-csv path> <nation-csv path> <region-csv path> <result path>")
+      System.err.println("Usage: TPCHQuery5 <scale-factor> <result path>")
       false
     }
   }
-  
-  private def getLineitemDataSet(env: ExecutionEnvironment): DataSet[Lineitem] = {
+
+  def getQ5LineitemDataSet(env: ExecutionEnvironment) : DataSet[Lineitem] = {
     env.readCsvFile[Lineitem](
-        lineitemPath,
+        deployment.lineitemPath(deployment.scaleFactor),
         fieldDelimiter = "|",
         includedFields = Array(0, 2, 5, 6) )
   }
 
-  private def getCustomerDataSet(env: ExecutionEnvironment): DataSet[Customer] = {
+  def getQ5CustomerDataSet(env: ExecutionEnvironment) : DataSet[Customer] = {
     env.readCsvFile[Customer](
-        customerPath,
+        deployment.customerPath(deployment.scaleFactor),
         fieldDelimiter = "|",
         includedFields = Array(0, 3) )
   }
   
-  private def getOrdersDataSet(env: ExecutionEnvironment): DataSet[Orders] = {
+  def getQ5OrdersDataSet(env: ExecutionEnvironment) : DataSet[Orders] = {
     env.readCsvFile[Orders](
-        ordersPath,
+        deployment.ordersPath(deployment.scaleFactor),
         fieldDelimiter = "|",
         includedFields = Array(0, 1, 4) )
   }
 
-  private def getSupplierDataSet(env: ExecutionEnvironment): DataSet[Supplier] = {
+  def getQ5SupplierDataSet(env: ExecutionEnvironment) : DataSet[Supplier] = {
     env.readCsvFile[Supplier](
-        supplierPath,
+        deployment.supplierPath(deployment.scaleFactor),
         fieldDelimiter = "|",
         includedFields = Array(0, 3) )
   }
 
-  private def getNationDataSet(env: ExecutionEnvironment): DataSet[Nation] = {
+  def getQ5NationDataSet(env: ExecutionEnvironment) : DataSet[Nation] = {
     env.readCsvFile[Nation](
-        nationPath,
+        deployment.nationPath(deployment.scaleFactor),
         fieldDelimiter = "|",
         includedFields = Array(0, 1, 2) )
   }
 		
-  private def getRegionDataSet(env: ExecutionEnvironment): DataSet[Region] = {
+  def getQ5RegionDataSet(env: ExecutionEnvironment) : DataSet[Region] = {
     env.readCsvFile[Region](
-        regionPath,
+        deployment.regionPath(deployment.scaleFactor),
         fieldDelimiter = "|",
         includedFields = Array(0, 1) )
   }

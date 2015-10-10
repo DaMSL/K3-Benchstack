@@ -1,5 +1,7 @@
 package edu.jhu.cs.damsl.k3.tpch
 
+import edu.jhu.cs.damsl.k3.common.TPCHDeployment
+
 import org.apache.flink.api.scala._
 import org.apache.flink.core.fs.FileSystem.WriteMode
 
@@ -18,7 +20,7 @@ object TPCHQuery6 {
     val env = ExecutionEnvironment.getExecutionEnvironment
 
     // scan lineitems, eval predicates
-    val lineitems = getLineitemDataSet(env).filter(l => {
+    val lineitems = getQ6LineitemDataSet(env).filter(l => {
       val d = dateFormat.parse(l.l_shipdate) 
       val datePred = (d.after(dateGEQ) || d.equals(dateGEQ)) && d.before(dateLT)
       val discPred = 0.05 <= l.l_discount && l.l_discount <= 0.07
@@ -28,7 +30,7 @@ object TPCHQuery6 {
     val result = lineitems.map(l => Tuple1(l.l_extendedprice * l.l_discount)).sum(0)
 
     // emit result at every taskmanager
-    result.writeAsText(outputPath, WriteMode.OVERWRITE)
+    result.writeAsText(deployment.outputPath, WriteMode.OVERWRITE)
 
     val jobname = "Scala TPCH Q6"
     val jobresult = env.execute(jobname)
@@ -41,25 +43,22 @@ object TPCHQuery6 {
                       l_discount      : Double,
                       l_shipdate      : String )
 
-  private var lineitemPath: String = null
-  private var outputPath: String = null
-
+  private var deployment : TPCHDeployment = null
+  
   private def parseParameters(args: Array[String]): Boolean = {
     if (args.length == 2) {
-      lineitemPath = args(0)
-      outputPath = args(1)
+      deployment = new TPCHDeployment(args(0), args(1))
       true
     } else {
-      System.err.println("Usage: TPCHQuery6 <lineitem-csv path> <result path>")
+      System.err.println("Usage: TPCHQuery6 <scale-factor> <result path>")
       false
     }
   }
   
-  private def getLineitemDataSet(env: ExecutionEnvironment): DataSet[Lineitem] = {
+  def getQ6LineitemDataSet(env: ExecutionEnvironment) : DataSet[Lineitem] = {
     env.readCsvFile[Lineitem](
-        lineitemPath,
+        deployment.lineitemPath(deployment.scaleFactor),
         fieldDelimiter = "|",
         includedFields = Array(4, 5, 6, 10) )
   }
-
 }

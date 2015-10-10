@@ -1,11 +1,13 @@
 package edu.jhu.cs.damsl.k3.ml
 
+import edu.jhu.cs.damsl.k3.common.MLDeployment
 import scala.math._
 import org.apache.flink.api.common.functions._
 import org.apache.flink.api.scala._
 import scala.collection.JavaConverters._
 import org.apache.flink.configuration.Configuration
 import org.apache.flink.core.fs.FileSystem.WriteMode
+import edu.jhu.cs.damsl.k3.common.MLDeployment
 
 /*
  * This k-means implementation is based on Flink's examples, generalizing it
@@ -23,9 +25,14 @@ object KMeans {
     }
 
     val env = ExecutionEnvironment.getExecutionEnvironment
+    val k : Int = 5
+    val initialCentroids = new Array[Centroid](k)
+    for (i <- 0 until k) {
+      initialCentroids(i) = new Centroid(i, new Point())
+    }
 
     val points: DataSet[Point] = getPointDataSet(env)
-    val centroids: DataSet[Centroid] = getCentroidDataSet(env)
+    val centroids: DataSet[Centroid] = env.fromCollection(initialCentroids)
 
     val finalCentroids = centroids.iterate(numIterations) { currentCentroids =>
       val newCentroids = points
@@ -37,7 +44,7 @@ object KMeans {
       newCentroids
     }
 
-    finalCentroids.writeAsText(outputPath, WriteMode.OVERWRITE)
+    finalCentroids.writeAsText(deployment.outputPath, WriteMode.OVERWRITE)
 
     val jobname = "Scala KMeans"
     val jobresult = env.execute(jobname)
@@ -46,32 +53,25 @@ object KMeans {
   }
   
   private var dimensions: Int = 33
-  private var pointsPath: String = null
-  private var centersPath: String = null
-  private var outputPath: String = null
   private var numIterations: Int = 10
+  private var deployment : MLDeployment = null
 
   private def parseParameters(args: Array[String]): Boolean = {
-    if (args.length >= 4) {
-      pointsPath    = args(0)
-      centersPath   = args(1)
-      outputPath    = args(2)
-      numIterations = Integer.parseInt(args(3))
-      if ( args.length == 5 ) { dimensions = Integer.parseInt(args(4)) }
+    if (args.length >= 3) {
+      deployment = new MLDeployment(args(0), args(1))
+      numIterations = Integer.parseInt(args(2))
+      if ( args.length == 4 ) { dimensions = Integer.parseInt(args(3)) }
       true
     }
     else {
-      System.out.println("  Usage: KMeans <points path> <centers path> <result path> <num iterations> [dimensionality]")
+      System.out.println("  Usage: KMeans <scale factor> <result path> <num iterations> [dimensionality]")
       false
     }
   }
 
-  private def getPointDataSet(env: ExecutionEnvironment): DataSet[Point] = {
-    env.readCsvFile[Point](pointsPath, fieldDelimiter = " ")
-  }
 
-  private def getCentroidDataSet(env: ExecutionEnvironment): DataSet[Centroid] = {
-    env.readCsvFile[Centroid](centersPath, fieldDelimiter = " ")
+  def getPointDataSet(env: ExecutionEnvironment) : DataSet[Point] = {
+    env.readCsvFile(deployment.pointsPath(deployment.scaleFactor), fieldDelimiter = " ")
   }
 
   /**

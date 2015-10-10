@@ -1,5 +1,7 @@
 package edu.jhu.cs.damsl.k3.amplab
 
+import edu.jhu.cs.damsl.k3.common.AmplabDeployment
+
 import org.apache.flink.api.scala._
 import org.apache.flink.util._
 import org.apache.flink.api.common.functions._
@@ -18,7 +20,7 @@ object AmplabQ2 {
     }
     
     val env = ExecutionEnvironment.getExecutionEnvironment
-    val results = getUserVisitsDataSet(env)
+    val results = getQ2UserVisitsDataSet(env)
                     .groupBy(u => safesub(u.sourceIP))
                     .reduceGroup(new GroupReduceFunction[UserVisits, (String, Double)]() {
                       override def reduce(in: java.lang.Iterable[UserVisits], out: Collector[(String,Double)]) = {
@@ -47,21 +49,22 @@ object AmplabQ2 {
   private var userVisitsPath: String = null
   private var outputPath: String = null
 
+  private var deployment : AmplabDeployment = null
+
   private def parseParameters(args: Array[String]): Boolean = {
-    if (args.length >= 2 && args.length < 4) {
-      userVisitsPath = args(0)
-      outputPath = args(1)
-      if ( args.length == 3 ) { substrlen = args(2).toInt }
+    if (args.length >= 1 && args.length < 3) {
+      deployment = new AmplabDeployment(args(0))
+      if ( args.length == 2 ) { substrlen = args(2).toInt }
       true
     } else {
-      System.err.println("Usage: AmplabQ2 <uservisits-csv path> <result path> [length]")
+      System.err.println("Usage: AmplabQ2 <result path> [length]")
       false
     }
   }
-
-  private def getUserVisitsDataSet(env: ExecutionEnvironment): DataSet[UserVisits] = {
+  
+  def getQ2UserVisitsDataSet(env: ExecutionEnvironment) : DataSet[UserVisits] = {
     env.readCsvFile[UserVisits](
-        userVisitsPath,
+        deployment.userVisitsPath,
         fieldDelimiter = ",",
         includedFields = Array(0, 3) )
   }

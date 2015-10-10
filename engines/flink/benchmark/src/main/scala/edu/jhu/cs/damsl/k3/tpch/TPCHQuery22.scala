@@ -1,5 +1,7 @@
 package edu.jhu.cs.damsl.k3.tpch
 
+import edu.jhu.cs.damsl.k3.common.TPCHDeployment
+
 import org.apache.flink.api.scala._
 import org.apache.flink.api.common.functions._
 import org.apache.flink.util._
@@ -16,7 +18,7 @@ object TPCHQuery22 {
     val env = ExecutionEnvironment.getExecutionEnvironment
     
     // Compute average c_acctbal for broadcasting.
-    val custSumCnt = getCustomerDataSet(env).filter( (c:Customer) => {
+    val custSumCnt = getQ22CustomerDataSet(env).filter( (c:Customer) => {
         val codes = List("13", "31", "23", "29", "30", "18", "17") 
         c.c_acctbal > 0.0 && codes.contains(c.c_phone.substring(0, 2)) 
       }).reduceGroup(new GroupReduceFunction[Customer,(Double,Long)] {
@@ -36,7 +38,7 @@ object TPCHQuery22 {
     val avgBroadcast = env.fromElements(avgBal)
 
     // Filter customers (using broadcasted c_acctbal and orderkeys) and aggregate.
-    val result = getCustomerDataSet(env)
+    val result = getQ22CustomerDataSet(env)
       .filter(new RichFilterFunction[Customer]() {
         var globalAvg : Traversable[Double] = null
         var avgAccBal : Double = 0.0
@@ -52,7 +54,7 @@ object TPCHQuery22 {
         }
       })
       .withBroadcastSet(avgBroadcast, "avgCAcctbal")
-      .coGroup(getOrdersDataSet(env)).where(0).equalTo(0)
+      .coGroup(getQ22OrdersDataSet(env)).where(0).equalTo(0)
       .apply( (cs,os,out:Collector[Customer]) => {
         if ( os.isEmpty ) { for (c <- cs) { out.collect(c) } }  
       })
@@ -72,7 +74,7 @@ object TPCHQuery22 {
         }
       })
     
-    result.writeAsText(outputPath, WriteMode.OVERWRITE)
+    result.writeAsText(deployment.outputPath, WriteMode.OVERWRITE)
 
     val jobname = "Scala TPCH Q22"
     val jobresult = env.execute(jobname)
@@ -86,36 +88,29 @@ object TPCHQuery22 {
 
   case class Orders( o_custkey : Long )
 
-  private var customerPath: String = null
-  private var ordersPath: String = null
-  private var outputPath: String = null
-
+  private var deployment : TPCHDeployment = null
+  
   private def parseParameters(args: Array[String]): Boolean = {
-    if (args.length == 3) {
-      customerPath = args(0)
-      ordersPath   = args(1)
-      outputPath   = args(2)
+    if (args.length == 2) {
+      deployment = new TPCHDeployment(args(0), args(1))
       true
     } else {
-      System.err.println(
-          " Usage: TPCHQuery22 <customer-csv path> <orders-csv path> <result path>")
+      System.err.println("Usage: TPCHQuery22 <scale-factor> <result path>")
       false
     }
-
   }
-  
-  private def getCustomerDataSet(env: ExecutionEnvironment): DataSet[Customer] = {
+
+  def getQ22CustomerDataSet(env: ExecutionEnvironment) : DataSet[Customer] = {
     env.readCsvFile[Customer](
-        customerPath,
+        deployment.customerPath(deployment.scaleFactor),
         fieldDelimiter = "|",
         includedFields = Array(0, 4, 5) )
   }
   
-  private def getOrdersDataSet(env: ExecutionEnvironment): DataSet[Orders] = {
+  def getQ22OrdersDataSet(env: ExecutionEnvironment) : DataSet[Orders]  = {
     env.readCsvFile[Orders](
-        ordersPath,
+        deployment.ordersPath(deployment.scaleFactor),
         fieldDelimiter = "|",
         includedFields = Array(1) )
   }
-
 }

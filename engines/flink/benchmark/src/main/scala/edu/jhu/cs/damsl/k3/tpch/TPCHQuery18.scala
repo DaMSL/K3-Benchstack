@@ -1,5 +1,7 @@
 package edu.jhu.cs.damsl.k3.tpch
 
+import edu.jhu.cs.damsl.k3.common.TPCHDeployment
+
 import org.apache.flink.api.scala._
 import org.apache.flink.api.common.functions.GroupReduceFunction
 import org.apache.flink.util._
@@ -19,7 +21,7 @@ object TPCHQuery18 {
 
     val env = ExecutionEnvironment.getExecutionEnvironment
 
-    val lineitemHaving = getLineitemDataSet(env)
+    val lineitemHaving = getQ18LineitemDataSet(env)
       .groupBy(0)
       .reduceGroup(new GroupReduceFunction[Lineitem,(Long,Double)] {
         override def reduce(in: java.lang.Iterable[Lineitem], out: Collector[(Long,Double)]) = {
@@ -34,11 +36,11 @@ object TPCHQuery18 {
       })
       .filter(lq => lq._2 > 300)
       
-    val lineitemOrders = lineitemHaving.join(getOrdersDataSet(env))
+    val lineitemOrders = lineitemHaving.join(getQ18OrdersDataSet(env))
       .where(l => l._1).equalTo(o => o.o_orderkey)
       .apply( (l,o) => (o.o_orderkey, o.o_custkey, o.o_totalprice, o.o_orderdate, l._2) )
 
-    val lineitemOrdersCustomer = lineitemOrders.join(getCustomerDataSet(env))
+    val lineitemOrdersCustomer = lineitemOrders.join(getQ18CustomerDataSet(env))
       .where(lo => lo._2).equalTo(c => c.c_custkey)
       .groupBy[ResultGroup]( (loc:LOC) => (loc._2.c_name, loc._2.c_custkey, loc._1._1, loc._1._4, loc._1._3) )
       .reduceGroup( new GroupReduceFunction[LOC,Result] {
@@ -54,7 +56,7 @@ object TPCHQuery18 {
         }
       })
 
-    lineitemOrdersCustomer.writeAsText(outputPath, WriteMode.OVERWRITE)
+    lineitemOrdersCustomer.writeAsText(deployment.outputPath, WriteMode.OVERWRITE)
     
     val jobname = "Scala TPCH Q18"
     val jobresult = env.execute(jobname)
@@ -73,45 +75,36 @@ object TPCHQuery18 {
                     o_totalprice : Double,
                     o_orderdate  : String )
 
-  private var lineitemPath: String = null
-  private var customerPath: String = null
-  private var ordersPath: String = null
-  private var outputPath: String = null
-
+  private var deployment : TPCHDeployment = null
+  
   private def parseParameters(args: Array[String]): Boolean = {
-    if (args.length == 4) {
-      lineitemPath = args(0)
-      customerPath = args(1)
-      ordersPath   = args(2)
-      outputPath   = args(3)
+    if (args.length == 2) {
+      deployment = new TPCHDeployment(args(0), args(1))
       true
     } else {
-      System.err.println(
-          " Usage: TPCHQuery18 <lineitem-csv path> <customer-csv path>" + 
-                              "<orders-csv path> <result path>")
+      System.err.println("Usage: TPCHQuery18 <scale-factor> <result path>")
       false
     }
-  }
-  
-  private def getLineitemDataSet(env: ExecutionEnvironment): DataSet[Lineitem] = {
+  }  
+
+  def getQ18LineitemDataSet(env: ExecutionEnvironment) : DataSet[Lineitem] = {
     env.readCsvFile[Lineitem](
-        lineitemPath,
+        deployment.lineitemPath(deployment.scaleFactor),
         fieldDelimiter = "|",
         includedFields = Array(0, 4) )
   }
 
-  private def getCustomerDataSet(env: ExecutionEnvironment): DataSet[Customer] = {
+  def getQ18CustomerDataSet(env: ExecutionEnvironment) : DataSet[Customer] = {
     env.readCsvFile[Customer](
-        customerPath,
+        deployment.customerPath(deployment.scaleFactor),
         fieldDelimiter = "|",
         includedFields = Array(0, 1) )
   }
   
-  private def getOrdersDataSet(env: ExecutionEnvironment): DataSet[Orders] = {
+  def getQ18OrdersDataSet(env: ExecutionEnvironment) : DataSet[Orders] = {
     env.readCsvFile[Orders](
-        ordersPath,
+        deployment.ordersPath(deployment.scaleFactor),
         fieldDelimiter = "|",
         includedFields = Array(0, 1, 3, 4) )
   }
-
 }

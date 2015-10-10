@@ -1,5 +1,7 @@
 package edu.jhu.cs.damsl.k3.tpch
 
+import edu.jhu.cs.damsl.k3.common.TPCHDeployment
+
 import org.apache.flink.api.scala._
 import org.apache.flink.api.common.functions._
 import org.apache.flink.util._
@@ -20,7 +22,7 @@ object TPCHQuery1 {
     val env = ExecutionEnvironment.getExecutionEnvironment
 
     // scan lineitems, eval l_shipdate <= date '1998-09-02'
-    val lineitems = getLineitemDataSet(env).filter(l => {
+    val lineitems = getQ1LineitemDataSet(env).filter(l => {
       val d = dateFormat.parse(l.l_shipdate)
       d.before(date) || d.equals(date) })
 
@@ -29,7 +31,7 @@ object TPCHQuery1 {
                                               .reduceGroup(new Q1GroupReduceFunction())
 
     // emit result at every taskmanager
-    result.writeAsText(outputPath, WriteMode.OVERWRITE)
+    result.writeAsText(deployment.outputPath, WriteMode.OVERWRITE)
 
     // execute program
     val jobname = "Scala TPCH Q1"
@@ -92,28 +94,21 @@ object TPCHQuery1 {
     }
   }
 
-
-  // *************************************************************************
-  //     UTIL METHODS
-  // *************************************************************************
-
-  private var lineitemPath: String = null
-  private var outputPath: String = null
-
+  private var deployment : TPCHDeployment = null
+  
   private def parseParameters(args: Array[String]): Boolean = {
     if (args.length == 2) {
-      lineitemPath = args(0)
-      outputPath = args(1)
+      deployment = new TPCHDeployment(args(0), args(1))
       true
     } else {
-      System.err.println("Usage: TPCHQuery1 <lineitem-csv path> <result path>")
+      System.err.println("Usage: TPCHQuery1 <scale-factor> <result path>")
       false
     }
   }
-
-  private def getLineitemDataSet(env: ExecutionEnvironment): DataSet[Lineitem] = {
+  
+  def getQ1LineitemDataSet(env: ExecutionEnvironment) : DataSet[Lineitem] = {
     env.readCsvFile[Lineitem](
-        lineitemPath,
+        deployment.lineitemPath(deployment.scaleFactor),
         fieldDelimiter = "|",
         includedFields = Array(4, 5, 6, 7, 8, 9, 10) )
   }
