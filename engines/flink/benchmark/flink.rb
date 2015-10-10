@@ -111,9 +111,9 @@ def main()
   summary()
 end
 
-# Build flink jar.
+# Build flink jar, while mounting a /src directory, and a /flink output directory
 def build()
-  cmd = "docker run -v #{Dir.pwd}:/src damsl/flink /src/sbin/package_jar.sh"
+  cmd = "docker run -v #{Dir.pwd}:/src -v /data/flink:/flink damsl/flink /src/sbin/package_jar.sh"
   puts cmd
   system cmd
 end
