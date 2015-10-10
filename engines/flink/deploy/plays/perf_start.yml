@@ -2,4 +2,4 @@
 - hosts: slaves
   tasks:
     - name: Start perf profiling of a Flink worker
-      shell: docker exec flink_slave /sbin/flink_perf_start.sh
+      shell: docker exec flink_slave /sbin/flink_perf_start.sh 10 /perf.data 10000000
