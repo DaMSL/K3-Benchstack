@@ -4,9 +4,10 @@ pid=/tmp/spark_worker.pid
 perfpid=/tmp/spark_worker_perf.pid
 
 FREQ=$1
-SLEEP=$2
+OUTPUT=$2
+SLEEP=$3
 
-test -f $pid && pgrep -F $pid && /usr/bin/perfj record -F $FREQ -g -p `cat $pid` -- sleep $SLEEP &
+test -f $pid && pgrep -F $pid && /usr/bin/perfj record -F $FREQ -o $OUTPUT -g -p `cat $pid` -- sleep $SLEEP &
 
 if [ $? = 0 ]; then
   sleep 2

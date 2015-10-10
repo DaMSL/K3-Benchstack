@@ -23,10 +23,26 @@ ADD assets/lib/perfj-1.0.jar /usr/
 
 # Flink
 WORKDIR /software
-RUN wget http://apache.cs.utah.edu/flink/flink-0.9.1/flink-0.9.1-bin-hadoop24.tgz
-RUN tar -xvzf flink-0.9.1-bin-hadoop24.tgz
+RUN wget http://apache.cs.utah.edu/flink/flink-0.9.1/flink-0.9.1-bin-hadoop24.tgz && \
+    tar -xvzf flink-0.9.1-bin-hadoop24.tgz
 ADD jobmanager.sh /software/flink-0.9.1/bin/
 ADD taskmanager.sh /software/flink-0.9.1/bin/
+
+# Maven
+WORKDIR /software
+RUN wget http://mirrors.ibiblio.org/apache/maven/maven-3/3.3.3/binaries/apache-maven-3.3.3-bin.tar.gz && \
+    tar -xzvf apache-maven-3.3.3-bin.tar.gz && \
+    cp -r apache-maven-3.3.3/bin /usr/local/ && \
+    cp -r apache-maven-3.3.3/boot /usr/local/ && \
+    cp -r apache-maven-3.3.3/conf /usr/local/ && \
+    cp -r apache-maven-3.3.3/lib /usr/local/ && \
+    rm -rf apache-maven-3.3.3*
+
+# Scala
+WORKDIR /software
+RUN curl -O http://www.scala-lang.org/files/archive/scala-2.10.4.tgz && \
+    tar -xvzf scala-2.10.4.tgz
+ENV SCALA_HOME /software/scala-2.10.4/bin/
 
 # Startup Scripts
 ADD master_startup.sh /sbin/
