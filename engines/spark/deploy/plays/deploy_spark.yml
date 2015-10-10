@@ -11,9 +11,9 @@
 - hosts: master
   tasks:
     - name: Run the spark Master class inside of a Docker container
-      shell: docker run -v /tmp --net=host --name="sparkMaster" -d damsl/spark /sbin/spark_master.sh {{groups['master'][0]}}
+      shell: docker run --pid=host --privileged -v /tmp --net=host --name="sparkMaster" -d damsl/spark /sbin/spark_master.sh {{groups['master'][0]}}
 
 - hosts: workers
   tasks:
     - name: Run the spark Worker class inside of a Docker container
-      shell: docker run -v /tmp -d --net=host --name="sparkWorker" damsl/spark /sbin/spark_worker.sh {{groups['master'][0]}}
+      shell: docker run --pid=host --privileged -v /tmp -d --net=host --name="sparkWorker" damsl/spark /sbin/spark_worker.sh {{groups['master'][0]}}
