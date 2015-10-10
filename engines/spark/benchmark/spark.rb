@@ -69,12 +69,17 @@ end
 def main()
   STDOUT.sync = true
   $options = {
+    :worker_container => "sparkWorker"
+    :deploy_dir  => "../deploy",
     :spark_home => "/software/spark-1.2.1/",
     :spark_master => "spark://qp-hm1:7077",
     :jar_file => "scala-2.10/spark-benchmarks_2.10-1.0.jar",
     :includes => [],
     :excludes => [],
-    :trials => 1
+    :trials => 1,
+    :profile => false,
+    :profile_output => "/perf.data",
+    :profile_freq  => 10,
   }
   $stats = {}
 
@@ -122,6 +127,16 @@ def run()
           next
         end
         1.upto($options[:trials]) do |_|
+
+          # Initiate profiling through ansible prior to an experiment.
+          if $options[:profile]
+            profile_desc = "#{experiment}-#{query}-#{role}"
+            profile_cmd  = "/sbin/spark_perf_start.sh #{$options[:profile_freq]} #{$options[:profile_output]}-#{profile_desc} 1000000"
+            perf_cmd     = "docker exec -d #{$options[:worker_container]} #{profile_cmd}"
+            ansible_cmd  = "ansible-playbook -i #{$options[:deploy_dir]}/hosts.ini #{$options[:deploy_dir]}/plays/perf_start.yml"
+            system(ansible_cmd)
+          end
+
           run_cmd = "#{$options[:spark_home]}/bin/spark-submit --master #{$options[:spark_master]} --class #{class_name} /build/#{$options[:jar_file]} #{role}"
           full_cmd = "docker run -v /tmp:/build --net=host damsl/spark #{run_cmd}"
           puts full_cmd
@@ -145,6 +160,15 @@ def run()
           else
             $stats[key] << result
           end
+
+          # Stop profiling.
+          if $options[:profile]
+            profile_cmd = "/sbin/spark_perf_stop.sh"
+            perf_cmd    = "docker exec -d #{$options[:worker_container]} #{profile_cmd}"
+            ansible_cmd = "ansible-playbook -i #{$options[:deploy_dir]}/hosts.ini #{$options[:deploy_dir]}/plays/perf_stop.yml"
+            system(ansible_cmd)
+          end
+
         end
       end
     end
