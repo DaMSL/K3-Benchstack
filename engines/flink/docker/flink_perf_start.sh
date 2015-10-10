@@ -14,10 +14,11 @@ perfpidfile=/tmp/flink_worker_perf.pid
 FREQ=$1
 SLEEP=$2
 
-test -f $pid && pgrep -F $pid && /usr/bin/perfj record -F $FREQ -ag -p `cat $pid` -- sleep $SLEEP &
+test -f $pid && pgrep -F $pid && /usr/bin/perfj record -F $FREQ -g -p `cat $pid` -- sleep $SLEEP &
 
 if [ $? = 0 ]; then
-  echo $! > $perfpidfile
+  sleep 2
+  echo `pgrep perf` > $perfpidfile
   echo "Started Flink perf... `cat $perfpidfile`"
 else
   echo "Failed to start Flink perf monitoring"

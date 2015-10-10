@@ -1,10 +1,25 @@
-FROM ubuntu:14.04
-RUN apt-get update
+FROM debian:sid
 
-# Java and perfj
-RUN apt-get install -y wget default-jdk
+ENV JAVA_HOME /usr/lib/jvm/java-8-openjdk-amd64
+
+RUN apt-get update && apt-get install -y \
+  bzip2 unzip autoconf Libtool \
+  gcc g++ openjdk-8-jdk make cmake git curl wget sudo \
+  libyaml-cpp-dev libunwind-dev\
+  subversion
+
+# Intall perf for kernel 3.13
+# Also uses libunwind
+RUN apt-get install -y flex bison libelf-dev libaudit-dev libdw-dev binutils-dev && \
+  wget https://github.com/torvalds/linux/archive/v3.13.tar.gz && \
+  tar -xvzf v3.13.tar.gz && rm v3.13.tar.gz && \
+  cd linux-3.13/tools/perf && make && make install && \
+  cp perf /usr/bin && \
+  cp libperf.a /usr/lib && \
+  cd / && rm -Rf /linux-3.13
+
 ADD assets/bin/perfj /usr/bin/
-ADD assets/lib/perfj-1.0.jar /usr/lib/
+ADD assets/lib/perfj-1.0.jar /usr/
 
 # Flink
 WORKDIR /software
@@ -26,3 +41,19 @@ RUN chmod +x /sbin/master_startup.sh \
 
 # Replace nsswitch.conf: Prefer DNS over /etc/hosts
 ADD nsswitch.conf /etc/
+
+# Finish & Clean up
+RUN apt-get remove -y gcc g++ make cmake git \
+    software-properties-common \
+    python-software-properties \
+    unzip autoconf Libtool && \
+    apt-get autoremove -y && \
+    apt-get autoclean -y && \
+    rm -rf /usr/share/doc/* && \
+    rm -rf /usr/share/man/* && \
+    rm -rf /var/lib/apt/lists/* && \
+    rm -rf /var/lib/dpkg/* && \
+    rm -rf /var/cache/* && \
+    rm -rf /var/log/* && \
+    rm -rf /usr/include/*
+
