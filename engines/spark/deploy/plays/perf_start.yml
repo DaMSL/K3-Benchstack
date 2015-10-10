@@ -2,4 +2,4 @@
 - hosts: workers
   tasks:
     - name: Start perf profiling of a Spark worker
-      shell: docker exec sparkWorker /sbin/spark_perf_start.sh
+      shell: docker exec sparkWorker /sbin/spark_perf_start.sh 10 /perf.data 10000000
