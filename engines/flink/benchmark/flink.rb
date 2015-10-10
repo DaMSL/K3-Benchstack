@@ -8,12 +8,12 @@ QUERIES = {
       "100g" => true
     },
     :queries => {
-      "1" => "TPCHQuery1",
-      "3" => "TPCHQuery3",
-      "5" => "TPCHQuery5",
-      "6" => "TPCHQuery6",
-      "18" => "TPCHQuery18",
-      "22" => "TPCHQuery22"
+      "1"  => "tpch.TPCHQuery1",
+      "3"  => "tpch.TPCHQuery3",
+      "5"  => "tpch.TPCHQuery5",
+      "6"  => "tpch.TPCHQuery6",
+      "18" => "tpch.TPCHQuery18",
+      "22" => "tpch.TPCHQuery22"
     }
   },
   "amplab" => {
@@ -21,9 +21,9 @@ QUERIES = {
       "sf5" => true
     },
     :queries => {
-      "1" => "AmplabQuery1",
-      "2" => "AmplabQuery2",
-      "3" => "AmplanQuery3"
+      "1" => "amplab.AmplabQuery1",
+      "2" => "amplab.AmplabQuery2",
+      "3" => "amplab.AmplanQuery3"
     }
   },
   "ml" => {
@@ -32,8 +32,8 @@ QUERIES = {
       "100g" => true
     },
     :queries => {
-      "kmeans" => "KMeans",
-      "sgd" => "SGD",
+      "kmeans" => "ml.KMeans",
+      "sgd"    => "ml.SGD",
     }
   },
   "graph" => {
@@ -41,7 +41,7 @@ QUERIES = {
       "twitter" => true,
     },
     :queries => {
-      "pagerank" => "PageRank",
+      "pagerank" => "graph.PageRank",
     }
   }
 }
@@ -69,17 +69,17 @@ end
 def main()
   STDOUT.sync = true
   $options = {
-    :worker_container => "sparkWorker"
-    :deploy_dir  => "../deploy",
-    :spark_home => "/software/spark-1.2.1/",
-    :spark_master => "spark://qp-hm1:7077",
-    :jar_file => "scala-2.10/spark-benchmarks_2.10-1.0.jar",
-    :includes => [],
-    :excludes => [],
-    :trials => 1,
-    :profile => false,
-    :profile_output => "/tmp/perf.data",
-    :profile_freq  => 10,
+    :worker_container => "flink_slave"
+    :deploy_dir       => "../deploy",
+    :flink_home       => "/software/flink-0.9.1/",
+    :flink_master     => "qp-hm1:6123",
+    :jar_file         => "/flink/flink-tpch-1.0-SNAPSHOT.jar",
+    :includes         => [],
+    :excludes         => [],
+    :trials           => 1,
+    :profile          => false,
+    :profile_output   => "/flink/perf.data",
+    :profile_freq     => 10,
   }
   $stats = {}
 
@@ -90,8 +90,8 @@ def main()
 
   parser = OptionParser.new do |opts|
     opts.banner = usage
-    opts.on("-1", "--build", "Build Spark Benchmark jar file")  { $options[:build] = true }
-    opts.on("-2", "--run", "Run Spark Benchmarks")  { $options[:run] = true }
+    opts.on("-1", "--build", "Build Flink Benchmark jar file")  { $options[:build] = true }
+    opts.on("-2", "--run", "Run Flink Benchmarks")  { $options[:run] = true }
 
     opts.on("-t", "--trials num", Integer, "Number of trials per query") { |i| $options[:trials] = i }
 
@@ -111,14 +111,14 @@ def main()
   summary()
 end
 
-# Build a Spark Jar in a docker container using sbt. Requires simple.sbt and src/ directory. JAR is stashed in /tmp/scala...
+# Build flink jar.
 def build()
-  cmd = "docker run -v #{Dir.pwd}:/src -v /tmp:/build -t damsl/spark /src/sbin/package_jar.sh"
+  cmd = "docker run -v #{Dir.pwd}:/src damsl/flink /src/sbin/package_jar.sh"
   puts cmd
   system cmd
 end
 
-# Run a Spark Jar in a docker container using spark-submit.
+# Run a Flink Jar in a docker container using the flink command line tool.
 def run()
   for experiment, description in QUERIES do
     for query, class_name in description[:queries] do
@@ -131,14 +131,16 @@ def run()
           # Initiate profiling through ansible prior to an experiment.
           if $options[:profile]
             profile_desc = "#{experiment}-#{query}-#{role}"
-            profile_cmd  = "/sbin/spark_perf_start.sh #{$options[:profile_freq]} #{$options[:profile_output]}-#{profile_desc} 1000000"
+            profile_cmd  = "/sbin/flink_perf_start.sh #{$options[:profile_freq]} #{$options[:profile_output]}-#{profile_desc} 1000000"
             perf_cmd     = "docker exec -d #{$options[:worker_container]} #{profile_cmd}"
             ansible_cmd  = "ansible-playbook -i #{$options[:deploy_dir]}/hosts.ini #{$options[:deploy_dir]}/plays/perf_start.yml"
             system(ansible_cmd)
           end
 
-          run_cmd = "#{$options[:spark_home]}/bin/spark-submit --master #{$options[:spark_master]} --class #{class_name} /build/#{$options[:jar_file]} #{role}"
-          full_cmd = "docker run -v /tmp:/build --net=host damsl/spark #{run_cmd}"
+          class_prefix = "edu.jhu.cs.damsl.k3"
+
+          run_cmd = "#{$options[:flink_home]}/bin/flink run --jobmanager #{$options[:flink_master]} --class #{class_prefix}.#{class_name} #{$options[:jar_file]} #{role}"
+          full_cmd = "docker run -v /tmp:/build --net=host damsl/flink #{run_cmd}"
           puts full_cmd
           # Run full_cmd, with output stored and printed in real time
           result = ""
@@ -163,7 +165,7 @@ def run()
 
           # Stop profiling.
           if $options[:profile]
-            profile_cmd = "/sbin/spark_perf_stop.sh"
+            profile_cmd = "/sbin/flink_perf_stop.sh"
             perf_cmd    = "docker exec -d #{$options[:worker_container]} #{profile_cmd}"
             ansible_cmd = "ansible-playbook -i #{$options[:deploy_dir]}/hosts.ini #{$options[:deploy_dir]}/plays/perf_stop.yml"
             system(ansible_cmd)
