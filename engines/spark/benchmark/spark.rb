@@ -111,11 +111,29 @@ def main()
   summary()
 end
 
+def cleanup_client()
+  system "docker kill spark_client"
+  system "docker rm spark_client"
+end
+
+def client_cmd(dockeropts, cmd)
+  cmd = "docker run --name spark_client --net=host -v /tmp:/build #{dockeropts} damsl/spark #{cmd}"
+  puts cmd
+  return cmd
+end
+
+def run_profile(cmd, hosts)
+  profile_cmd = "docker exec -d #{$options[:worker_container]} #{cmd}"
+  ansible_cmd = "ansible #{hosts} -i #{$options[:deploy_dir]}/hosts.ini -m shell -a \"#{profile_cmd}\""
+  puts ansible_cmd
+  system ansible_cmd
+end
+
 # Build a Spark Jar in a docker container using sbt. Requires simple.sbt and src/ directory. JAR is stashed in /tmp/scala...
 def build()
-  cmd = "docker run -v #{Dir.pwd}:/src -v /tmp:/build -t damsl/spark /src/sbin/package_jar.sh"
-  puts cmd
+  cmd = client_cmd("-v #{Dir.pwd}:/src -t", "/src/sbin/package_jar.sh")
   system cmd
+  cleanup_client()
 end
 
 # Run a Spark Jar in a docker container using spark-submit.
@@ -132,14 +150,12 @@ def run()
           if $options[:profile]
             profile_desc = "#{experiment}-#{query}-#{role}"
             profile_cmd  = "/sbin/spark_perf_start.sh #{$options[:profile_freq]} #{$options[:profile_output]}-#{profile_desc} 1000000"
-            perf_cmd     = "docker exec -d #{$options[:worker_container]} #{profile_cmd}"
-            ansible_cmd  = "ansible-playbook -i #{$options[:deploy_dir]}/hosts.ini #{$options[:deploy_dir]}/plays/perf_start.yml"
-            system(ansible_cmd)
+            run_profile("workers", profile_cmd)
           end
 
           run_cmd = "#{$options[:spark_home]}/bin/spark-submit --master #{$options[:spark_master]} --class #{class_name} /build/#{$options[:jar_file]} #{role}"
-          full_cmd = "docker run -v /tmp:/build --net=host damsl/spark #{run_cmd}"
-          puts full_cmd
+          full_cmd = client_cmd("", run_cmd)
+
           # Run full_cmd, with output stored and printed in real time
           result = ""
           r, io = IO.pipe
@@ -161,12 +177,12 @@ def run()
             $stats[key] << result
           end
 
+          cleanup_client()
+
           # Stop profiling.
           if $options[:profile]
             profile_cmd = "/sbin/spark_perf_stop.sh"
-            perf_cmd    = "docker exec -d #{$options[:worker_container]} #{profile_cmd}"
-            ansible_cmd = "ansible-playbook -i #{$options[:deploy_dir]}/hosts.ini #{$options[:deploy_dir]}/plays/perf_stop.yml"
-            system(ansible_cmd)
+            run_profile("workers", profile_cmd)
           end
 
         end

@@ -100,6 +100,8 @@ def main()
   end
   parser.parse!
 
+  cleanup_client()
+
   if $options[:build]
     build()
   end
@@ -111,11 +113,29 @@ def main()
   summary()
 end
 
+def cleanup_client()
+  system "docker kill flink_client"
+  system "docker rm flink_client"
+end
+
+def client_cmd(dockeropts, cmd)
+  cmd = "docker run --name flink_client --net=host -v /data/flink:/flink #{dockeropts} damsl/flink #{cmd}"
+  puts cmd
+  return cmd
+end
+
+def run_profile(cmd, hosts)
+  profile_cmd = "docker exec -d #{$options[:worker_container]} #{cmd}"
+  ansible_cmd = "ansible #{hosts} -i #{$options[:deploy_dir]}/hosts.ini -m shell -a \"#{profile_cmd}\""
+  puts ansible_cmd
+  system ansible_cmd
+end
+
 # Build flink jar, while mounting a /src directory, and a /flink output directory
 def build()
-  cmd = "docker run -v #{Dir.pwd}:/src -v /data/flink:/flink damsl/flink /src/sbin/package_jar.sh"
-  puts cmd
+  cmd = client_cmd("-v #{Dir.pwd}:/src -t", "/src/sbin/package_jar.sh")
   system cmd
+  cleanup_client()
 end
 
 # Run a Flink Jar in a docker container using the flink command line tool.
@@ -132,16 +152,14 @@ def run()
           if $options[:profile]
             profile_desc = "#{experiment}-#{query}-#{role}"
             profile_cmd  = "/sbin/flink_perf_start.sh #{$options[:profile_freq]} #{$options[:profile_output]}-#{profile_desc} 1000000"
-            perf_cmd     = "docker exec -d #{$options[:worker_container]} #{profile_cmd}"
-            ansible_cmd  = "ansible-playbook -i #{$options[:deploy_dir]}/hosts.ini #{$options[:deploy_dir]}/plays/perf_start.yml"
-            system(ansible_cmd)
+            run_profile("slaves", profile_cmd)
           end
 
           class_prefix = "edu.jhu.cs.damsl.k3"
 
           run_cmd = "#{$options[:flink_home]}/bin/flink run --jobmanager #{$options[:flink_master]} --class #{class_prefix}.#{class_name} #{$options[:jar_file]} #{role}"
-          full_cmd = "docker run -v /tmp:/build --net=host damsl/flink #{run_cmd}"
-          puts full_cmd
+          full_cmd = client_cmd("", run_cmd)
+
           # Run full_cmd, with output stored and printed in real time
           result = ""
           r, io = IO.pipe
@@ -163,12 +181,12 @@ def run()
             $stats[key] << result
           end
 
+          cleanup_client()
+
           # Stop profiling.
           if $options[:profile]
             profile_cmd = "/sbin/flink_perf_stop.sh"
-            perf_cmd    = "docker exec -d #{$options[:worker_container]} #{profile_cmd}"
-            ansible_cmd = "ansible-playbook -i #{$options[:deploy_dir]}/hosts.ini #{$options[:deploy_dir]}/plays/perf_stop.yml"
-            system(ansible_cmd)
+            run_profile("slaves", profile_cmd)
           end
 
         end
