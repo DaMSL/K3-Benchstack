@@ -1,0 +1,24 @@
+---
+- hosts: all
+  tasks:
+    - name: Pull the Damsl Docker image for Naiad
+      shell: docker pull damsl/naiad-rust
+
+- hosts: master
+  tasks:
+    - name: Remove existing container for Namenode
+      shell: docker rm -f naiad_master
+      ignore_errors: yes
+
+    - name: Run the namenode inside of a Docker container
+      shell: docker run -d --privileged=true --pid=host --net=host  --name="naiad_master" damsl/naiad-rust /sbin/master_startup.sh
+
+
+- hosts: workers
+  tasks:
+    - name: Remove existing container for slaves
+      shell: docker rm -f naiad_slave
+      ignore_errors: yes
+
+    - name: Run the slave inside of a Docker container
+      shell: docker run -d --privileged=true --pid=host --net=host --name="naiad_slave" damsl/naiad-rust /sbin/slave_startup.sh
