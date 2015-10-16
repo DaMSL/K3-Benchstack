@@ -8,7 +8,7 @@ RUN apt-get update && apt-get install -y \
 # Also uses libunwind
 RUN apt-get install -y flex bison libelf-dev libaudit-dev libdw-dev binutils-dev && \
   wget https://github.com/torvalds/linux/archive/v3.13.tar.gz && \
-  tar -xvzf v3.13.tar.gz && rm v3.13.tar.gz && \
+  tar -xzf v3.13.tar.gz && rm v3.13.tar.gz && \
   cd linux-3.13/tools/perf && make && make install && \
   cp perf /usr/bin && \
   cp libperf.a /usr/lib && \
@@ -17,7 +17,9 @@ RUN apt-get install -y flex bison libelf-dev libaudit-dev libdw-dev binutils-dev
 
 # Rust
 WORKDIR /software
-RUN curl -sSf https://static.rust-lang.org/rustup.sh | sh
+RUN curl -sSfO https://static.rust-lang.org/rustup.sh && \
+    chmod +x rustup.sh && \
+    ./rustup.sh -y
 
 # Replace nsswitch.conf: Prefer DNS over /etc/hosts
 ADD nsswitch.conf /etc/
