@@ -22,7 +22,7 @@ RUN apt-get install -y flex bison libelf-dev libaudit-dev libdw-dev binutils-dev
 WORKDIR /software
 RUN curl -sSfO https://static.rust-lang.org/rustup.sh && \
     chmod +x rustup.sh && \
-    ./rustup.sh -y && \
+    ./rustup.sh -y
 
 # Naiad/mono, and Naiad/Rust
 RUN git clone https://github.com/ms705/Naiad.git && \
