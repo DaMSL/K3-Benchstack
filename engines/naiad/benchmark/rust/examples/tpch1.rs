@@ -33,7 +33,7 @@ fn main() {
 
         let (mut items) = computation.scoped(|builder| {
             let (item_input, items) =
-                builder.new_input::<(f64, f64, f64, f64, String, String, i32, i32)>();
+                builder.new_input::<(f64, f64, f64, f64, String, String, u32, i32)>();
 
             let items = items.filter(|x| x.6 < 19980902)
                              .map(|x| ((x.4, x.5), (x.0, x.1, x.2, x.3, x.7)))
@@ -67,7 +67,7 @@ fn main() {
                     let tax            = fields.next().unwrap().parse::<f64>().unwrap();
                     let returnflag     = fields.next().unwrap().parse::<String>().unwrap();
                     let linestatus     = fields.next().unwrap().parse::<String>().unwrap();
-                    let shipdate       = fields.next().unwrap().parse::<i32>().unwrap();
+                    let shipdate       = fields.next().unwrap().parse::<u32>().unwrap();
                     items_buffer.push((quantity, extended_price, discount, tax, returnflag, linestatus, shipdate));
                 }
             }

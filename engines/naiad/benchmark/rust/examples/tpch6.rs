@@ -32,7 +32,7 @@ fn main() {
         let epoch = Rc::new(RefCell::new(0u64));
 
         let (mut items) = computation.scoped(|builder| {
-            let (item_input, items) = builder.new_input::<(f64, f64, f64, String)>();
+            let (item_input, items) = builder.new_input::<(f64, f64, f64, u32)>();
             let items = items.filter(|x| {
                                 let date_between = 19940101 =< x.3 && x.3 < 19950101;
                                 let disc_between = 0.05 =< x.2 && x.2 <= 0.07;
@@ -67,7 +67,7 @@ fn main() {
                     fields.next();
                     fields.next();
                     fields.next();
-                    let shipdate       = fields.next().unwrap().parse::<i32>().unwrap();
+                    let shipdate       = fields.next().unwrap().parse::<u32>().unwrap();
                     items_buffer.push((quantity, extended_price, discount, shipdate));
                 }
             }
