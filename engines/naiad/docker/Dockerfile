@@ -22,23 +22,16 @@ RUN apt-get install -y flex bison libelf-dev libaudit-dev libdw-dev binutils-dev
 WORKDIR /software
 RUN curl -sSfO https://static.rust-lang.org/rustup.sh && \
     chmod +x rustup.sh && \
-    ./rustup.sh -y
+    ./rustup.sh -y && \
+
+# Naiad/mono, and Naiad/Rust
+RUN git clone https://github.com/ms705/Naiad.git && \
+    cd Naiad && chmod +x build_mono.sh && ./build_mono.sh && \
+    cd /software && \
+    git clone https://github.com/frankmcsherry/differential-dataflow.git && \
+    cd differential-dataflow && \
+    cargo build
+
 
 # Replace nsswitch.conf: Prefer DNS over /etc/hosts
 ADD nsswitch.conf /etc/
-
-# Finish & Clean up
-RUN apt-get remove -y gcc g++ make cmake git \
-    software-properties-common \
-    python-software-properties \
-    unzip autoconf Libtool && \
-    apt-get autoremove -y && \
-    apt-get autoclean -y && \
-    rm -rf /usr/share/doc/* && \
-    rm -rf /usr/share/man/* && \
-    rm -rf /var/lib/apt/lists/* && \
-    rm -rf /var/lib/dpkg/* && \
-    rm -rf /var/cache/* && \
-    rm -rf /var/log/* && \
-    rm -rf /usr/include/*
-
