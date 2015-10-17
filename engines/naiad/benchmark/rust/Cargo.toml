@@ -1,0 +1,15 @@
+[package]
+name = "k3-naiad-benchmark"
+version = "0.1.0"
+authors = ["Yanif Ahmad <yanif@jhu.edu>"]
+
+description = "Naiad/rust incremental TPCH benchmark, for comparison to K3/Mosaic"
+license = "BSD"
+
+[dependencies]
+timely="*"
+timely_communication = "*"
+
+[dependencies.differential]
+git="https://github.com/frankmcsherry/differential-dataflow.git"
+# path="../differential-dataflow"
