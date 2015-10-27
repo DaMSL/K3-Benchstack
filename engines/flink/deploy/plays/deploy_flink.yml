@@ -27,4 +27,4 @@
       ignore_errors: yes
 
     - name: Run the slave inside of a Docker container
-      shell: docker run -d --privileged=true --pid=host --net=host -v {{persistent_storage_folder}}:/flink/ --name="flink_slave" damsl/flink /sbin/slave_startup.sh 
+      shell: docker run -d --privileged=true --pid=host --net=host -v {{persistent_storage_folder}}:/flink/ -v /tmp --name="flink_slave" damsl/flink /sbin/slave_startup.sh 

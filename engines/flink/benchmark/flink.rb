@@ -1,5 +1,6 @@
 #!/usr/bin/env ruby
 require 'optparse'
+require 'json'
 
 QUERIES = {
   "tpch" => {
@@ -14,16 +15,17 @@ QUERIES = {
       "6"  => "tpch.TPCHQuery6",
       "18" => "tpch.TPCHQuery18",
       "22" => "tpch.TPCHQuery22"
-    }
+    },
+    :use_sf => true
   },
   "amplab" => {
     :roles => {
       "sf5" => true
     },
     :queries => {
-      "1" => "amplab.AmplabQuery1",
-      "2" => "amplab.AmplabQuery2",
-      "3" => "amplab.AmplanQuery3"
+      "1" => "amplab.AmplabQ1",
+      "2" => "amplab.AmplabQ2",
+      "3" => "amplab.AmplabQ3"
     }
   },
   "ml" => {
@@ -34,7 +36,9 @@ QUERIES = {
     :queries => {
       "kmeans" => "ml.KMeans",
       "sgd"    => "ml.SGD",
-    }
+    },
+    :use_sf => true,
+    :extra_args => "10" # number of iterations
   },
   "graph" => {
     :roles => {
@@ -69,7 +73,7 @@ end
 def main()
   STDOUT.sync = true
   $options = {
-    :worker_container => "flink_slave"
+    :worker_container => "flink_slave",
     :deploy_dir       => "../deploy",
     :flink_home       => "/software/flink-0.9.1/",
     :flink_master     => "qp-hm1:6123",
@@ -80,6 +84,7 @@ def main()
     :profile          => false,
     :profile_output   => "/flink/perf.data",
     :profile_freq     => 10,
+    :summary_file     => "summary.json"
   }
   $stats = {}
 
@@ -157,7 +162,17 @@ def run()
 
           class_prefix = "edu.jhu.cs.damsl.k3"
 
-          run_cmd = "#{$options[:flink_home]}/bin/flink run --jobmanager #{$options[:flink_master]} --class #{class_prefix}.#{class_name} #{$options[:jar_file]} #{role}"
+          scale_factor = ""
+          if description.has_key?(:use_sf)
+            scale_factor = role
+          end
+
+          extra_args = ""
+          if description.has_key?(:extra_args)
+            extra_args = description[:extra_args]
+          end
+
+          run_cmd = "#{$options[:flink_home]}/bin/flink run -p 128 --jobmanager #{$options[:flink_master]} --class #{class_prefix}.#{class_name} #{$options[:jar_file]} hdfs://qp-hm1:54310/#{role}-#{class_name}.out #{scale_factor} #{extra_args}"
           full_cmd = client_cmd("", run_cmd)
 
           # Run full_cmd, with output stored and printed in real time
@@ -169,15 +184,16 @@ def run()
           io.close
           for l in r.each_line do
             puts l
-            if l.chomp.start_with?('Elapsed:')
-              result = l.chomp.split(" ")[1].to_i
+            if l.chomp.include?('time:')
+              result = l.chomp.split(" ")[-1].to_i
             end
           end
           # Store time associated with this trial
           key = {:role => role, :experiment => experiment, :query => query}
           if not $stats.has_key? key
-            $stats[key] = [result]
-          else
+              $stats[key] = []
+          end
+          if result != ""
             $stats[key] << result
           end
 
@@ -197,14 +213,21 @@ end
 
 def summary()
   puts "Summary"
+  result = {}
   for key, val in $stats
     sum = val.reduce(:+)
     cnt = val.size
-    avg = 1.0 * sum / cnt
-    var = val.map{|x| (x - avg) * (x - avg)}.reduce(:+) / (1.0 * cnt)
-    dev = Math.sqrt(var)
-    puts "\t#{key} => Succesful Trials: #{cnt}/#{$options[:trials]}. Avg: #{avg}. StdDev: #{dev}"
+    avg = 0.0
+    dev = 0.0
+    if cnt > 0
+      avg = 1.0 * sum / cnt
+      var = val.map{|x| (x - avg) * (x - avg)}.reduce(:+) / (1.0 * cnt)
+      dev = Math.sqrt(var)
+    end
+    result[key] = {:avg => avg, :stddev => dev, :success => cnt, :trials => $options[:trials]}
+    puts "#{key} => #{result[key]}"
   end
+  File.open($options[:summary_file], 'w') { |file| file.write(result.to_json + "\n") }
 end
 
 if __FILE__ == $0

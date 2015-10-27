@@ -58,13 +58,13 @@ object KMeans {
 
   private def parseParameters(args: Array[String]): Boolean = {
     if (args.length >= 3) {
-      deployment = new MLDeployment(args(0), args(1))
+      deployment = new MLDeployment(args(1), args(0))
       numIterations = Integer.parseInt(args(2))
       if ( args.length == 4 ) { dimensions = Integer.parseInt(args(3)) }
       true
     }
     else {
-      System.out.println("  Usage: KMeans <scale factor> <result path> <num iterations> [dimensionality]")
+      System.out.println("  Usage: KMeans <result path> <scale factor> <num iterations> [dimensionality]")
       false
     }
   }
