@@ -78,12 +78,11 @@ fn main() {
                      }
                  })
                  ;
-
             (part_input, item_input)
         });
 
         // read the parts input file
-        if let Ok(parts_file) = File::open(format!("{}-{}-{}", parts_pattern, comm_index, comm_peers)) {
+        if let Ok(parts_file) = File::open(format!("{}{}", parts_pattern, comm_index)) {
             let parts_reader = BufReader::new(parts_file);
             for (index, line) in parts_reader.lines().enumerate() {
                 if index % comm_peers == comm_index {
@@ -102,11 +101,11 @@ fn main() {
 
             computation.step();
         }
-        else { println!("worker {}: did not find input {}-{}-{}", computation.index(), parts_pattern, comm_index, comm_peers); }
+        else { println!("worker {}: did not find input {}{}", computation.index(), parts_pattern, comm_index); }
 
         // read the lineitems input file
         let mut items_buffer = Vec::new();
-        if let Ok(items_file) = File::open(format!("{}-{}-{}", items_pattern, comm_index, comm_peers)) {
+        if let Ok(items_file) = File::open(format!("{}{}", items_pattern, comm_index)) {
             let items_reader =  BufReader::new(items_file);
             for (index, line) in items_reader.lines().enumerate() {
                 if index % comm_peers == comm_index {
@@ -122,7 +121,7 @@ fn main() {
                 }
             }
         }
-        else { println!("worker {}: did not find input {}-{}-{}", comm_index, items_pattern, comm_index, comm_peers); }
+        else { println!("worker {}: did not find input {}{}", comm_index, items_pattern, comm_index); }
 
         println!("data loaded at {}", time::precise_time_s() - start);
         start = time::precise_time_s();
