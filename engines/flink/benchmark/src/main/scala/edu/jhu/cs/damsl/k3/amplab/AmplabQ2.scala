@@ -34,7 +34,7 @@ object AmplabQ2 {
                       }
                     })
 
-    results.writeAsText(outputPath, WriteMode.OVERWRITE)
+    results.writeAsText(deployment.outputPath, WriteMode.OVERWRITE)
 
     val jobname = "Scala AmplabQ2"
     val jobresult = env.execute(jobname)
@@ -46,15 +46,16 @@ object AmplabQ2 {
                         adRevenue : Double)  
   
   private var substrlen: Int = 8
-  private var userVisitsPath: String = null
-  private var outputPath: String = null
 
   private var deployment : AmplabDeployment = null
 
   private def parseParameters(args: Array[String]): Boolean = {
     if (args.length >= 1 && args.length < 3) {
       deployment = new AmplabDeployment(args(0))
-      if ( args.length == 2 ) { substrlen = args(2).toInt }
+      if ( args.length == 2 ) { 
+        substrlen = args(1).toInt 
+        print("Using substr len: " + args(1))
+      }
       true
     } else {
       System.err.println("Usage: AmplabQ2 <result path> [length]")

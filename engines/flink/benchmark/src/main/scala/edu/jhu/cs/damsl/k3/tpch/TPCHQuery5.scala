@@ -137,10 +137,10 @@ object TPCHQuery5 {
   
   private def parseParameters(args: Array[String]): Boolean = {
     if (args.length == 2) {
-      deployment = new TPCHDeployment(args(0), args(1))
+      deployment = new TPCHDeployment(args(1), args(0))
       true
     } else {
-      System.err.println("Usage: TPCHQuery5 <scale-factor> <result path>")
+      System.err.println("Usage: TPCHQuery5 <result path> <scale-factor>")
       false
     }
   }

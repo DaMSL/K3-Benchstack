@@ -25,14 +25,15 @@ jobmanager.rpc.address: {{groups['jobmanager'][0]}}
 
 jobmanager.rpc.port: 6123
 
-jobmanager.heap.mb: 512
+jobmanager.heap.mb: 2048
 
-taskmanager.heap.mb: 65536
+taskmanager.heap.mb: 40000
 
 taskmanager.numberOfTaskSlots: 16
 
 parallelism.default: 128
 
+taskmanager.network.numberOfBuffers: 50000
 #==============================================================================
 # Web Frontend
 #==============================================================================
@@ -86,7 +87,7 @@ state.backend: jobmanager
 # If not specified, the system-specific Java temporary directory (java.io.tmpdir
 # property) is taken.
 #
-# taskmanager.tmp.dirs: /tmp
+taskmanager.tmp.dirs: /tmp
 
 # Path to the Hadoop configuration directory.
 #
