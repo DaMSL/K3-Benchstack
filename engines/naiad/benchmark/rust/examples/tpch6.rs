@@ -16,7 +16,8 @@ use timely::dataflow::*;
 use timely::dataflow::operators::*;
 use timely::drain::DrainExt;
 
-use differential_dataflow::operators::group::GroupBy;
+use differential_dataflow::operators::group::Group;
+use differential_dataflow::operators::consolidate::ConsolidateExt;
 
 fn main() {
 
@@ -31,48 +32,51 @@ fn main() {
         let mut start = time::precise_time_s();
         let epoch = Rc::new(RefCell::new(0u64));
 
-        let (mut items) = computation.scoped(|builder| {
-            let (item_input, items) = builder.new_input::<(f64, f64, f64, u32)>();
-            let items = items.filter(|x| {
-                                let date_between = 19940101 =< x.3 && x.3 < 19950101;
-                                let disc_between = 0.05 =< x.2 && x.2 <= 0.07;
-                                let qty_lt = x.0 < 24;
-                                date_between && disc_between && qty_lt
-                             })
-                             .map(|x| ((), x.1 * x.2))
-                             .group(|key, vals, output| {
-                               let mut revenue = 0.0
-                               for (eprice_times_disc) in vals {
-                                  revenue += eprice_times_disc;
-                               }
-                               output.push(((), revenue));
-                             })
-                             .consolidate()
-                             .inspect(|x| println!("Q6 result: {:?}", x.1));
+        let mut items = computation.scoped(|builder| {
+            let (item_input, items) = builder.new_input::<((i32, i32, i32, u32), i32)>();
+            items.filter(|x| {
+                    //let date_between = 19940101 <= (x.0).3 && (x.0).3 < 19950101;
+                    //let disc_between = 0.05 <= ((x.0).2 as f64) && ((x.0).2 as f64) <= 0.07;
+                    let qty_lt = (x.0).0 < 24;
+                    qty_lt
+                    //date_between && disc_between && qty_lt
+                 })
+                 .map(|x| (((), (x.0).1 * (x.0).2), x.1))
+                 .group(|key, vals, output| {
+                   let mut revenue = 0;
+                   for (eprice_times_disc, mult) in vals {
+                      revenue += mult * eprice_times_disc;
+                   }
+                   output.push((revenue, 1));
+                 })
+                 .inspect(|x| println!("Q6 result: {:?}", x));
             item_input
         });
 
         // read the lineitems input file
         let mut items_buffer = Vec::new();
-        if let Ok(items_file) = File::open(format!("{}-{}-{}", items_pattern, comm_index, comm_peers)) {
+        if let Ok(items_file) = File::open(format!("{}{}", items_pattern, comm_index)) {
             let items_reader =  BufReader::new(items_file);
             for (index, line) in items_reader.lines().enumerate() {
                 if index % comm_peers == comm_index {
                     let text = line.ok().expect("read error");
                     let mut fields = text.split(&delimiter);
-                    fields.skip(4);
-                    let quantity       = fields.next().unwrap().parse::<f64>().unwrap();
-                    let extended_price = fields.next().unwrap().parse::<f64>().unwrap();
-                    let discount       = fields.next().unwrap().parse::<f64>().unwrap();
                     fields.next();
                     fields.next();
                     fields.next();
-                    let shipdate       = fields.next().unwrap().parse::<u32>().unwrap();
-                    items_buffer.push((quantity, extended_price, discount, shipdate));
+                    fields.next();
+                    let quantity       = fields.next().unwrap().parse::<f64>().unwrap() as i32;
+                    let extended_price = fields.next().unwrap().parse::<f64>().unwrap() as i32;
+                    let discount       = fields.next().unwrap().parse::<f64>().unwrap() as i32;
+                    fields.next();
+                    fields.next();
+                    fields.next();
+                    let shipdate       = fields.next().unwrap().parse::<String>().unwrap().replace("-","").parse::<u32>().unwrap();
+                    items_buffer.push(((quantity, extended_price, discount, shipdate), 1i32));
                 }
             }
         }
-        else { println!("worker {}: did not find input {}-{}-{}", comm_index, items_pattern, comm_index, comm_peers); }
+        else { println!("worker {}: did not find input {}{}", comm_index, items_pattern, comm_index); }
 
         println!("Q6 data loaded at {}", time::precise_time_s() - start);
         start = time::precise_time_s();
@@ -82,9 +86,9 @@ fn main() {
         for (index, item) in items_buffer.drain_temp().enumerate() {
             items.send(item);
             items.advance_to(index as u64 + 1);
-            while *epoch.borrow() <= index as u64 {
-                computation.step();
-            }
+            //while *epoch.borrow() <= index as u64 {
+            //    computation.step();
+            //}
         }
 
         items.close();

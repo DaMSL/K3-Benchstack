@@ -17,6 +17,7 @@ use timely::dataflow::operators::*;
 use timely::drain::DrainExt;
 
 use differential_dataflow::operators::group::Group;
+use differential_dataflow::operators::consolidate::ConsolidateExt;
 
 fn main() {
     let items_pattern = std::env::args().nth(1).unwrap();
@@ -50,9 +51,6 @@ fn main() {
                        sdiscprice  += mult * (ep * (1 - disc));
                        scharge     += mult * (ep * (1 - disc) * (1 + tax));
                        sdisc       += mult * (disc);
-                       if mult == 0 {
-                         println!("Mult is 0! BAD!");
-                       }
                        count       += mult;
                     }
                     out.push(((sqty, sbaseprice, sdiscprice, scharge, sqty / count, sbaseprice / count, sdisc / count, count ), 1))
@@ -80,7 +78,6 @@ fn main() {
                     let returnflag     = fields.next().unwrap().parse::<String>().unwrap();
                     let linestatus     = fields.next().unwrap().parse::<String>().unwrap();
                     let shipdate       = fields.next().unwrap().parse::<String>().unwrap().replace("-","").parse::<u32>().unwrap();
-                    println!("Read {} {}", returnflag, linestatus);
                     items_buffer.push(((quantity, extended_price, discount, tax, returnflag, linestatus, shipdate), 1i32));
                 }
             }
@@ -95,7 +92,6 @@ fn main() {
         for (index, item) in items_buffer.drain_temp().enumerate() {
             items.send(item);
             items.advance_to(index as u64 + 1);
-            println!("Sent one");
             //while *epoch.borrow() <= index as u64 {
             //    computation.step();
             //}
