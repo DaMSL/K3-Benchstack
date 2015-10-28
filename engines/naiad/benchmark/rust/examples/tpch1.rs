@@ -78,7 +78,6 @@ fn main() {
                     let returnflag     = fields.next().unwrap().parse::<String>().unwrap();
                     let linestatus     = fields.next().unwrap().parse::<String>().unwrap();
                     let shipdate       = fields.next().unwrap().parse::<String>().unwrap().replace("-","").parse::<u32>().unwrap();
-                    println!("Read {} {}", returnflag, linestatus);
                     items_buffer.push(((quantity, extended_price, discount, tax, returnflag, linestatus, shipdate), 1i32));
                 }
             }
