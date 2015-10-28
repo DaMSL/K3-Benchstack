@@ -71,7 +71,9 @@ object KMeans {
 
 
   def getPointDataSet(env: ExecutionEnvironment) : DataSet[Point] = {
-    env.readCsvFile(deployment.pointsPath(deployment.scaleFactor), fieldDelimiter = " ")
+    env.readCsvFile[Tuple1[String]](
+      deployment.pointsPath(deployment.scaleFactor))
+      .map {s => new Point(s._1.split(",").map {x => x.toDouble}) }
   }
 
   /**

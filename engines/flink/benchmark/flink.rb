@@ -46,7 +46,8 @@ QUERIES = {
     },
     :queries => {
       "pagerank" => "graph.PageRank",
-    }
+    },
+    :extra_args => "10" # number of iterations
   }
 }
 
