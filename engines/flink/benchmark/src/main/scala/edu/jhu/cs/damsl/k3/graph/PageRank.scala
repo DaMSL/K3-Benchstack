@@ -110,7 +110,7 @@ object PageRank {
     }
   }
   
-  private var graphPath: String = "hdfs://qp-hm1.damsl.cs.jhu.edu:54310/twitter_edgelist"
+  private var graphPath: String = "hdfs://qp-hm1.damsl.cs.jhu.edu:54310/twitter_adjlist"
   private var outputPath: String = null
   private var numIterations: Int = 10
 
@@ -128,7 +128,7 @@ object PageRank {
   }
 
   private def getAdjVertexDataSet(env: ExecutionEnvironment): DataSet[AdjVertex] = {
-    env.readCsvFile[AdjVertex](graphPath, fieldDelimiter = " ")
+    env.readCsvFile[Tuple1[String]](graphPath)
+       .map { s => new AdjVertex(s._1.split(",").map { x => x.toInt }) }
   }
-
 }
