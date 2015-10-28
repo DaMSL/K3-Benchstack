@@ -7,9 +7,13 @@ description = "Naiad/rust incremental TPCH benchmark, for comparison to K3/Mosai
 license = "BSD"
 
 [dependencies]
-timely="*"
-timely_communication = "*"
+time = "0.1"
+rand = "*"
 
-[dependencies.differential]
+[dependencies.differential-dataflow]
 git="https://github.com/frankmcsherry/differential-dataflow.git"
+# path="../differential-dataflow"
+
+[dependencies.timely]
+git="https://github.com/frankmcsherry/timely-dataflow.git"
 # path="../differential-dataflow"
