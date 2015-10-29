@@ -26,12 +26,15 @@ object KMeans {
 
     val env = ExecutionEnvironment.getExecutionEnvironment
     val k : Int = 5
-    val initialCentroids = new Array[Centroid](k)
-    for (i <- 0 until k) {
-      initialCentroids(i) = new Centroid(i, new Point())
-    }
 
     val points: DataSet[Point] = getPointDataSet(env)
+    val firstK: Seq[Point] = points.first(k).collect()
+
+    val initialCentroids = new Array[Centroid](k)
+    for (i <- 0 until k) {
+      initialCentroids(i) = new Centroid(i, firstK(i))
+    }
+
     val centroids: DataSet[Centroid] = env.fromCollection(initialCentroids)
 
     val finalCentroids = centroids.iterate(numIterations) { currentCentroids =>
@@ -71,9 +74,8 @@ object KMeans {
 
 
   def getPointDataSet(env: ExecutionEnvironment) : DataSet[Point] = {
-    env.readCsvFile[Tuple1[String]](
-      deployment.pointsPath(deployment.scaleFactor))
-      .map {s => new Point(s._1.split(",").map {x => x.toDouble}) }
+    env.readTextFile(deployment.pointsPath(deployment.scaleFactor))
+       .map {s => new Point(s.split(",").map {x => x.toDouble}) }
   }
 
   /**
