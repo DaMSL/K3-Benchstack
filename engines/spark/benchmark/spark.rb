@@ -69,7 +69,7 @@ end
 def main()
   STDOUT.sync = true
   $options = {
-    :worker_container => "sparkWorker"
+    :worker_container => "sparkWorker",
     :deploy_dir  => "../deploy",
     :spark_home => "/software/spark-1.2.1/",
     :spark_master => "spark://qp-hm1:7077",
@@ -80,6 +80,9 @@ def main()
     :profile => false,
     :profile_output => "/tmp/perf.data",
     :profile_freq  => 10,
+    :jfr => true,
+    :jfr_output => "/tmp/record.jfr",
+    :jfr_opts => "-XX:+UnlockCommercialFeatures -XX:+FlightRecorder -XX:FlightRecorderOptions=defaultrecording=true,dumponexit=true,dumponexitpath=/tmp/record.jfr"
   }
   $stats = {}
 
@@ -129,9 +132,9 @@ def run_profile(cmd, hosts)
   system ansible_cmd
 end
 
-# Build a Spark Jar in a docker container using sbt. Requires simple.sbt and src/ directory. JAR is stashed in /tmp/scala...
+# Build a Spark Jar in a docker container using sbt. Requires simple.sbt and src/ directory. JAR is stashed in /build which is /tmp on host.
 def build()
-  cmd = client_cmd("-v #{Dir.pwd}:/src -t", "/src/sbin/package_jar.sh")
+  cmd = client_cmd("-v /tmp:/build -v #{Dir.pwd}:/src -t", "/src/sbin/package_jar.sh")
   system cmd
   cleanup_client()
 end
@@ -153,7 +156,13 @@ def run()
             run_profile("workers", profile_cmd)
           end
 
-          run_cmd = "#{$options[:spark_home]}/bin/spark-submit --master #{$options[:spark_master]} --class #{class_name} /build/#{$options[:jar_file]} #{role}"
+          # Setup Java Flight Recorder
+          extra_java_opts = ""
+          if $options[:jfr]
+            extra_java_opts += "spark.executor.extraJavaOptions=#{$options[:jfr_opts]}"
+          end
+
+          run_cmd = "#{$options[:spark_home]}/bin/spark-submit --master #{$options[:spark_master]} --conf \"#{extra_java_opts}\" --class #{class_name} /build/#{$options[:jar_file]} #{role}"
           full_cmd = client_cmd("", run_cmd)
 
           # Run full_cmd, with output stored and printed in real time

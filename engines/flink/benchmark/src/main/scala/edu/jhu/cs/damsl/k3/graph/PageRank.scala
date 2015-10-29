@@ -38,7 +38,7 @@ object PageRank {
     val broadcastParams = env.fromCollection(Seq(parameters))
 
     val finalRanks = ranks.iterate(numIterations) { currentRanks =>
-      val nextRanks = currentRanks.join(vertices).where(0).equalTo(0)
+      val nextRanks = currentRanks.join(vertices).where(0).equalTo(x => x.id)
         .apply(new PRJoin()).withBroadcastSet(broadcastParams, "parameters")
         .groupBy(0).sum(1) 
 
@@ -128,7 +128,7 @@ object PageRank {
   }
 
   private def getAdjVertexDataSet(env: ExecutionEnvironment): DataSet[AdjVertex] = {
-    env.readCsvFile[Tuple1[String]](graphPath)
-       .map { s => new AdjVertex(s._1.split(",").map { x => x.toInt }) }
+    env.readTextFile(graphPath)
+       .map { s => new AdjVertex(s.split(",").map { x => x.toInt }) }
   }
 }
