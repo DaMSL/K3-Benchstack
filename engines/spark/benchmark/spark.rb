@@ -1,5 +1,6 @@
 #!/usr/bin/env ruby
 require 'optparse'
+require 'csv'
 
 QUERIES = {
   "tpch" => {
@@ -47,6 +48,10 @@ QUERIES = {
 }
 
 # Utils
+def exp_id(experiment, query, role)
+  return "#{experiment}-#{query}-#{role}"
+end
+
 def select?(experiment, query, role = nil)
   excluded = $options[:excludes].any? do |pattern|
     check_filter(pattern, experiment, query, role)
@@ -82,7 +87,9 @@ def main()
     :profile_freq  => 10,
     :jfr => true,
     :jfr_output => "/tmp/record.jfr",
-    :jfr_opts => "-XX:+UnlockCommercialFeatures -XX:+FlightRecorder -XX:FlightRecorderOptions=defaultrecording=true,dumponexit=true,dumponexitpath=/tmp/record.jfr"
+    :jfr_opts => "-XX:+UnlockCommercialFeatures -XX:+FlightRecorder -XX:FlightRecorderOptions=defaultrecording=true,dumponexit=true,dumponexitpath=/tmp/record.jfr",
+    :machines => (1..8).map{|x| "qp-hm" + x.to_s},
+    :result_dir => "results/#{Time.now.strftime("%m-%d-%Y-%H-%M-%S")}"
   }
   $stats = {}
 
@@ -111,7 +118,7 @@ def main()
     run()
   end
 
-  summary()
+  summarize()
 end
 
 def cleanup_client()
@@ -147,7 +154,7 @@ def run()
         if !select?(experiment, query, role)
           next
         end
-        1.upto($options[:trials]) do |_|
+        1.upto($options[:trials]) do |trial|
 
           # Initiate profiling through ansible prior to an experiment.
           if $options[:profile]
@@ -178,12 +185,19 @@ def run()
               result = l.chomp.split(" ")[1].to_i
             end
           end
+
           # Store time associated with this trial
           key = {:role => role, :experiment => experiment, :query => query}
           if not $stats.has_key? key
             $stats[key] = [result]
           else
             $stats[key] << result
+          end
+         
+          # Collect Java Flight Recorder results
+          extra_java_opts = ""
+          if $options[:jfr]
+            collect_jfr(exp_id(experiment, role, query), trial)
           end
 
           cleanup_client()
@@ -200,16 +214,35 @@ def run()
   end
 end
 
-def summary()
-  puts "Summary"
-  for key, val in $stats
-    sum = val.reduce(:+)
-    cnt = val.size
-    avg = 1.0 * sum / cnt
-    var = val.map{|x| (x - avg) * (x - avg)}.reduce(:+) / (1.0 * cnt)
-    dev = Math.sqrt(var)
-    puts "\t#{key} => Succesful Trials: #{cnt}/#{$options[:trials]}. Avg: #{avg}. StdDev: #{dev}"
+def collect_jfr(id, trial)
+  dir = "#{$options[:result_dir]}/#{id}/#{trial}"
+  `mkdir -p #{dir}`
+  puts "Collecting all Java Flight Recorder Data"
+  for host in $options[:machines]
+    puts "Collecting: #{host}..."
+    `scp #{host}:/tmp/record.jfr #{dir}/#{host}.jfr`
   end
+end
+
+def summarize()
+  puts "Summary"
+  `mkdir -p #{$options[:result_dir]}`
+  summary_path = "#{$options[:result_dir]}/times.csv"
+  CSV.open(summary_path, 'w') { |file|
+    for key, val in $stats
+      for trial in val
+        csv_row = [key[:experiment], key[:role], key[:query], trial]
+        file << csv_row
+      end
+      sum = val.reduce(:+)
+      cnt = val.size
+      avg = 1.0 * sum / cnt
+      var = val.map{|x| (x - avg) * (x - avg)}.reduce(:+) / (1.0 * cnt)
+      dev = Math.sqrt(var)
+      id = exp_id(key[:experiment], key[:query], key[:role])
+      puts "\t#{id} => Succesful Trials: #{cnt}/#{$options[:trials]}. Avg: #{avg}. StdDev: #{dev}"
+    end
+  }
 end
 
 if __FILE__ == $0
