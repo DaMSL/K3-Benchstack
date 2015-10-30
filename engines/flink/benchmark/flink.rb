@@ -89,7 +89,7 @@ def main()
     :profile          => false,
     :profile_output   => "/flink/perf.data",
     :profile_freq     => 10,
-    :jfr => true,
+    :jfr => false,
     :jfr_output => "/tmp/record.jfr",
     :machines => (1..8).map{|x| "qp-hm" + x.to_s},
     :result_dir => "results/#{Time.now.strftime("%m-%d-%Y-%H-%M-%S")}"
@@ -110,6 +110,8 @@ def main()
 
     opts.on("-i", "--include pat1,pat2,pat3", Array, "Patterns to Include") { |is| $options[:includes] = is }
     opts.on("-e", "--exclude pat1,pat2,pat3", Array, "Patterns to Exclude") { |es| $options[:excludes] = es }
+
+    opts.on("-j", "--jfr", "Use Java Flight Recorder") { |b| $options[:jfr] = b }
   end
   parser.parse!
 
@@ -241,7 +243,7 @@ def run()
             profile_cmd = "/sbin/flink_perf_stop.sh"
             run_profile("slaves", profile_cmd)
           end
-          
+
           # Stop Java Flight Recorder
           if $options[:jfr]
             toggle_jfr(false)

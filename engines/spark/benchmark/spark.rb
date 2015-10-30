@@ -85,7 +85,7 @@ def main()
     :profile => false,
     :profile_output => "/tmp/perf.data",
     :profile_freq  => 10,
-    :jfr => true,
+    :jfr => false,
     :jfr_output => "/tmp/record.jfr",
     :jfr_opts => "-XX:+UnlockCommercialFeatures -XX:+FlightRecorder -XX:FlightRecorderOptions=defaultrecording=true,dumponexit=true,dumponexitpath=/tmp/record.jfr",
     :machines => (1..8).map{|x| "qp-hm" + x.to_s},
@@ -107,6 +107,7 @@ def main()
 
     opts.on("-i", "--include pat1,pat2,pat3", Array, "Patterns to Include") { |is| $options[:includes] = is }
     opts.on("-e", "--exclude pat1,pat2,pat3", Array, "Patterns to Exclude") { |es| $options[:excludes] = es }
+    opts.on("-j", "--jfr", "Use Java Flight Recorder") { |b| $options[:jfr] = b }
   end
   parser.parse!
 
