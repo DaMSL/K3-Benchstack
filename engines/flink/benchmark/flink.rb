@@ -1,6 +1,6 @@
 #!/usr/bin/env ruby
 require 'optparse'
-require 'json'
+require 'csv'
 
 QUERIES = {
   "tpch" => {
@@ -52,6 +52,10 @@ QUERIES = {
 }
 
 # Utils
+def exp_id(experiment, query, role)
+  return "#{experiment}-#{query}-#{role}"
+end
+
 def select?(experiment, query, role = nil)
   excluded = $options[:excludes].any? do |pattern|
     check_filter(pattern, experiment, query, role)
@@ -85,7 +89,10 @@ def main()
     :profile          => false,
     :profile_output   => "/flink/perf.data",
     :profile_freq     => 10,
-    :summary_file     => "summary.json"
+    :jfr => true,
+    :jfr_output => "/tmp/record.jfr",
+    :machines => (1..8).map{|x| "qp-hm" + x.to_s},
+    :result_dir => "results/#{Time.now.strftime("%m-%d-%Y-%H-%M-%S")}"
   }
   $stats = {}
 
@@ -116,7 +123,31 @@ def main()
     run()
   end
 
-  summary()
+  summarize()
+end
+
+def toggle_jfr(isStart)
+  verb = "Starting"
+  cmd = "/sbin/jfr_start.sh"
+  if not isStart
+    cmd = "/sbin/jfr_stop.sh"
+    verb = "Stopping"
+  end
+
+  for host in $options[:machines]
+    puts "#{verb} Java Flight Recorder on: #{host}..."
+    `ssh #{host} docker exec flink_slave bash #{cmd}`
+  end
+end
+
+def collect_jfr(id, trial)
+  dir = "#{$options[:result_dir]}/#{id}/#{trial}"
+  `mkdir -p #{dir}`
+  puts "Collecting all Java Flight Recorder Data"
+  for host in $options[:machines]
+    puts "Collecting: #{host}..."
+    `scp #{host}:/tmp/record.jfr #{dir}/#{host}.jfr`
+  end
 end
 
 def cleanup_client()
@@ -152,13 +183,18 @@ def run()
         if !select?(experiment, query, role)
           next
         end
-        1.upto($options[:trials]) do |_|
+        1.upto($options[:trials]) do |trial|
 
           # Initiate profiling through ansible prior to an experiment.
           if $options[:profile]
             profile_desc = "#{experiment}-#{query}-#{role}"
             profile_cmd  = "/sbin/flink_perf_start.sh #{$options[:profile_freq]} #{$options[:profile_output]}-#{profile_desc} 1000000"
             run_profile("slaves", profile_cmd)
+          end
+
+          # Start Java Flight Recorder
+          if $options[:jfr]
+            toggle_jfr(true)
           end
 
           class_prefix = "edu.jhu.cs.damsl.k3"
@@ -205,30 +241,41 @@ def run()
             profile_cmd = "/sbin/flink_perf_stop.sh"
             run_profile("slaves", profile_cmd)
           end
+          
+          # Stop Java Flight Recorder
+          if $options[:jfr]
+            toggle_jfr(false)
+          end
 
+          # Collect Java Flight Recorder results
+          if $options[:jfr]
+            collect_jfr(exp_id(experiment, role, query), trial)
+          end
         end
       end
     end
   end
 end
 
-def summary()
+def summarize()
   puts "Summary"
-  result = {}
-  for key, val in $stats
-    sum = val.reduce(:+)
-    cnt = val.size
-    avg = 0.0
-    dev = 0.0
-    if cnt > 0
+  `mkdir -p #{$options[:result_dir]}`
+  summary_path = "#{$options[:result_dir]}/times.csv"
+  CSV.open(summary_path, 'w') { |file|
+    for key, val in $stats
+      for trial in val
+        csv_row = [key[:experiment], key[:role], key[:query], trial]
+        file << csv_row
+      end
+      sum = val.reduce(:+)
+      cnt = val.size
       avg = 1.0 * sum / cnt
       var = val.map{|x| (x - avg) * (x - avg)}.reduce(:+) / (1.0 * cnt)
       dev = Math.sqrt(var)
+      id = exp_id(key[:experiment], key[:query], key[:role])
+      puts "\t#{id} => Succesful Trials: #{cnt}/#{$options[:trials]}. Avg: #{avg}. StdDev: #{dev}"
     end
-    result[key] = {:avg => avg, :stddev => dev, :success => cnt, :trials => $options[:trials]}
-    puts "#{key} => #{result[key]}"
-  end
-  File.open($options[:summary_file], 'w') { |file| file.write(result.to_json + "\n") }
+  }
 end
 
 if __FILE__ == $0

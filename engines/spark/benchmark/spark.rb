@@ -195,7 +195,6 @@ def run()
           end
          
           # Collect Java Flight Recorder results
-          extra_java_opts = ""
           if $options[:jfr]
             collect_jfr(exp_id(experiment, role, query), trial)
           end
