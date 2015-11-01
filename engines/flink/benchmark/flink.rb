@@ -112,6 +112,8 @@ def main()
     opts.on("-e", "--exclude pat1,pat2,pat3", Array, "Patterns to Exclude") { |es| $options[:excludes] = es }
 
     opts.on("-j", "--jfr", "Use Java Flight Recorder") { |b| $options[:jfr] = b }
+
+    opts.on("-r", "--result-dir dir", String, "Directory to stash results") { |dir| $options[:result_dir] = "#{dir}/#{Time.now.strftime("%m-%d-%Y-%H-%M-%S")}" }
   end
   parser.parse!
 
@@ -235,6 +237,7 @@ def run()
           if result != ""
             $stats[key] << result
           end
+          log_trial(experiment, role, query, result)
 
           cleanup_client()
 
@@ -259,25 +262,22 @@ def run()
   end
 end
 
-def summarize()
-  puts "Summary"
+def log_trial(exp, role, query, time)
   `mkdir -p #{$options[:result_dir]}`
   summary_path = "#{$options[:result_dir]}/times.csv"
-  CSV.open(summary_path, 'w') { |file|
-    for key, val in $stats
-      for trial in val
-        csv_row = [key[:experiment], key[:role], key[:query], trial]
-        file << csv_row
-      end
-
-      cnt = 0
-      if val != nil
-        cnt = val.size
-      end
-      id = exp_id(key[:experiment], key[:query], key[:role])
-      puts "\t#{id} => Succesful Trials: #{cnt}/#{$options[:trials]}"
-    end
+  CSV.open(summary_path, 'a+') { |file|
+    csv_row = [exp, role, query, time]
+    file << csv_row
   }
+end
+
+def summarize()
+  puts "Summary"
+  for key, val in $stats
+    cnt = val.length
+    id = exp_id(key[:experiment], key[:query], key[:role])
+    puts "\t#{id} => Succesful Trials: #{cnt}/#{$options[:trials]}."
+  end
 end
 
 if __FILE__ == $0
