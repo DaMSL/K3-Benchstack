@@ -269,13 +269,13 @@ def summarize()
         csv_row = [key[:experiment], key[:role], key[:query], trial]
         file << csv_row
       end
-      sum = val.reduce(:+)
-      cnt = val.size
-      avg = 1.0 * sum / cnt
-      var = val.map{|x| (x - avg) * (x - avg)}.reduce(:+) / (1.0 * cnt)
-      dev = Math.sqrt(var)
+
+      cnt = 0
+      if val != nil
+        cnt = val.size
+      end
       id = exp_id(key[:experiment], key[:query], key[:role])
-      puts "\t#{id} => Succesful Trials: #{cnt}/#{$options[:trials]}. Avg: #{avg}. StdDev: #{dev}"
+      puts "\t#{id} => Succesful Trials: #{cnt}/#{$options[:trials]}"
     end
   }
 end

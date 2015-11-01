@@ -34,12 +34,3 @@
 
     - name: Run the datanode inside of a Docker container
       shell: docker run -d --net=host -v {{persistent_storage_folder}}:/hadoop/ -v {{hadoop_sockets_folder}}:/hadoop_sockets/ --name="HDFS_datanode" damsl/hdfs /sbin/datanode_startup.sh 
-
-
-- hosts: namenode
-  tasks:
-    - name: Set a space quota on the Namenode
-      shell: docker exec HDFS_namenode /software/hadoop-2.5.1/bin/hdfs dfsadmin -fs hdfs://qp-hm1.damsl.cs.jhu.edu:54310 -setSpaceQuota 10t /
-
-    - name: Set replication to 1 on the Namenode
-      shell: docker exec HDFS_namenode /software/hadoop-2.5.1/bin/hdfs dfs -fs hdfs://qp-hm1.damsl.cs.jhu.edu:54310 -setrep -R -w 1 /

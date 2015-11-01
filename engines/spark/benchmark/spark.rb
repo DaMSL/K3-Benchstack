@@ -108,8 +108,12 @@ def main()
     opts.on("-i", "--include pat1,pat2,pat3", Array, "Patterns to Include") { |is| $options[:includes] = is }
     opts.on("-e", "--exclude pat1,pat2,pat3", Array, "Patterns to Exclude") { |es| $options[:excludes] = es }
     opts.on("-j", "--jfr", "Use Java Flight Recorder") { |b| $options[:jfr] = b }
+
+    opts.on("-r", "--result-dir dir", String, "Directory to stash results") { |dir| $options[:result_dir] = "#{dir}/#{Time.now.strftime("%m-%d-%Y-%H-%M-%S")}" }
   end
   parser.parse!
+
+
 
   if $options[:build]
     build()
@@ -167,10 +171,10 @@ def run()
           # Setup Java Flight Recorder
           extra_java_opts = ""
           if $options[:jfr]
-            extra_java_opts += "spark.executor.extraJavaOptions=#{$options[:jfr_opts]}"
+            extra_java_opts += "--conf \"spark.executor.extraJavaOptions=#{$options[:jfr_opts]}\""
           end
 
-          run_cmd = "#{$options[:spark_home]}/bin/spark-submit --master #{$options[:spark_master]} --conf \"#{extra_java_opts}\" --class #{class_name} /build/#{$options[:jar_file]} #{role}"
+          run_cmd = "#{$options[:spark_home]}/bin/spark-submit --master #{$options[:spark_master]} #{extra_java_opts} --class #{class_name} /build/#{$options[:jar_file]} #{role}"
           full_cmd = client_cmd("", run_cmd)
 
           # Run full_cmd, with output stored and printed in real time
@@ -194,7 +198,8 @@ def run()
           else
             $stats[key] << result
           end
-         
+          log_trial(experiment, role, query, result)
+
           # Collect Java Flight Recorder results
           if $options[:jfr]
             collect_jfr(exp_id(experiment, role, query), trial)
@@ -224,25 +229,22 @@ def collect_jfr(id, trial)
   end
 end
 
-def summarize()
-  puts "Summary"
+def log_trial(exp, role, query, time)
   `mkdir -p #{$options[:result_dir]}`
   summary_path = "#{$options[:result_dir]}/times.csv"
-  CSV.open(summary_path, 'w') { |file|
-    for key, val in $stats
-      for trial in val
-        csv_row = [key[:experiment], key[:role], key[:query], trial]
-        file << csv_row
-      end
-      sum = val.reduce(:+)
-      cnt = val.size
-      avg = 1.0 * sum / cnt
-      var = val.map{|x| (x - avg) * (x - avg)}.reduce(:+) / (1.0 * cnt)
-      dev = Math.sqrt(var)
-      id = exp_id(key[:experiment], key[:query], key[:role])
-      puts "\t#{id} => Succesful Trials: #{cnt}/#{$options[:trials]}. Avg: #{avg}. StdDev: #{dev}"
-    end
+  CSV.open(summary_path, 'a+') { |file|
+    csv_row = [exp, role, query, time]
+    file << csv_row
   }
+end
+
+def summarize()
+  puts "Summary"
+  for key, val in $stats
+    cnt = val.length
+    id = exp_id(key[:experiment], key[:query], key[:role])
+    puts "\t#{id} => Succesful Trials: #{cnt}/#{$options[:trials]}."
+  end
 end
 
 if __FILE__ == $0
