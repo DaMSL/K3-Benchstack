@@ -21,13 +21,13 @@ RUN apt-get update && apt-get install -y \
 
 # Install perf for kernel 3.13
 # Also uses libunwind
-RUN apt-get install -y wget flex bison libelf-dev libaudit-dev libdw-dev binutils-dev && \
-  wget https://github.com/torvalds/linux/archive/v3.13.tar.gz && \
-  tar -xvzf v3.13.tar.gz && rm v3.13.tar.gz && \
-  cd linux-3.13/tools/perf && make && make install && \
-  cp perf /usr/bin && \
-  cp libperf.a /usr/lib && \
-  cd / && rm -Rf /linux-3.13
+# RUN apt-get install -y wget flex bison libelf-dev libaudit-dev libdw-dev binutils-dev && \
+#   wget https://github.com/torvalds/linux/archive/v3.13.tar.gz && \
+#   tar -xvzf v3.13.tar.gz && rm v3.13.tar.gz && \
+#   cd linux-3.13/tools/perf && make && make install && \
+#   cp perf /usr/bin && \
+#   cp libperf.a /usr/lib && \
+#   cd / && rm -Rf /linux-3.13
 
 # Install Scala
 RUN mkdir /software
@@ -38,14 +38,14 @@ ENV SCALA_HOME /software/scala-2.10.4/bin/
 
 # Install Spark
 RUN apt-get install -y git && \
-    curl -OL https://archive.apache.org/dist/spark/spark-1.2.1/spark-1.2.1.tgz && \
-    tar -xvzf spark-1.2.1.tgz
-ADD sbt-launch-lib.bash /software/spark-1.2.1/sbt/
-WORKDIR /software/spark-1.2.1
+    curl -OL http://www.apache.org/dyn/closer.lua/spark/spark-1.6.1/spark-1.6.1.tgz && \
+    tar -xvzf spark-1.6.1.tgz
+ADD sbt-launch-lib.bash /software/spark-1.6.1/sbt/
+WORKDIR /software/spark-1.6.1
 RUN sbt/sbt -Dhadoop.version=2.2.0 -Pyarn -Phive assembly/assembly
 
 WORKDIR /software
-ENV SPARK_HOME /software/spark-1.2.1/
+ENV SPARK_HOME /software/spark-1.6.1/
 
 # Setup sbt
 RUN curl -OL https://dl.bintray.com/sbt/native-packages/sbt/0.13.7/sbt-0.13.7.tgz
